@@ -52,9 +52,11 @@ drawer. Sample replay remains the safest first run.
    Anthropic in `.env`. Loopback inference needs no external-egress permission;
    Anthropic requires `OPSGRAPH_EGRESS_ENABLED=true` deliberately.
 4. In **Sources**, save the environment-variable name, an explicit allowlist of
-   schema-qualified tables, and inspect it. OpsGraph verifies the role and saves
-   only the approved schema slice before marking it ready. An empty table scope
-   cannot be used for a connected investigation.
+   schema-qualified tables, and source-owned evidence bindings (for example,
+   `job_status=public.jobs`). OpsGraph verifies the role and saves only the
+   approved schema slice before marking it ready. An empty table scope cannot
+   be used for a connected investigation; a selected skill also cannot run
+   until every evidence type it requires is bound to an approved source table.
 5. Start a new investigation. The model proposes at most three SELECT queries;
    PostgreSQL AST validation, policy, row bounds, timeout, and a read-only
    transaction are enforced before execution.
@@ -82,6 +84,8 @@ alpha.
 The model never receives database credentials and never decides authorization.
 Every operation is typed, evaluated by policy, bounded by the broker, converted
 to evidence, and appended to the audit chain before its result is returned.
+Evidence-type coverage is derived from PostgreSQL AST-confirmed source tables,
+not self-declared by the model.
 
 See [SECURITY.md](SECURITY.md), [product charter](docs/product-charter.md), and
 [threat model](docs/threat-model.md) before connecting any non-synthetic source.
