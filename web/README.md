@@ -4,6 +4,9 @@ Build-free, dependency-free public-alpha interface for OpsGraph. The interface i
 
 ## Preview
 
+The canonical packaged UI is under `src/opsgraph/web`. This root copy exists as
+a browser-preview mirror and is kept byte-for-byte in sync by release checks.
+
 From `opsgraph-alpha/web`:
 
 ```bash
@@ -15,7 +18,8 @@ Then open `http://127.0.0.1:4173/`. The product server mounts this folder at
 
 ## Integration
 
-`index.html` loads local assets from `/assets/static/`, matching the FastAPI mount.
+`src/opsgraph/web/index.html` loads local assets from `/assets/static/`, matching
+the FastAPI mount.
 Replay calls `POST /api/investigations/sample` with an `X-OpsGraph-Key` entered by
 the operator. The key is held only in `sessionStorage`; it is not persisted in
 local storage or embedded in the page. Interactive data is the fictional,
