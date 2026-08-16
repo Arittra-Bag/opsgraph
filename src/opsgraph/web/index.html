@@ -193,11 +193,11 @@
       </section>
 
       <section class="view catalog-view" data-view-panel="sources" aria-labelledby="sourcesTitle" hidden>
-        <header class="page-header"><div><p class="eyebrow">Private data plane</p><h1 id="sourcesTitle">Sources</h1><p>Use the built-in synthetic sample or import PostgreSQL schema metadata only.</p></div><button class="primary" id="addSource">＋ Add source</button></header>
+        <header class="page-header"><div><p class="eyebrow">Private data plane</p><h1 id="sourcesTitle">Sources</h1><p>Use the built-in synthetic sample or connect an approved read-only PostgreSQL source.</p></div><button class="primary" id="addSource">＋ Add source</button></header>
         <div class="source-grid">
           <article class="source-card featured"><div class="source-icon">FX</div><div><span class="source-status"><i></i>READY</span><h2>Fictional SaaS sample</h2><p>Built-in synthetic records · safe for replay</p></div><dl><div><dt>Tables</dt><dd>6</dd></div><div><dt>Relations</dt><dd>9</dd></div><div><dt>Dataset hash</dt><dd>8c91…d42a</dd></div></dl><button id="inspectSample">Inspect sample →</button></article>
           <article class="source-card"><div class="source-icon">PG</div><div><span class="source-status"><i></i>READ-ONLY</span><h2>PostgreSQL source</h2><p>Schema discovery and policy-bounded SELECT evidence</p></div><dl><div><dt>Credentials</dt><dd>env reference</dd></div><div><dt>Writes</dt><dd>blocked</dd></div><div><dt>Scope</dt><dd>table allowlist</dd></div></dl><button id="reviewSourceContract">Review contract →</button></article>
-          <button class="add-source-card" id="addSourceCard"><span>＋</span><b>Add a supported source</b><small>PostgreSQL schema-only SQL or synthetic sample</small></button>
+          <button class="add-source-card" id="addSourceCard"><span>＋</span><b>Add a supported source</b><small>Read-only PostgreSQL or synthetic sample</small></button>
         </div>
         <div class="source-grid" id="connectedSourceCatalog" aria-live="polite"></div>
         <section class="source-setup" id="sourceSetup" hidden>
@@ -259,7 +259,7 @@ LIMIT 5;</code></pre><dl class="detail-list"><div><dt>Source</dt><dd>Synthetic s
   </aside>
   <aside class="drawer" id="runtimeDrawer" role="dialog" aria-modal="true" aria-labelledby="runtimeDrawerTitle" aria-hidden="true">
     <header><div><p class="eyebrow">Trust center</p><h2 id="runtimeDrawerTitle">Local runtime</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
-    <div class="drawer-body"><p class="lead">Runtime values below are loaded from the public bootstrap endpoint, not assumed by the interface.</p><dl class="detail-list"><div><dt>Deployment</dt><dd id="runtimeDeployment">Checking…</dd></div><div><dt>Configured model</dt><dd id="runtimeModel">Checking…</dd></div><div><dt>Sample model calls</dt><dd>None</dd></div><div><dt>Network egress</dt><dd id="runtimeEgress">Checking…</dd></div><div><dt>Source mode</dt><dd>Synthetic / PostgreSQL schema only</dd></div><div><dt>Policy bundle</dt><dd id="runtimePolicy">Checking…</dd></div></dl><p class="integrity" id="runtimeStatus"><span>…</span> Waiting for the local runtime</p></div>
+    <div class="drawer-body"><p class="lead">Runtime values below are loaded from the public bootstrap endpoint, not assumed by the interface.</p><dl class="detail-list"><div><dt>Deployment</dt><dd id="runtimeDeployment">Checking…</dd></div><div><dt>Configured model</dt><dd id="runtimeModel">Checking…</dd></div><div><dt>Sample model calls</dt><dd>None</dd></div><div><dt>Network egress</dt><dd id="runtimeEgress">Checking…</dd></div><div><dt>Source mode</dt><dd>Synthetic replay / policy-bounded PostgreSQL SELECT</dd></div><div><dt>Policy bundle</dt><dd id="runtimePolicy">Checking…</dd></div></dl><p class="integrity" id="runtimeStatus"><span>…</span> Waiting for the local runtime</p></div>
   </aside>
   <aside class="drawer" id="credentialDrawer" role="dialog" aria-modal="true" aria-labelledby="credentialDrawerTitle" aria-hidden="true">
     <header><div><p class="eyebrow">Local workspace</p><h2 id="credentialDrawerTitle">Connect to this alpha</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>

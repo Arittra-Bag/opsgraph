@@ -127,12 +127,16 @@ def index():
 @app.get("/api/health")
 def health():
     settings = runtime.settings
+    provider_health = runtime.provider.health()
     return {
-        "ok": True,
+        # Sample replay deliberately makes no provider call, so a configured
+        # external provider cannot make the safe sample deployment unhealthy.
+        "ok": settings.mode == "sample" or provider_health.status == "ready",
         "version": __version__,
         "mode": settings.mode,
         "model": settings.model_provider,
         "egress": settings.egress_enabled,
+        "provider": provider_health.model_dump(mode="json"),
     }
 
 

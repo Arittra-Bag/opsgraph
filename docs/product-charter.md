@@ -2,7 +2,7 @@
 
 ## Promise
 
-Investigate operational incidents without sending production data away.
+Investigate operational incidents locally, with external egress disabled by default.
 
 The target product connects to an explicitly read-only PostgreSQL source or
 accepts a schema-only snapshot, produces a reviewable investigation plan,

@@ -30,3 +30,27 @@ jobs:
           uv venv /tmp/opsgraph-wheel
           /tmp/opsgraph-wheel/bin/pip install dist/*.whl
           /tmp/opsgraph-wheel/bin/python -c "from opsgraph.config import Settings; from opsgraph.runtime import build_runtime; runtime = build_runtime(Settings(api_key='a'*24)); assert runtime.settings.web_root.joinpath('index.html').is_file(); assert len(runtime.skills.list_published()) == 3"
+  container-smoke:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build alpha container
+        run: docker build --tag opsgraph-alpha:ci --file deploy/container/Dockerfile .
+      - name: Start and verify sample-mode container
+        run: |
+          docker run --detach --rm --name opsgraph-alpha-ci -p 127.0.0.1:8000:8000 -e OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars opsgraph-alpha:ci
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8000/api/health; then break; fi
+            if [ "$attempt" = 20 ]; then docker logs opsgraph-alpha-ci; exit 1; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8000/assets/static/app.js >/dev/null
+      - name: Verify Compose configuration
+        run: OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars docker compose -f deploy/compose.yaml config >/dev/null
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs opsgraph-alpha-ci || true
+      - name: Stop sample-mode container
+        if: always()
+        run: docker stop opsgraph-alpha-ci || true

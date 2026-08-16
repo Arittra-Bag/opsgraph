@@ -21,6 +21,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "127.0.0.1:8000:8000"
+    extra_hosts:
+      # Makes the local-provider default work on Linux Docker engines too.
+      - "host.docker.internal:host-gateway"
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1770

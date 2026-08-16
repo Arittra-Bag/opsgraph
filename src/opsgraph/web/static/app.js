@@ -66,6 +66,10 @@
   $$('[data-view]').forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
 
   $$('.case-card').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.case !== 'checkout') {
+      showToast('This is an illustrative sample card. Replay is available for the selected synthetic case.');
+      return;
+    }
     const data = cases[button.dataset.case];
     $$('.case-card').forEach(card => card.classList.toggle('active', card === button));
     $('#caseTitle').textContent = data.title;
@@ -244,6 +248,22 @@
     }
   }
 
+  async function loadProviderTrust() {
+    if (!workspaceKey()) return;
+    try {
+      const provider = await api('/api/providers/current');
+      const health = provider.health || {};
+      const available = health.status === 'ready';
+      setTrustSignal('#trustModel', available ? 'MODEL READY' : 'MODEL UNAVAILABLE', available);
+      $('#runtimeModel').textContent = available
+        ? `${health.provider || 'provider'} (${health.model || 'configured'}; ready)`
+        : `${health.provider || 'provider'} (${health.detail || 'unavailable'})`;
+    } catch (error) {
+      setTrustSignal('#trustModel', 'MODEL UNVERIFIED', false);
+      $('#runtimeModel').textContent = 'Provider health could not be verified.';
+    }
+  }
+
   async function saveCredential() {
     const input = $('#workspaceKey');
     const key = input.value.trim();
@@ -261,7 +281,7 @@
       sessionStorage.setItem('opsgraph.workspaceKey', key);
       input.value = '';
       renderCredentialStatus();
-      await Promise.all([loadSources(), loadSkills()]);
+      await Promise.all([loadSources(), loadSkills(), loadProviderTrust()]);
       closeDrawer();
       showToast('Local workspace connected for this tab.');
     } catch (error) {
@@ -286,9 +306,9 @@
       <div class="source-icon">PG</div><div><span class="source-status"><i></i>${esc(source.status.toUpperCase())}</span>
       <h2>${esc(source.name)}</h2><p>${esc((source.allowed_tables || []).join(', ') || 'No table scope configured')}</p></div>
       <dl><div><dt>Mode</dt><dd>read-only</dd></div><div><dt>Egress</dt><dd>${source.allow_external_egress ? 'approved' : 'local only'}</dd></div></dl>
-      <button class="inspect-connected-source" data-source-id="${esc(source.id)}">Inspect schema →</button></article>`).join('');
+      <button class="inspect-connected-source" data-source-id="${esc(source.id)}">View configured scope →</button></article>`).join('');
     $$('.inspect-connected-source', catalog).forEach(button => button.addEventListener('click', () => {
-      showToast('This source is already inspected. Create a new investigation to use its scoped schema.');
+      showToast('Configured table scope is shown on this source card. Create an investigation to run a bounded query.');
     }));
   }
 
@@ -428,12 +448,12 @@
     $('#evidenceLedger').innerHTML = result.evidence.map(item => `<button class="ledger-item result-evidence">
       <span>${esc(item.id)}</span><b>${esc(item.excerpt)}</b><small>${esc(item.source)} · digest ${esc(item.digest.slice(0, 12))}…</small>
     </button>`).join('');
-    $$('.result-evidence').forEach(button => button.addEventListener('click', () => openDrawer('evidenceDrawer', button)));
+    $$('.result-evidence').forEach((button, index) => button.addEventListener('click', () => showEvidenceDetail(result.evidence[index], button)));
 
     $('#queryLedger').innerHTML = result.queries.map((query, index) => `<button class="query-item result-query">
       <span>Q-${String(index + 1).padStart(2, '0')} · bounded</span><b>${esc(query)}</b><small>SELECT · synthetic sample · policy checked</small>
     </button>`).join('');
-    $$('.result-query').forEach(button => button.addEventListener('click', () => openDrawer('queryDrawer', button)));
+    $$('.result-query').forEach((button, index) => button.addEventListener('click', () => showQueryDetail({ purpose: `Sample query Q-${index + 1}`, sql: result.queries[index] }, button)));
 
     const nodes = $$('.path-node');
     result.trace.forEach((step, index) => {
@@ -539,7 +559,7 @@
     setup.hidden = !setup.hidden;
     if (!setup.hidden) {
       setup.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
-      $('.setup-options button', setup).focus();
+      $('#sourceId').focus({ preventScroll: true });
     }
   }
   $('#addSource').addEventListener('click', toggleSourceSetup);
@@ -583,11 +603,20 @@
     } catch (error) { showToast(error.message || 'Policy could not be loaded.'); }
   });
   $('#inspectSample').addEventListener('click', event => openDrawer('evidenceDrawer', event.currentTarget));
-  $('#reviewSourceContract').addEventListener('click', event => openDrawer('runtimeDrawer', event.currentTarget));
+  $('#reviewSourceContract').addEventListener('click', event => {
+    const drawer = $('#runtimeDrawer');
+    $('#runtimeDrawerTitle').textContent = 'PostgreSQL source contract';
+    $('.drawer-body', drawer).innerHTML = '<p class="lead">OpsGraph discovers approved schema metadata, then runs only policy-bounded SELECT queries against the configured table scope.</p><dl class="detail-list"><div><dt>Writes</dt><dd>Blocked</dd></div><div><dt>Scope</dt><dd>Schema and table allowlist</dd></div><div><dt>Rows</dt><dd>Bounded per policy</dd></div><div><dt>Egress</dt><dd>Off by default; explicit source opt-in required</dd></div></dl>';
+    openDrawer('runtimeDrawer', event.currentTarget);
+  });
 
   $$('.case-filters button').forEach(button => button.addEventListener('click', () => {
     $$('.case-filters button').forEach(item => item.classList.toggle('active', item === button));
-    showToast(`${button.textContent} investigations shown.`);
+    const wanted = button.textContent.trim().toLowerCase();
+    $$('.case-card').forEach(card => {
+      const state = $('.case-state', card)?.textContent.trim().toLowerCase() || '';
+      card.hidden = wanted !== 'all' && !state.includes(wanted);
+    });
   }));
 
   $$('.path-node').forEach(node => node.addEventListener('click', () => {
@@ -599,5 +628,5 @@
 
   renderCredentialStatus();
   loadRuntimeTrust();
-  if (workspaceKey()) Promise.all([loadSources(), loadSkills()]).catch(error => showToast(error.message));
+  if (workspaceKey()) Promise.all([loadSources(), loadSkills(), loadProviderTrust()]).catch(error => showToast(error.message));
 })();

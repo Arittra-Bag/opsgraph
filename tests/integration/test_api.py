@@ -11,7 +11,10 @@ def auth() -> dict[str, str]:
 
 
 def test_health_and_bootstrap_are_public():
-    assert client.get("/api/health").status_code == 200
+    health = client.get("/api/health")
+    assert health.status_code == 200
+    assert health.json()["ok"] is True
+    assert health.json()["provider"]["status"] in {"ready", "misconfigured", "unavailable"}
     bootstrap = client.get("/api/bootstrap").json()
     assert bootstrap["trust"]["egress"] is False
     assert bootstrap["trust"]["sample_model_calls"] == 0
