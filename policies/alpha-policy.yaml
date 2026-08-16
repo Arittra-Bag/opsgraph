@@ -1,0 +1,18 @@
+# Public-alpha example only. Enforcement defaults to deny when no exact rule matches.
+version: 1
+deployment_mode: single_tenant
+rules:
+  - id: analyst-schema-inspect
+    role: analyst
+    action: core.schema.inspect
+    obligations:
+      max_rows: 100
+      timeout_ms: 5000
+      allowed_schemas: [public]
+  - id: analyst-query-read
+    role: analyst
+    action: core.query.read
+    obligations:
+      max_rows: 100
+      timeout_ms: 5000
+      allowed_schemas: [public]

@@ -1,0 +1,9 @@
+id: incident-correlation
+version: 0.1.0
+name: Incident correlation
+origin: core
+capabilities:
+  - core.schema.inspect
+  - core.sql.select
+egress: allowlisted
+risk: read_only

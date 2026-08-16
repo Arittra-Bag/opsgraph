@@ -1,0 +1,3 @@
+purpose: Establish when jobs failed, which queues were affected, and what evidence supports linkage.
+required_evidence: [job_status, queue_state]
+conclusion_classes: [supported, possible, unknown, contradictory]

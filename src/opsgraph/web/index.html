@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="OpsGraph — private, evidence-first operational investigations.">
+  <meta name="color-scheme" content="dark">
+  <title>OpsGraph · Investigation Workspace</title>
+  <link rel="icon" href="/assets/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/static/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to investigation</a>
+
+  <header class="trust-bar" aria-label="Runtime trust status">
+    <a class="wordmark" href="#" aria-label="OpsGraph home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>OpsGraph</span>
+      <em>alpha</em>
+    </a>
+    <div class="trust-signals" aria-label="Trust controls">
+      <button class="trust-signal checking" id="trustDeployment" data-drawer="runtimeDrawer"><span></span>VERIFYING HOST</button>
+      <button class="trust-signal checking" id="trustAccess" data-drawer="runtimeDrawer"><span></span>VERIFYING ACCESS</button>
+      <button class="trust-signal checking" id="trustModel" data-drawer="runtimeDrawer"><span></span>VERIFYING MODEL</button>
+      <button class="trust-signal checking" id="trustEgress" data-drawer="runtimeDrawer"><span></span>VERIFYING EGRESS</button>
+    </div>
+    <div class="trust-context">
+      <button data-view="sources"><small>SOURCE</small><b>Fictional SaaS sample</b></button>
+      <button data-view="policies"><small>POLICY</small><b>strict-read-only@1</b></button>
+      <button class="api-key-button" id="openCredential" data-drawer="credentialDrawer"><small>WORKSPACE</small><b id="credentialStatus">API key required</b></button>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <button class="new-investigation" id="newInvestigation"><span>＋</span> New investigation</button>
+      <nav id="primaryNav">
+        <button class="nav-item active" data-view="investigations" aria-current="page"><span aria-hidden="true">◫</span>Investigations <kbd>3</kbd></button>
+        <button class="nav-item" data-view="sources"><span aria-hidden="true">◉</span>Sources <kbd>2</kbd></button>
+        <button class="nav-item" data-view="playbooks"><span aria-hidden="true">◇</span>Playbooks <kbd>3</kbd></button>
+        <button class="nav-item" data-view="policies"><span aria-hidden="true">⌾</span>Policies</button>
+        <button class="nav-item" data-view="audit"><span aria-hidden="true">≡</span>Audit</button>
+        <button class="nav-item" data-view="settings"><span aria-hidden="true">⚙</span>Settings</button>
+      </nav>
+      <div class="local-runtime">
+        <div><span class="status-dot"></span><b id="runtimeHealth">Checking runtime</b></div>
+        <p id="runtimeSummary">Reading the server trust configuration…</p>
+        <button data-drawer="runtimeDrawer">Inspect runtime →</button>
+      </div>
+      <div class="operator"><span>AR</span><div><b>Local operator</b><small>Owner · localhost</small></div></div>
+    </aside>
+
+    <main id="workspace" tabindex="-1">
+      <section class="view active" data-view-panel="investigations" aria-labelledby="investigationsTitle">
+        <div class="investigation-layout">
+          <aside class="case-list" aria-label="Investigations">
+            <div class="case-list-head">
+              <div><p class="eyebrow">Workspace</p><h1 id="investigationsTitle">Investigations</h1></div>
+              <button class="icon-button" aria-label="Filter investigations">⌕</button>
+            </div>
+            <div class="case-filters" role="group" aria-label="Investigation filters">
+              <button class="active">All</button><button>Open</button><button>Complete</button>
+            </div>
+            <div id="caseList">
+              <button class="case-card active" data-case="checkout">
+                <span class="case-state complete">COMPLETE</span><time>12 min ago</time>
+                <b>Webhook failures after deployment</b><p>Fictional SaaS sample · 6 evidence items</p>
+                <div><span class="classification supported">SUPPORTED</span><small>3 cited signals</small></div>
+              </button>
+              <button class="case-card" data-case="queue">
+                <span class="case-state reviewing">REVIEWING</span><time>42 min ago</time>
+                <b>Queue latency spike</b><p>PostgreSQL synthetic sample · 8 evidence items</p>
+                <div><span class="classification possible">POSSIBLE</span><small>needs verification</small></div>
+              </button>
+              <button class="case-card" data-case="billing">
+                <span class="case-state blocked">POLICY BLOCKED</span><time>Yesterday</time>
+                <b>Billing aggregation anomaly</b><p>Synthetic sample · query denied</p>
+                <div><span class="classification unknown">UNKNOWN</span><small>insufficient access</small></div>
+              </button>
+            </div>
+          </aside>
+
+          <section class="case-workspace" aria-label="Current investigation">
+            <header class="case-header">
+              <div>
+                <div class="breadcrumb"><span>INV-SAMPLE-001</span><i>/</i><span>SAMPLE REPLAY</span></div>
+                <h2 id="caseTitle">Webhook failures after deployment</h2>
+                <p id="caseSubtitle">Determine whether deploy-1842 caused the webhook delivery backlog.</p>
+              </div>
+              <div class="case-actions">
+                <button class="secondary" id="exportEvidence">Export evidence</button>
+                <button class="primary" id="replayRun"><span>▶</span> Replay investigation</button>
+              </div>
+            </header>
+
+            <div class="scope-strip" aria-label="Investigation scope">
+              <div><small>SOURCE</small><b>Fictional SaaS sample</b></div>
+              <div><small>DATASET</small><b>synthetic-v1 · hash verified</b></div>
+              <div><small>PLAYBOOK</small><b>Incident correlation</b></div>
+              <div><small>MODE</small><b class="safe-value">READ-ONLY</b></div>
+            </div>
+
+            <div class="canvas-scroll">
+              <section class="run-canvas" aria-labelledby="pathTitle">
+                <div class="section-title"><div><p class="eyebrow">Deterministic execution</p><h3 id="pathTitle">Investigation path</h3></div><span id="runState" class="run-state complete" aria-live="polite"><i></i>COMPLETE</span></div>
+                <div class="path" id="runPath" aria-label="Investigation execution path">
+                  <button class="path-node done" data-step="plan"><span>01</span><div><b>Plan investigation</b><small>Question and access bounded</small></div><i></i></button>
+                  <button class="path-node done" data-step="collect"><span>02</span><div><b>Collect evidence</b><small>Synthetic artifacts only</small></div><i></i></button>
+                  <button class="path-node done" data-step="reconcile"><span>03</span><div><b>Reconcile claims</b><small>Claims checked against evidence</small></div><i></i></button>
+                  <button class="path-node done" data-step="report"><span>04</span><div><b>Publish cited result</b><small>Citations and digests included</small></div><i></i></button>
+                </div>
+              </section>
+
+              <div class="classification-legend" aria-label="Finding classifications"><span class="classification supported">SUPPORTED</span><span class="classification possible">POSSIBLE</span><span class="classification unknown">UNKNOWN</span><span class="classification contradictory">CONTRADICTORY</span></div>
+              <section class="finding-grid" id="findingGrid" aria-label="Investigation findings" aria-live="polite">
+                <article class="finding primary-finding">
+                  <div class="finding-head"><span class="classification supported">SUPPORTED</span><small>3 citations</small></div>
+                  <h3>Deployment reduced webhook worker concurrency</h3>
+                  <p>Deploy-1842 reduced worker concurrency from 24 to 4. Queue depth and retryable delivery failures increased afterward.</p>
+                  <button data-drawer="evidenceDrawer">Review linked evidence <span>→</span></button>
+                </article>
+                <article class="finding">
+                  <div class="finding-head"><span class="classification possible">POSSIBLE</span><small>1 citation</small></div>
+                  <h3>Disk pressure deserves monitoring</h3>
+                  <p>A disk signal is present, but no corresponding latency change supports it as the cause.</p>
+                </article>
+                <article class="finding">
+                  <div class="finding-head"><span class="classification contradictory">CONTRADICTORY</span><small>1 citation</small></div>
+                  <h3>Every webhook check failed</h3>
+                  <p>One synthetic check passed within the wider failure window, contradicting an absolute claim.</p>
+                </article>
+                <article class="finding">
+                  <div class="finding-head"><span class="classification unknown">UNKNOWN</span><small>0 citations</small></div>
+                  <h3>Customer impact outside checkout</h3>
+                  <p>Required analytics tables were excluded by policy, so this claim cannot be resolved.</p>
+                </article>
+              </section>
+
+              <section class="decision-card" id="conclusionCard">
+                <div><p class="eyebrow">Bounded conclusion</p><h3 id="conclusionTitle">Evidence supports a deployment-driven webhook backlog.</h3><p id="conclusionText">Read-only next checks: compare concurrency with the approved configuration baseline and inspect the complete worker trace. No production action was proposed or executed.</p></div>
+                <div class="decision-meta"><span>Classifications <b id="classificationCount">4</b></span><span>Evidence <b id="evidenceCount">6 items</b></span><span>Limitations <b id="limitationCount">2 recorded</b></span></div>
+              </section>
+            </div>
+          </section>
+
+          <aside class="inspector" aria-label="Investigation inspector">
+            <div class="inspector-head"><div><span class="status-dot"></span><b>Investigation inspector</b></div><small>INV-SAMPLE-001</small></div>
+            <div class="tabs" role="tablist" aria-label="Inspector sections">
+              <button id="tab-plan" role="tab" aria-selected="true" aria-controls="panel-plan" tabindex="0" data-tab="plan">Plan</button>
+              <button id="tab-evidence" role="tab" aria-selected="false" aria-controls="panel-evidence" tabindex="-1" data-tab="evidence">Evidence <span>6</span></button>
+              <button id="tab-queries" role="tab" aria-selected="false" aria-controls="panel-queries" tabindex="-1" data-tab="queries">Queries <span>3</span></button>
+              <button id="tab-policy" role="tab" aria-selected="false" aria-controls="panel-policy" tabindex="-1" data-tab="policy">Policy</button>
+              <button id="tab-audit" role="tab" aria-selected="false" aria-controls="panel-audit" tabindex="-1" data-tab="audit">Audit</button>
+            </div>
+            <div class="tab-panels">
+              <section id="panel-plan" class="tab-panel active" role="tabpanel" aria-labelledby="tab-plan" data-panel="plan">
+                <p class="panel-intro">Every step was selected before execution and recorded for replay.</p>
+                <ol class="plan-list">
+                  <li class="done"><span>1</span><div><b>Plan investigation</b><small>Question, playbook, and bounds</small></div></li>
+                  <li class="done"><span>2</span><div><b>Collect evidence</b><small>Six synthetic artifacts</small></div></li>
+                  <li class="done"><span>3</span><div><b>Reconcile claims</b><small>Support and contradictions</small></div></li>
+                  <li class="done"><span>4</span><div><b>Publish cited result</b><small>Evidence IDs and limitations</small></div></li>
+                </ol>
+              </section>
+              <section id="panel-evidence" class="tab-panel" role="tabpanel" aria-labelledby="tab-evidence" data-panel="evidence" hidden>
+                <p class="panel-intro">Stable IDs bind claims to captured, hashed source rows.</p>
+                <div id="evidenceLedger">
+                  <button class="ledger-item" data-drawer="evidenceDrawer"><span>EV-DEPLOY-17</span><b>Concurrency change</b><small>sample.deployments · deploy-1842</small></button>
+                  <button class="ledger-item" data-drawer="evidenceDrawer"><span>EV-WEBHOOK-42</span><b>Retryable delivery failures</b><small>sample.webhook_deliveries</small></button>
+                  <button class="ledger-item" data-drawer="evidenceDrawer"><span>EV-JOBS-09</span><b>Webhook queue depth</b><small>sample.background_jobs</small></button>
+                </div>
+              </section>
+              <section id="panel-queries" class="tab-panel" role="tabpanel" aria-labelledby="tab-queries" data-panel="queries" hidden>
+                <p class="panel-intro">Parsed and policy-checked SQL. No generated query executes directly.</p>
+                <div id="queryLedger">
+                  <button class="query-item" data-drawer="queryDrawer"><span>Q-01 · bounded</span><b>Compare deployment configuration</b><small>SELECT · synthetic sample</small></button>
+                  <button class="query-item" data-drawer="queryDrawer"><span>Q-02 · bounded</span><b>Correlate delivery failures</b><small>SELECT · synthetic sample</small></button>
+                <button class="query-item denied" data-drawer="denialDrawer"><span>Q-05 · DENIED</span><b>Attempt a mutating statement</b><small>Blocked before database access</small></button>
+                </div>
+              </section>
+              <section id="panel-policy" class="tab-panel" role="tabpanel" aria-labelledby="tab-policy" data-panel="policy" hidden>
+                <p class="panel-intro">The application—not the model—enforces these controls.</p>
+                <dl class="policy-list"><div><dt>Statements</dt><dd>SELECT / CTE only</dd></div><div><dt>Row limit</dt><dd>1,000 maximum</dd></div><div><dt>Table scope</dt><dd>Policy allowlist</dd></div><div><dt>Unknown actions</dt><dd>Default deny</dd></div><div><dt>Mutation</dt><dd>Rejected by validator</dd></div></dl>
+                <button class="policy-test" data-drawer="denialDrawer">View a policy denial</button>
+              </section>
+              <section id="panel-audit" class="tab-panel" role="tabpanel" aria-labelledby="tab-audit" data-panel="audit" hidden>
+                <p class="panel-intro">Append-only events make the run explainable after the fact.</p>
+                <ol class="audit-list"><li><time>14:12:01</time><span>Synthetic source loaded</span></li><li><time>14:12:02</time><span>Policy strict-read-only@1 reported</span></li><li><time>14:12:04</time><span>Bounded plan selected</span></li><li><time>14:12:09</time><span>Synthetic evidence collected</span></li><li><time>14:12:12</time><span>Evidence digests recorded</span></li></ol>
+              </section>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view catalog-view" data-view-panel="sources" aria-labelledby="sourcesTitle" hidden>
+        <header class="page-header"><div><p class="eyebrow">Private data plane</p><h1 id="sourcesTitle">Sources</h1><p>Use the built-in synthetic sample or import PostgreSQL schema metadata only.</p></div><button class="primary" id="addSource">＋ Add source</button></header>
+        <div class="source-grid">
+          <article class="source-card featured"><div class="source-icon">FX</div><div><span class="source-status"><i></i>READY</span><h2>Fictional SaaS sample</h2><p>Built-in synthetic records · safe for replay</p></div><dl><div><dt>Tables</dt><dd>6</dd></div><div><dt>Relations</dt><dd>9</dd></div><div><dt>Dataset hash</dt><dd>8c91…d42a</dd></div></dl><button id="inspectSample">Inspect sample →</button></article>
+          <article class="source-card"><div class="source-icon">PG</div><div><span class="source-status"><i></i>READ-ONLY</span><h2>PostgreSQL source</h2><p>Schema discovery and policy-bounded SELECT evidence</p></div><dl><div><dt>Credentials</dt><dd>env reference</dd></div><div><dt>Writes</dt><dd>blocked</dd></div><div><dt>Scope</dt><dd>table allowlist</dd></div></dl><button id="reviewSourceContract">Review contract →</button></article>
+          <button class="add-source-card" id="addSourceCard"><span>＋</span><b>Add a supported source</b><small>PostgreSQL schema-only SQL or synthetic sample</small></button>
+        </div>
+        <div class="source-grid" id="connectedSourceCatalog" aria-live="polite"></div>
+        <section class="source-setup" id="sourceSetup" hidden>
+          <div><p class="eyebrow">New source</p><h2>Connect PostgreSQL safely</h2><p>OpsGraph stores an environment-variable reference, never the database URL.</p></div>
+          <form class="credential-form" id="sourceForm">
+            <label for="sourceId">Source ID</label><input id="sourceId" required pattern="[a-z][a-z0-9-]{1,63}" placeholder="production-readonly">
+            <label for="sourceName">Display name</label><input id="sourceName" required placeholder="Production replica">
+            <label for="sourceSecretRef">DSN environment variable</label><input id="sourceSecretRef" required pattern="[A-Z][A-Z0-9_]{2,127}" placeholder="OPSGRAPH_SOURCE_DSN">
+            <label for="sourceSchemas">Allowed schemas</label><input id="sourceSchemas" value="public" placeholder="public, analytics">
+            <label for="sourceTables">Allowed tables</label><input id="sourceTables" required placeholder="public.jobs, public.deployments">
+            <label class="toggle-row"><span><b>Allow bounded evidence to leave this host</b><small>Required only for an external model provider. Keep off for local inference.</small></span><input id="sourceExternalEgress" type="checkbox" role="switch"></label>
+            <button class="primary" type="submit">Save and inspect source</button>
+          </form>
+        </section>
+      </section>
+
+      <section class="view catalog-view" data-view-panel="playbooks" aria-labelledby="playbooksTitle" hidden>
+        <header class="page-header"><div><p class="eyebrow">Repeatable methods</p><h1 id="playbooksTitle">Playbooks</h1><p>Questions and steps are explicit; evidence determines the conclusion.</p></div><button class="primary" id="newSkill" data-drawer="skillDrawer">＋ Configure skill</button></header>
+        <div class="catalog-grid" id="skillCatalog"><article><span>LOADING</span><h2>Reading skill registry</h2><p>Validated definitions will appear here.</p></article></div>
+      </section>
+
+      <section class="view catalog-view" data-view-panel="policies" aria-labelledby="policiesTitle" hidden>
+        <header class="page-header"><div><p class="eyebrow">Control plane</p><h1 id="policiesTitle">Policies</h1><p>Policy decisions happen before tools or databases are reached.</p></div><button class="secondary" id="viewPolicy">View effective policy</button></header>
+        <div class="policy-hero"><div><span class="source-status"><i></i>ACTIVE</span><h2>strict-read-only@1</h2><p>Default-deny alpha policy with mandatory query bounds.</p></div><dl><div><dt>Allowed</dt><dd>SELECT, CTE</dd></div><div><dt>Rejected</dt><dd>DDL, DML, stacked SQL</dd></div><div><dt>Unmatched</dt><dd>Default deny</dd></div></dl></div>
+        <section class="denial-demo"><div><p class="eyebrow danger">Policy decision</p><h2>Unsafe request denied before execution</h2><p>The proposed statement attempted a mutation outside the deliberately small SELECT-only subset.</p></div><pre><code><span>DENY</span> query.mutating_keyword
+statement: UPDATE
+rule: select_only_validator
+database_accessed: false</code></pre><button data-drawer="denialDrawer">Inspect decision →</button></section>
+      </section>
+
+      <section class="view catalog-view" data-view-panel="audit" aria-labelledby="auditTitle" hidden>
+        <header class="page-header"><div><p class="eyebrow">Accountability</p><h1 id="auditTitle">Audit</h1><p>Who asked, what ran, what was denied, and which evidence supported the result.</p></div><button class="secondary" id="exportAudit">Export audit log</button></header>
+        <div class="audit-table" role="table" aria-label="Illustrative alpha audit events"><div role="row" class="table-head"><span>TIME</span><span>EVENT</span><span>ACTOR</span><span>RESULT</span></div><div role="row"><time>14:12:12</time><b>Evidence digests recorded</b><span>system</span><em class="ok">RECORDED</em></div><div role="row"><time>14:12:09</time><b>Synthetic evidence collected</b><span>investigator</span><em class="ok">COMPLETE</em></div><div role="row"><time>14:12:07</time><b>Mutating statement rejected</b><span>validator</span><em class="deny">DENIED</em></div><div role="row"><time>14:12:02</time><b>Policy strict-read-only@1 reported</b><span>system</span><em class="ok">RECORDED</em></div></div>
+      </section>
+
+      <section class="view catalog-view" data-view-panel="settings" aria-labelledby="settingsTitle" hidden>
+        <header class="page-header"><div><p class="eyebrow">Local configuration</p><h1 id="settingsTitle">Settings</h1><p>Runtime defaults for this self-hosted installation.</p></div></header>
+        <div class="settings-grid"><section><h2>Runtime configuration</h2><p>Reported by the server; this preview does not mutate configuration.</p><label>Configured provider<select id="runtimeProviderSelect" name="runtime_provider" disabled><option>Checking runtime…</option></select></label><label>Sample execution<input id="sampleExecution" name="sample_execution" value="deterministic · no model call" readonly></label><label class="toggle-row"><span><b>External egress</b><small id="egressSettingCopy">Checking the server-reported value.</small></span><input id="egressSetting" name="external_egress" type="checkbox" role="switch" disabled aria-label="Server-reported external egress"></label></section><section><h2>Investigation bounds</h2><label>Maximum returned rows<input id="maxRows" name="max_rows" type="number" value="100" readonly></label><label>Query timeout<input id="queryTimeout" name="query_timeout" type="text" value="5 seconds" readonly></label><label class="toggle-row"><span><b>Verify audit hash chain</b><small>Detect modification, deletion, and reordering in this process-local chain.</small></span><input id="verifyAudit" name="verify_audit" type="checkbox" role="switch" checked disabled aria-label="Audit hash-chain verification enabled"></label></section></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="evidenceDrawer" role="dialog" aria-modal="true" aria-labelledby="evidenceDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow">Evidence EV-DEPLOY-17</p><h2 id="evidenceDrawerTitle">Concurrency change</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
+    <div class="drawer-body"><span class="classification supported">SUPPORTED</span><p class="lead">Captured from the deterministic Fictional SaaS sample dataset.</p><dl class="detail-list"><div><dt>Source</dt><dd>sample.deployments</dd></div><div><dt>Record</dt><dd>deploy-1842</dd></div><div><dt>Field</dt><dd>webhook_concurrency</dd></div><div><dt>Digest</dt><dd>84a7…e19d</dd></div></dl><pre><code>- webhook_concurrency: 24
++ webhook_concurrency: 4</code></pre><p class="integrity"><span>✓</span> Evidence digest verified</p></div>
+  </aside>
+  <aside class="drawer" id="queryDrawer" role="dialog" aria-modal="true" aria-labelledby="queryDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow">Query Q-01</p><h2 id="queryDrawerTitle">Inspect recent deployments</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
+    <div class="drawer-body"><div class="query-safety"><span>SAMPLE QUERY</span><span>READ ONLY</span><span>LIMIT 5</span></div><pre><code>SELECT deployed_at, version, config_hash
+FROM deployments
+ORDER BY deployed_at DESC
+LIMIT 5;</code></pre><dl class="detail-list"><div><dt>Source</dt><dd>Synthetic sample</dd></div><div><dt>Rows</dt><dd>5 maximum</dd></div><div><dt>Mode</dt><dd>Recorded sample</dd></div><div><dt>Evidence digest</dt><dd>b12e…078a</dd></div></dl></div>
+  </aside>
+  <aside class="drawer denial" id="denialDrawer" role="dialog" aria-modal="true" aria-labelledby="denialDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow danger">Policy decision</p><h2 id="denialDrawerTitle">Execution denied</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
+    <div class="drawer-body"><div class="denial-seal">!</div><h3>The database was not accessed.</h3><p class="lead">This statement contains a mutating keyword outside the SELECT-only safe subset.</p><dl class="detail-list"><div><dt>Decision</dt><dd class="danger">DENY</dd></div><div><dt>Validator</dt><dd>SelectOnlyValidator</dd></div><div><dt>Reason</dt><dd>mutating keyword</dd></div><div><dt>Override</dt><dd>Not supported</dd></div></dl><p class="integrity danger-border"><span>×</span> Denied deterministically before query execution</p></div>
+  </aside>
+  <aside class="drawer" id="runtimeDrawer" role="dialog" aria-modal="true" aria-labelledby="runtimeDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow">Trust center</p><h2 id="runtimeDrawerTitle">Local runtime</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
+    <div class="drawer-body"><p class="lead">Runtime values below are loaded from the public bootstrap endpoint, not assumed by the interface.</p><dl class="detail-list"><div><dt>Deployment</dt><dd id="runtimeDeployment">Checking…</dd></div><div><dt>Configured model</dt><dd id="runtimeModel">Checking…</dd></div><div><dt>Sample model calls</dt><dd>None</dd></div><div><dt>Network egress</dt><dd id="runtimeEgress">Checking…</dd></div><div><dt>Source mode</dt><dd>Synthetic / PostgreSQL schema only</dd></div><div><dt>Policy bundle</dt><dd id="runtimePolicy">Checking…</dd></div></dl><p class="integrity" id="runtimeStatus"><span>…</span> Waiting for the local runtime</p></div>
+  </aside>
+  <aside class="drawer" id="credentialDrawer" role="dialog" aria-modal="true" aria-labelledby="credentialDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow">Local workspace</p><h2 id="credentialDrawerTitle">Connect to this alpha</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
+    <div class="drawer-body credential-form">
+      <p class="lead">Enter the workspace key configured by the local OpsGraph operator. It is kept only in this browser tab's session storage and is never written to local storage.</p>
+      <label for="workspaceKey">Workspace API key</label>
+      <input id="workspaceKey" type="password" autocomplete="off" spellcheck="false" placeholder="Enter local workspace key">
+      <button class="primary" id="saveCredential">Connect workspace</button>
+      <button class="secondary" id="clearCredential">Forget session key</button>
+      <p class="credential-note">The key is sent only as <code>X-OpsGraph-Key</code> to this origin.</p>
+    </div>
+  </aside>
+  <aside class="drawer" id="investigationDrawer" role="dialog" aria-modal="true" aria-labelledby="investigationDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow">Connected run</p><h2 id="investigationDrawerTitle">New investigation</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
+    <form class="drawer-body credential-form" id="investigationForm">
+      <label for="investigationSource">Approved source</label><select id="investigationSource" required></select>
+      <label for="investigationSkill">Skill</label><select id="investigationSkill"><option value="">Auto-route from question</option></select>
+      <label for="investigationQuestion">Question</label><textarea id="investigationQuestion" required minlength="8" maxlength="800" placeholder="Which change preceded the failed jobs?"></textarea>
+      <button class="primary" type="submit">Run policy-gated investigation</button>
+      <p class="credential-note">The model proposes SELECT queries. OpsGraph validates, authorizes, bounds, and executes them.</p>
+    </form>
+  </aside>
+  <aside class="drawer" id="skillDrawer" role="dialog" aria-modal="true" aria-labelledby="skillDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow">Versioned configuration</p><h2 id="skillDrawerTitle">Configure a skill</h2></div><button class="drawer-close" aria-label="Close drawer">×</button></header>
+    <form class="drawer-body credential-form" id="skillForm">
+      <label for="skillJson">Validated skill JSON</label>
+      <textarea id="skillJson" rows="18" spellcheck="false">{"id":"custom-investigation","version":"0.1.0","name":"Custom investigation","origin":"custom","purpose":"Investigate an approved operational question with bounded evidence.","tools":[{"tool":"core.schema.inspect","enabled":true,"settings":{}},{"tool":"core.sql.select","enabled":true,"settings":{"max_rows":50,"timeout_ms":3000,"allowed_schemas":["public"]}}],"required_evidence":[],"conclusion_classes":["supported","possible","unknown","contradictory"],"egress":"forbidden","risk":"read_only"}</textarea>
+      <button class="primary" type="submit">Save draft</button>
+      <button class="secondary" id="publishSkill" type="button" disabled>Publish saved draft</button>
+      <p class="credential-note">Skill settings may tighten policy limits, never weaken them. Native schema inspection cannot be removed.</p>
+    </form>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/assets/static/app.js"></script>
+</body>
+</html>

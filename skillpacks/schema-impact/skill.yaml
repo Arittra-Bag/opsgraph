@@ -1,0 +1,3 @@
+purpose: Compare approved schema snapshots and locate integrity symptoms caused by structural drift.
+required_evidence: [schema_snapshot, change_event]
+conclusion_classes: [supported, possible, unknown, contradictory]

@@ -1,0 +1,10 @@
+purpose: Correlate deployments, failures, queues, and decoy signals across a bounded window.
+required_evidence:
+  - change_event
+  - failure_signal
+  - downstream_effect
+conclusion_classes:
+  - supported
+  - possible
+  - unknown
+  - contradictory

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "opsgraph"
+version = "0.1.0a1"
+description = "Self-hosted, policy-gated operational investigation workspace"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "uvicorn[standard]>=0.35,<1",
+  "pydantic>=2.11,<3",
+  "pydantic-settings>=2.10,<3",
+  "pyyaml>=6,<7",
+  "langgraph>=1.0,<2",
+  "pglast>=7,<8",
+  "psycopg[binary]>=3.2,<4",
+]
+
+[project.optional-dependencies]
+providers = ["anthropic>=0.70,<1", "openai>=2,<3"]
+dev = ["pytest>=8.4,<9", "httpx>=0.28,<1", "ruff>=0.12,<1"]
+
+[project.scripts]
+opsgraph = "opsgraph.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Arittra-Bag/opsgraph"
+Repository = "https://github.com/Arittra-Bag/opsgraph"
+Issues = "https://github.com/Arittra-Bag/opsgraph/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opsgraph"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101"]

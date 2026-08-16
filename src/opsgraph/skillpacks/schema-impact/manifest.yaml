@@ -1,0 +1,7 @@
+id: schema-impact
+version: 0.1.0
+name: Schema and change impact
+origin: core
+capabilities: [core.schema.inspect, core.sql.select]
+egress: allowlisted
+risk: read_only

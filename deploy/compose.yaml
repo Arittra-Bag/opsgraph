@@ -1,0 +1,42 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/container/Dockerfile
+    command: ["uvicorn", "opsgraph.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      # Safe local defaults. Connected sources and external inference remain opt-in.
+      OPSGRAPH_MODE: ${OPSGRAPH_MODE:-sample}
+      OPSGRAPH_EGRESS_ENABLED: ${OPSGRAPH_EGRESS_ENABLED:-false}
+      OPSGRAPH_MODEL_PROVIDER: ${OPSGRAPH_MODEL_PROVIDER:-deterministic}
+      OPSGRAPH_STATE_PATH: ${OPSGRAPH_STATE_PATH:-/data/state.db}
+      OPSGRAPH_API_KEY: ${OPSGRAPH_API_KEY:?Set OPSGRAPH_API_KEY before starting}
+      OPSGRAPH_WORKSPACE_ID: ${OPSGRAPH_WORKSPACE_ID:-local-workspace}
+      OPSGRAPH_POSTGRES_SECRET_REF: ${OPSGRAPH_POSTGRES_SECRET_REF:-}
+      OPSGRAPH_SOURCE_DSN: ${OPSGRAPH_SOURCE_DSN:-}
+      OPSGRAPH_LOCAL_MODEL_URL: ${OPSGRAPH_LOCAL_MODEL_URL:-http://host.docker.internal:11434/v1}
+      OPSGRAPH_LOCAL_MODEL: ${OPSGRAPH_LOCAL_MODEL:-qwen3:8b}
+      OPSGRAPH_OPENAI_API_KEY: ${OPSGRAPH_OPENAI_API_KEY:-}
+      OPSGRAPH_ANTHROPIC_MODEL: ${OPSGRAPH_ANTHROPIC_MODEL:-claude-sonnet-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1770
+    volumes:
+      - opsgraph-state:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
+    restart: unless-stopped
+    networks: [control]
+
+networks:
+  # Connected mode needs an outbound path to the explicitly configured database
+  # (and optionally a model provider). Application-level egress gates remain
+  # fail-closed; deployers should additionally enforce host/network allowlists.
+  control: {}
+
+volumes:
+  opsgraph-state:

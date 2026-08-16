@@ -1,0 +1,14 @@
+.git
+.env
+.venv
+.opsgraph
+__pycache__
+.pytest_cache
+.ruff_cache
+dist
+build
+tests
+work
+*.dump
+*.backup
+*.zip

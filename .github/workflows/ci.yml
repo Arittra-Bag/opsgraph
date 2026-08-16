@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv lock --check
+      - run: uv sync --locked --all-extras
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests
+      - run: uv run pytest -q
+      - run: uv build
+      - name: Clean wheel smoke test
+        run: |
+          uv venv /tmp/opsgraph-wheel
+          /tmp/opsgraph-wheel/bin/pip install dist/*.whl
+          /tmp/opsgraph-wheel/bin/python -c "from opsgraph.config import Settings; from opsgraph.runtime import build_runtime; runtime = build_runtime(Settings(api_key='a'*24)); assert runtime.settings.web_root.joinpath('index.html').is_file(); assert len(runtime.skills.list_published()) == 3"
