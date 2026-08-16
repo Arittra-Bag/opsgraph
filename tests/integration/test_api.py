@@ -99,20 +99,20 @@ def test_source_metadata_uses_secret_reference_and_fails_closed_without_secret()
         json={
             "id": "test-readonly",
             "name": "Test read-only source",
-            "secret_ref": "OPSGRAPH_TEST_SOURCE_DSN",
+            "secret_ref": "OPSGRAPH_SOURCE_DSN",
             "allowed_schemas": ["public"],
             "allowed_tables": ["public.jobs"],
             "allow_external_egress": False,
         },
     )
     assert response.status_code == 200
-    assert response.json()["secret_ref"] == "OPSGRAPH_TEST_SOURCE_DSN"  # noqa: S105
+    assert response.json()["secret_ref"] == "OPSGRAPH_SOURCE_DSN"  # noqa: S105
     assert response.json()["allowed_tables"] == ["public.jobs"]
     assert "postgresql://" not in response.text
 
     inspect = client.post("/api/sources/test-readonly/inspect", headers=auth())
     assert inspect.status_code == 409
-    assert "OPSGRAPH_TEST_SOURCE_DSN" in inspect.json()["detail"]
+    assert "OPSGRAPH_SOURCE_DSN" in inspect.json()["detail"]
 
     invalid = client.post(
         "/api/sources",
@@ -120,7 +120,7 @@ def test_source_metadata_uses_secret_reference_and_fails_closed_without_secret()
         json={
             "id": "invalid-scope",
             "name": "Invalid scope",
-            "secret_ref": "OPSGRAPH_INVALID_DSN",
+            "secret_ref": "OPSGRAPH_SOURCE_DSN",
             "allowed_schemas": ["public; DROP SCHEMA public"],
         },
     )
@@ -139,6 +139,21 @@ def test_source_rejects_unqualified_table_scope():
         },
     )
     assert response.status_code == 422
+
+
+def test_source_rejects_unapproved_secret_reference() -> None:
+    response = client.post(
+        "/api/sources",
+        headers=auth(),
+        json={
+            "id": "unapproved-secret",
+            "name": "Unapproved secret reference",
+            "secret_ref": "OPSGRAPH_UNAPPROVED_DSN",
+            "allowed_tables": ["public.jobs"],
+        },
+    )
+    assert response.status_code == 422
+    assert "not approved" in response.json()["detail"]
 
 
 def test_policy_view_is_authenticated_and_server_derived():

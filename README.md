@@ -104,7 +104,8 @@ docker compose -f deploy/compose.yaml up --build
 
 The default container remains synthetic, deterministic, and egress-off. For a
 connected PostgreSQL run, explicitly set `OPSGRAPH_MODE=connected`, the source
-DSN environment variable named by `OPSGRAPH_POSTGRES_SECRET_REF`, a table
+DSN environment variable named by `OPSGRAPH_POSTGRES_SECRET_REF` (or an entry in
+`OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS`), a table
 allowlist in the UI, and (only for cloud providers) `OPSGRAPH_EGRESS_ENABLED=true`.
 Restrict database/provider network routes outside the container as well.
 

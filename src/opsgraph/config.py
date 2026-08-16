@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     anthropic_model: str = Field(default="claude-sonnet-5", alias="OPSGRAPH_ANTHROPIC_MODEL")
     state_path: Path = Field(default=Path(".opsgraph/state.db"), alias="OPSGRAPH_STATE_PATH")
     postgres_secret_ref: str | None = Field(default=None, alias="OPSGRAPH_POSTGRES_SECRET_REF")
+    allowed_postgres_secret_refs: tuple[str, ...] = Field(
+        default=("OPSGRAPH_SOURCE_DSN",), alias="OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS"
+    )
     web_root: Path = Path(__file__).resolve().parent / "web"
 
     @model_validator(mode="after")
@@ -48,6 +51,24 @@ class Settings(BaseSettings):
         """Treat the legacy demo's offline mode as the alpha's sample mode."""
 
         return "sample" if value == "offline" else value
+
+    @field_validator("allowed_postgres_secret_refs", mode="before")
+    @classmethod
+    def parse_allowed_postgres_secret_refs(cls, value: object) -> object:
+        """Accept a comma-separated deployment allowlist without exposing values."""
+
+        if isinstance(value, str):
+            return tuple(item.strip() for item in value.split(",") if item.strip())
+        return value
+
+    @field_validator("allowed_postgres_secret_refs")
+    @classmethod
+    def validate_allowed_postgres_secret_refs(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if not value or len(value) > 32:
+            raise ValueError("configure 1-32 PostgreSQL secret reference names")
+        if any(not item.startswith("OPSGRAPH_") or not item.endswith("_DSN") for item in value):
+            raise ValueError("PostgreSQL secret references must use OPSGRAPH_*_DSN names")
+        return tuple(dict.fromkeys(value))
 
 
 @lru_cache

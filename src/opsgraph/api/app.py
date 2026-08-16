@@ -228,8 +228,14 @@ def create_source(
     principal: Annotated[Principal, Depends(require_principal)],
 ):
     authorize(principal, "core.source.manage", body.id)
-    if body.secret_ref in {"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPSGRAPH_API_KEY"}:
-        raise HTTPException(status_code=422, detail="secret reference is reserved")
+    allowed_refs = set(runtime.settings.allowed_postgres_secret_refs)
+    if runtime.settings.postgres_secret_ref:
+        allowed_refs.add(runtime.settings.postgres_secret_ref)
+    if body.secret_ref not in allowed_refs:
+        raise HTTPException(
+            status_code=422,
+            detail="secret reference is not approved by this deployment",
+        )
     record = {
         "record_type": "source",
         "id": body.id,
