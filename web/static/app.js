@@ -330,6 +330,11 @@
     const sourceId = $('#sourceId').value.trim();
     const schemas = $('#sourceSchemas').value.split(',').map(value => value.trim()).filter(Boolean);
     try {
+      const evidenceBindings = $('#sourceEvidenceBindings').value.split(/\n|;/).map(line => line.trim()).filter(Boolean).map(line => {
+        const [evidenceType, tables] = line.split('=', 2).map(value => value.trim());
+        if (!evidenceType || !tables) throw new Error('Evidence bindings use evidence_type=public.table[, public.table].');
+        return { evidence_type: evidenceType, source_tables: tables.split(',').map(value => value.trim()).filter(Boolean) };
+      });
       await api('/api/sources', {
         method: 'POST',
         body: JSON.stringify({
@@ -338,6 +343,7 @@
           secret_ref: $('#sourceSecretRef').value.trim(),
           allowed_schemas: schemas,
           allowed_tables: $('#sourceTables').value.split(',').map(value => value.trim()).filter(Boolean),
+          evidence_bindings: evidenceBindings,
           allow_external_egress: $('#sourceExternalEgress').checked,
         }),
       });

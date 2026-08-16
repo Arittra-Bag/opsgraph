@@ -1,7 +1,9 @@
 # Python 3.11 slim multi-architecture manifest, pinned for reproducible releases.
 FROM python:3.11-slim@sha256:a630a63cdb314e2d138a2fca3e375e319e8568346ffafac5b980f888630ac4f1
 
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# Keep the control-plane state on the writable mounted volume. The image itself
+# remains read-only at runtime.
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OPSGRAPH_STATE_PATH=/data/state.db
 WORKDIR /app
 RUN useradd --create-home --uid 10001 opsgraph
 COPY pyproject.toml README.md ./

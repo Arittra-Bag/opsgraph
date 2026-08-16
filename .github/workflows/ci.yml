@@ -39,7 +39,7 @@ jobs:
         run: docker build --tag opsgraph-alpha:ci --file deploy/container/Dockerfile .
       - name: Start and verify sample-mode container
         run: |
-          docker run --detach --rm --name opsgraph-alpha-ci -p 127.0.0.1:8000:8000 -e OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars opsgraph-alpha:ci
+          docker run --detach --name opsgraph-alpha-ci -p 127.0.0.1:8000:8000 -e OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars opsgraph-alpha:ci
           for attempt in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8000/api/health; then break; fi
             if [ "$attempt" = 20 ]; then docker logs opsgraph-alpha-ci; exit 1; fi
@@ -53,4 +53,4 @@ jobs:
         run: docker logs opsgraph-alpha-ci || true
       - name: Stop sample-mode container
         if: always()
-        run: docker stop opsgraph-alpha-ci || true
+        run: docker rm --force opsgraph-alpha-ci || true

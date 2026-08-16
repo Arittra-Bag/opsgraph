@@ -208,6 +208,7 @@
             <label for="sourceSecretRef">DSN environment variable</label><input id="sourceSecretRef" required pattern="[A-Z][A-Z0-9_]{2,127}" placeholder="OPSGRAPH_SOURCE_DSN">
             <label for="sourceSchemas">Allowed schemas</label><input id="sourceSchemas" value="public" placeholder="public, analytics">
             <label for="sourceTables">Allowed tables</label><input id="sourceTables" required placeholder="public.jobs, public.deployments">
+            <label for="sourceEvidenceBindings">Evidence bindings</label><textarea id="sourceEvidenceBindings" rows="3" placeholder="job_status=public.jobs&#10;queue_state=public.queues"></textarea><small>Optional for schema inspection; required to run a skill that needs those evidence types. Each binding must reference an allowed table.</small>
             <label class="toggle-row"><span><b>Allow bounded evidence to leave this host</b><small>Required only for an external model provider. Keep off for local inference.</small></span><input id="sourceExternalEgress" type="checkbox" role="switch"></label>
             <button class="primary" type="submit">Save and inspect source</button>
           </form>

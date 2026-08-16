@@ -1,5 +1,5 @@
 from opsgraph.brokers import QueryResult
-from opsgraph.domain import Obligation, Principal, ToolDefinition, ToolRegistry
+from opsgraph.domain import EvidenceBinding, Obligation, Principal, ToolDefinition, ToolRegistry
 from opsgraph.orchestration.connected import run_connected
 from opsgraph.providers import (
     ProviderCapabilities,
@@ -28,7 +28,6 @@ class StubProvider:
                     {
                         "purpose": "Inspect failed jobs",
                         "sql": "SELECT id, status FROM public.jobs",
-                        "evidence_types": ["job_status", "queue_state"],
                     }
                 ],
                 "rationale": "The question asks about job failures.",
@@ -85,6 +84,19 @@ def skills(*, max_rows: int = 100, egress: str = "forbidden") -> SkillRepository
     return repository
 
 
+def bindings() -> tuple[EvidenceBinding, ...]:
+    return (
+        EvidenceBinding(
+            evidence_type="job_status",
+            source_tables=("public.jobs",),
+        ),
+        EvidenceBinding(
+            evidence_type="queue_state",
+            source_tables=("public.jobs",),
+        ),
+    )
+
+
 def test_connected_graph_routes_executes_and_cites_question_dependent_evidence():
     principal = Principal(subject="tester", workspace_id="workspace", roles={"analyst"})
     obligations = Obligation(allowed_schemas=("public",))
@@ -107,6 +119,7 @@ def test_connected_graph_routes_executes_and_cites_question_dependent_evidence()
         skills=skills(),
         executor=StubExecutor(),
         snapshot=snapshot,
+        evidence_bindings=bindings(),
     )
 
     assert result["skill_id"] == "failed-jobs"
@@ -143,6 +156,7 @@ def test_connected_graph_applies_skill_row_bound_and_egress_policy():
             skills=skills(egress="forbidden"),
             executor=StubExecutor(),
             snapshot=snapshot,
+            evidence_bindings=bindings(),
         )
 
     class RecordingExecutor(StubExecutor):
@@ -161,6 +175,7 @@ def test_connected_graph_applies_skill_row_bound_and_egress_policy():
         skills=skills(max_rows=5, egress="allowlisted"),
         executor=executor,
         snapshot=snapshot,
+        evidence_bindings=bindings(),
     )
     assert executor.sql.endswith("LIMIT 6")
 
@@ -200,5 +215,42 @@ def test_connected_graph_honours_an_explicit_custom_skill_selection():
         executor=StubExecutor(),
         snapshot=snapshot,
         skill_id=custom.id,
+        evidence_bindings=bindings(),
     )
     assert result["skill_id"] == custom.id
+
+
+def test_connected_graph_rejects_missing_source_owned_evidence_before_planning():
+    class CountingProvider(StubProvider):
+        calls = 0
+
+        def invoke_structured(self, request):
+            self.calls += 1
+            return super().invoke_structured(request)
+
+    import pytest
+
+    provider = CountingProvider()
+    with pytest.raises(ValueError, match="source lacks evidence bindings"):
+        run_connected(
+            question="Why did the worker job fail?",
+            provider=provider,
+            principal=Principal(subject="tester", workspace_id="workspace", roles={"analyst"}),
+            obligations=Obligation(allowed_schemas=("public",)),
+            skills=skills(),
+            executor=StubExecutor(),
+            snapshot=SchemaSnapshot(
+                tables=(
+                    TableSchema(
+                        schema_name="public",
+                        table_name="jobs",
+                        columns=(ColumnSchema(name="id", data_type="bigint"),),
+                    ),
+                ),
+                fingerprint="sha256:" + "3" * 64,
+            ),
+            evidence_bindings=(
+                EvidenceBinding(evidence_type="job_status", source_tables=("public.jobs",)),
+            ),
+        )
+    assert provider.calls == 0

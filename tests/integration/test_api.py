@@ -102,12 +102,16 @@ def test_source_metadata_uses_secret_reference_and_fails_closed_without_secret()
             "secret_ref": "OPSGRAPH_SOURCE_DSN",
             "allowed_schemas": ["public"],
             "allowed_tables": ["public.jobs"],
+            "evidence_bindings": [
+                {"evidence_type": "job_status", "source_tables": ["public.jobs"]}
+            ],
             "allow_external_egress": False,
         },
     )
     assert response.status_code == 200
     assert response.json()["secret_ref"] == "OPSGRAPH_SOURCE_DSN"  # noqa: S105
     assert response.json()["allowed_tables"] == ["public.jobs"]
+    assert response.json()["evidence_bindings"][0]["evidence_type"] == "job_status"
     assert "postgresql://" not in response.text
 
     inspect = client.post("/api/sources/test-readonly/inspect", headers=auth())
@@ -136,6 +140,24 @@ def test_source_rejects_unqualified_table_scope():
             "name": "Bad table scope",
             "secret_ref": "OPSGRAPH_INVALID_DSN",
             "allowed_tables": ["jobs"],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_source_rejects_duplicate_evidence_bindings() -> None:
+    response = client.post(
+        "/api/sources",
+        headers=auth(),
+        json={
+            "id": "duplicate-evidence",
+            "name": "Duplicate evidence source",
+            "secret_ref": "OPSGRAPH_SOURCE_DSN",
+            "allowed_tables": ["public.jobs"],
+            "evidence_bindings": [
+                {"evidence_type": "job_status", "source_tables": ["public.jobs"]},
+                {"evidence_type": "job_status", "source_tables": ["public.jobs"]},
+            ],
         },
     )
     assert response.status_code == 422

@@ -9,7 +9,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
 from opsgraph.brokers import QueryBroker, ReadOnlyExecutor, SelectOnlyValidator
-from opsgraph.domain import Obligation, Principal
+from opsgraph.domain import EvidenceBinding, Obligation, Principal
 from opsgraph.policy import FailClosedPolicy, StaticPolicyEvaluator
 from opsgraph.providers import ChatMessage, ModelProvider, StructuredRequest
 from opsgraph.schema_service import SchemaSnapshot
@@ -21,7 +21,6 @@ class QueryProposal(BaseModel):
 
     purpose: str = Field(min_length=3, max_length=300)
     sql: str = Field(min_length=8, max_length=20_000)
-    evidence_types: tuple[str, ...] = Field(min_length=1, max_length=12)
 
 
 class InvestigationPlan(BaseModel):
@@ -73,10 +72,19 @@ def build_connected_graph(
     skills: SkillRepository,
     executor: ReadOnlyExecutor,
     snapshot: SchemaSnapshot,
+    evidence_bindings: tuple[EvidenceBinding, ...],
 ):
     def route(state: ConnectedState) -> dict[str, Any]:
         requested = state.get("requested_skill_id")
-        return {"skill_id": requested or _select_skill(state["question"])}
+        skill_id = requested or _select_skill(state["question"])
+        skill = skills.get_published(skill_id)
+        available = {binding.evidence_type for binding in evidence_bindings}
+        missing = set(skill.required_evidence).difference(available)
+        if missing:
+            raise ValueError(
+                f"source lacks evidence bindings required by selected skill: {sorted(missing)[0]}"
+            )
+        return {"skill_id": skill_id}
 
     def plan(state: ConnectedState) -> dict[str, Any]:
         skill = skills.get_published(state["skill_id"])
@@ -87,8 +95,8 @@ def build_connected_graph(
             "Create one to three PostgreSQL SELECT-only queries to investigate the question. "
             "Use only listed tables and columns. Keep every query narrow and evidence-oriented. "
             "Never use comments, functions beyond common aggregates, system schemas, or writes.\n"
-            "Across the plan, cover every required evidence type: "
-            f"{list(skill.required_evidence)}.\n"
+            "The application, not you, determines evidence coverage from the "
+            "approved source relations referenced by validated SQL.\n"
             f"Selected skill: {state['skill_id']}\n"
             f"Question: {state['question']}\n"
             f"Schema: {json.dumps(schema, sort_keys=True)}"
@@ -126,7 +134,12 @@ def build_connected_graph(
             artifact = broker.query(principal=principal, sql=proposal.sql)
             payload = artifact.model_dump(mode="json")
             payload["purpose"] = proposal.purpose
-            payload["evidence_types"] = list(proposal.evidence_types)
+            referenced = set(artifact.referenced_tables)
+            payload["evidence_types"] = [
+                binding.evidence_type
+                for binding in evidence_bindings
+                if referenced.intersection(binding.source_tables)
+            ]
             evidence.append(payload)
         covered = {tag for item in evidence for tag in item["evidence_types"]}
         missing = set(skill.required_evidence).difference(covered)
@@ -187,6 +200,7 @@ def run_connected(
     executor: ReadOnlyExecutor,
     snapshot: SchemaSnapshot,
     skill_id: str | None = None,
+    evidence_bindings: tuple[EvidenceBinding, ...] = (),
 ) -> ConnectedState:
     graph = build_connected_graph(
         provider=provider,
@@ -195,6 +209,7 @@ def run_connected(
         skills=skills,
         executor=executor,
         snapshot=snapshot,
+        evidence_bindings=evidence_bindings,
     )
     return graph.invoke({"question": question, "requested_skill_id": skill_id})
 

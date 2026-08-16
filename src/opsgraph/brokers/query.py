@@ -394,6 +394,7 @@ class QueryBroker:
         return EvidenceArtifact.from_result(
             workspace_id=principal.workspace_id,
             query_fingerprint=plan.fingerprint,
+            referenced_tables=plan.referenced_tables,
             columns=result.columns,
             rows=rows,
             truncated=len(result.rows) > limit,

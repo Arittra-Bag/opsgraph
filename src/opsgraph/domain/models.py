@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from base64 import b64encode
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -17,6 +18,9 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+_EVIDENCE_TYPE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
+_QUALIFIED_RELATION = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}\.[A-Za-z_][A-Za-z0-9_]{0,62}$")
 
 
 def canonical_json(value: Any) -> bytes:
@@ -118,6 +122,36 @@ class QueryPlan(BaseModel):
     fingerprint: str
 
 
+class EvidenceBinding(BaseModel):
+    """Source-owned semantic evidence mapping over approved relations.
+
+    A model never supplies these labels. They are derived only when a validated
+    query references one of the configured physical source tables.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    evidence_type: str = Field(min_length=1, max_length=128)
+    source_tables: tuple[str, ...] = Field(min_length=1, max_length=100)
+
+    @field_validator("evidence_type")
+    @classmethod
+    def validate_evidence_type(cls, value: str) -> str:
+        if not _EVIDENCE_TYPE.fullmatch(value):
+            raise ValueError("evidence type must use lowercase identifiers")
+        return value
+
+    @field_validator("source_tables")
+    @classmethod
+    def validate_source_tables(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        unique = tuple(dict.fromkeys(values))
+        if any(not _QUALIFIED_RELATION.fullmatch(value) for value in unique):
+            raise ValueError(
+                "evidence binding tables must be schema-qualified PostgreSQL identifiers"
+            )
+        return unique
+
+
 class EvidenceArtifact(BaseModel):
     """Stable evidence envelope created from bounded query results."""
 
@@ -125,6 +159,7 @@ class EvidenceArtifact(BaseModel):
 
     workspace_id: str
     query_fingerprint: str
+    referenced_tables: tuple[str, ...]
     columns: tuple[str, ...]
     rows: tuple[tuple[Any, ...], ...]
     truncated: bool
@@ -137,6 +172,7 @@ class EvidenceArtifact(BaseModel):
         *,
         workspace_id: str,
         query_fingerprint: str,
+        referenced_tables: tuple[str, ...],
         columns: tuple[str, ...],
         rows: tuple[tuple[Any, ...], ...],
         truncated: bool,
@@ -144,6 +180,7 @@ class EvidenceArtifact(BaseModel):
         payload = {
             "workspace_id": workspace_id,
             "query_fingerprint": query_fingerprint,
+            "referenced_tables": referenced_tables,
             "columns": columns,
             "rows": rows,
             "truncated": truncated,

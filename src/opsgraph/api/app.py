@@ -17,7 +17,7 @@ from opsgraph.brokers import (
     UnsafeDatabaseRole,
     UnsafeQuery,
 )
-from opsgraph.domain import Obligation, Principal
+from opsgraph.domain import EvidenceBinding, Obligation, Principal
 from opsgraph.domain.models import stable_hash
 from opsgraph.orchestration.connected import run_connected
 from opsgraph.orchestration.sample import run_sample
@@ -61,6 +61,7 @@ class SourceRequest(BaseModel):
     secret_ref: str = Field(pattern=r"^[A-Z][A-Z0-9_]{2,127}$")
     allowed_schemas: tuple[str, ...] = ("public",)
     allowed_tables: tuple[str, ...] = ()
+    evidence_bindings: tuple[EvidenceBinding, ...] = ()
     allow_external_egress: bool = False
 
     @field_validator("allowed_schemas")
@@ -95,6 +96,16 @@ class SourceRequest(BaseModel):
             ):
                 raise ValueError("allowed tables must be schema-qualified PostgreSQL identifiers")
         return normalized
+
+    @field_validator("evidence_bindings")
+    @classmethod
+    def unique_evidence_bindings(
+        cls, values: tuple[EvidenceBinding, ...]
+    ) -> tuple[EvidenceBinding, ...]:
+        evidence_types = [binding.evidence_type for binding in values]
+        if len(evidence_types) != len(set(evidence_types)):
+            raise ValueError("each evidence type may be bound only once per source")
+        return values
 
 
 def authorize(principal: Principal, action: str, resource: str) -> Obligation:
@@ -245,6 +256,9 @@ def create_source(
         "secret_ref": body.secret_ref,
         "allowed_schemas": list(body.allowed_schemas),
         "allowed_tables": list(body.allowed_tables),
+        "evidence_bindings": [
+            binding.model_dump(mode="json") for binding in body.evidence_bindings
+        ],
         "allow_external_egress": body.allow_external_egress,
         "status": "configured",
         "read_only": True,
@@ -260,6 +274,9 @@ def create_source(
             "secret_ref": body.secret_ref,
             "allowed_schemas": list(body.allowed_schemas),
             "allowed_tables": list(body.allowed_tables),
+            "evidence_bindings": [
+                binding.model_dump(mode="json") for binding in body.evidence_bindings
+            ],
             "allow_external_egress": body.allow_external_egress,
         },
     )
@@ -306,6 +323,28 @@ def inspect_source(
         raise HTTPException(
             status_code=422,
             detail=f"configured table scope is absent from schema: {sorted(missing_tables)[0]}",
+        )
+    bindings = tuple(
+        EvidenceBinding.model_validate(value) for value in stored.get("evidence_bindings", ())
+    )
+    binding_tables = {table for binding in bindings for table in binding.source_tables}
+    missing_binding_tables = binding_tables.difference(discovered)
+    if missing_binding_tables:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "configured evidence binding table is absent from schema: "
+                f"{sorted(missing_binding_tables)[0]}"
+            ),
+        )
+    if allowed_tables and not binding_tables.issubset(set(allowed_tables)):
+        outside_scope = binding_tables.difference(allowed_tables)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "configured evidence binding table is outside source scope: "
+                f"{sorted(outside_scope)[0]}"
+            ),
         )
     scoped_tables = tuple(
         table
@@ -447,6 +486,9 @@ def investigate_connected(
     snapshot = SchemaSnapshot.model_validate(
         {key: value for key, value in snapshot_value.items() if key != "record_type"}
     )
+    evidence_bindings = tuple(
+        EvidenceBinding.model_validate(value) for value in source.get("evidence_bindings", ())
+    )
     if body.skill_id:
         try:
             runtime.skills.get_published(body.skill_id)
@@ -462,6 +504,7 @@ def investigate_connected(
             executor=PsycopgReadOnlyExecutor(dsn),
             snapshot=snapshot,
             skill_id=body.skill_id,
+            evidence_bindings=evidence_bindings,
         )
     except PermissionError as exc:
         runtime.audit.append(
