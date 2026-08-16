@@ -1,18 +1,53 @@
 # OpsGraph Alpha
 
-OpsGraph is a self-hosted, evidence-first investigation workspace for software
-teams. It maps an approved PostgreSQL schema, runs policy-gated read-only
-investigations, and returns conclusions that can be inspected and replayed.
+> **Self-hosted, evidence-first PostgreSQL investigations.**
+>
+> Map an approved schema. Enforce a read-only policy. Return conclusions that
+> carry their evidence and audit trail with them.
 
-This repository is a **public validation alpha**. It is intentionally narrow:
+[![CI](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-65d6ce.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Arittra-Bag/opsgraph?display_name=tag&color=9df567)](https://github.com/Arittra-Bag/opsgraph/releases)
 
-- live PostgreSQL schema discovery through a separately provisioned read-only role
-- PostgreSQL AST validation plus database-native read-only transactions
-- local/offline sample mode by default
-- Anthropic and OpenAI-compatible provider adapters, including Ollama/vLLM
-- three built-in and customizable declarative skills with per-tool policy bounds
-- evidence hashes and a tamper-evident audit chain
-- no remediation, executable plug-ins, or dump restoration
+<p align="center">
+  <img src="docs/assets/opsgraph-investigation-workspace.png" alt="OpsGraph Alpha investigation workspace showing a read-only evidence-backed deployment investigation" width="100%">
+</p>
+
+<p align="center"><em>Bundled synthetic sample. No model or database call is made in sample mode.</em></p>
+
+## Why OpsGraph
+
+Most agent interfaces make it easy to ask a question. OpsGraph focuses on the
+harder next question: **why should an operator trust what happened next?**
+
+| OpsGraph does | OpsGraph deliberately does not do |
+| --- | --- |
+| Discovers an approved PostgreSQL schema through a dedicated read-only role | Grant a model direct database credentials or arbitrary SQL execution |
+| Validates `SELECT` queries against PostgreSQL AST, table scope, row and time bounds | Perform remediation, writes, dump restoration, or executable plug-ins |
+| Derives evidence coverage from source-owned table bindings | Let a model self-assert that its evidence is sufficient |
+| Records evidence hashes and a local tamper-evident audit chain | Claim production/customer-data approval in this alpha |
+
+## What ships in Alpha
+
+- **Self-hosted control plane** — no cloud account required for the synthetic
+  sample.
+- **PostgreSQL connector** — live schema discovery through a separately
+  provisioned read-only role.
+- **Policy-gated evidence broker** — AST validation plus database-native
+  read-only transactions, bounded rows, timeouts, schema and table scope.
+- **Provider choice** — deterministic replay by default; Ollama/vLLM through
+  an OpenAI-compatible adapter; Anthropic only after explicit egress opt-in.
+- **Customizable declarative skills** — versioned skill definitions with
+  per-tool bounds that can tighten, never weaken, server policy.
+- **Inspectable results** — cited conclusions, known limitations, evidence
+  digests, and an audit chain.
+
+## Alpha boundary
+
+This is a **public validation alpha**. It is intended for synthetic data and
+non-production replicas. It is not approved for production or customer data.
+Read [SECURITY.md](SECURITY.md) and the [threat model](docs/threat-model.md)
+before connecting any source.
 
 ## Quick start
 
@@ -42,7 +77,7 @@ model, cloud account, or outbound network access.
 Enter the `OPSGRAPH_API_KEY` value from your local `.env` in the workspace-key
 drawer. Sample replay remains the safest first run.
 
-## Connected PostgreSQL run
+## Connect an approved PostgreSQL source
 
 1. Create a dedicated login that cannot create roles/databases, bypass RLS, or
    write any target table. Grant it only the `SELECT` and schema `USAGE` needed.
@@ -90,6 +125,13 @@ not self-declared by the model.
 See [SECURITY.md](SECURITY.md), [product charter](docs/product-charter.md), and
 [threat model](docs/threat-model.md) before connecting any non-synthetic source.
 OpsGraph is licensed under [Apache-2.0](LICENSE).
+
+## Launch notes and feedback
+
+Read [public launch notes](docs/public-launch.md) for the exact public-alpha
+claims, screenshots, and feedback questions. Issues and focused security
+reports are welcome; please use the security contact and boundary in
+[SECURITY.md](SECURITY.md) for sensitive reports.
 
 ## Development
 
