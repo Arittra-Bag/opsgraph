@@ -28,7 +28,7 @@ jobs:
       - name: Clean wheel smoke test
         run: |
           uv venv /tmp/opsgraph-wheel
-          /tmp/opsgraph-wheel/bin/pip install dist/*.whl
+          uv pip install --python /tmp/opsgraph-wheel/bin/python dist/*.whl
           /tmp/opsgraph-wheel/bin/python -c "from opsgraph.config import Settings; from opsgraph.runtime import build_runtime; runtime = build_runtime(Settings(api_key='a'*24)); assert runtime.settings.web_root.joinpath('index.html').is_file(); assert len(runtime.skills.list_published()) == 3"
   container-smoke:
     needs: test
