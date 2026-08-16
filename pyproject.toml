@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opsgraph"
-version = "0.1.0a2"
+version = "0.1.0a3"
 description = "Self-hosted, policy-gated operational investigation workspace"
 readme = "README.md"
 license = "Apache-2.0"
