@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-65d6ce.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/Arittra-Bag/opsgraph?display_name=tag&color=9df567)](https://github.com/Arittra-Bag/opsgraph/releases)
+[![Release](https://img.shields.io/github/v/release/Arittra-Bag/opsgraph?display_name=tag&include_prereleases&color=9df567)](https://github.com/Arittra-Bag/opsgraph/releases)
 
 <p align="center">
   <img src="docs/assets/opsgraph-investigation-workspace.png" alt="OpsGraph Alpha investigation workspace showing a read-only evidence-backed deployment investigation" width="100%">
