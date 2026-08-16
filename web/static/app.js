@@ -36,6 +36,8 @@
   let activeRunMode = 'sample';
   let lastInvestigation = null;
   let lastSavedSkillId = null;
+  let sourcesById = new Map();
+  let activeCaseFilter = 'all';
 
   function showToast(message) {
     const toast = $('#toast');
@@ -66,25 +68,35 @@
   $$('[data-view]').forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
 
   $$('.case-card').forEach(button => button.addEventListener('click', () => {
-    if (button.dataset.case !== 'checkout') {
-      showToast('This is an illustrative sample card. Replay is available for the selected synthetic case.');
-      return;
-    }
     const data = cases[button.dataset.case];
     $$('.case-card').forEach(card => card.classList.toggle('active', card === button));
     $('#caseTitle').textContent = data.title;
     $('#caseSubtitle').textContent = data.subtitle;
     $('.breadcrumb span:first-child').textContent = data.id;
     $('.inspector-head small').textContent = data.id;
-    if (button.dataset.case === 'billing') {
-      $('#runState').className = 'run-state denied';
-      $('#runState').innerHTML = '<i></i>POLICY BLOCKED';
-      openDrawer('denialDrawer', button);
-    } else {
-      $('#runState').className = `run-state ${button.dataset.case === 'checkout' ? 'complete' : 'running'}`;
-      $('#runState').innerHTML = `<i></i>${data.state}`;
-    }
+    $('#runState').className = 'run-state complete';
+    $('#runState').innerHTML = `<i></i>${data.state}`;
   }));
+
+  function applyCaseFilters() {
+    const query = $('#caseSearch').value.trim().toLowerCase();
+    $$('.case-card').forEach(card => {
+      const state = card.dataset.filterState || (card.dataset.case === 'checkout' ? 'complete' : 'open');
+      const matchesState = activeCaseFilter === 'all' || state === activeCaseFilter;
+      const matchesQuery = !query || card.textContent.toLowerCase().includes(query);
+      card.hidden = !(matchesState && matchesQuery);
+    });
+  }
+
+  $('#toggleCaseSearch').addEventListener('click', () => {
+    const wrap = $('#caseSearchWrap');
+    const expanded = wrap.hidden;
+    wrap.hidden = !expanded;
+    $('#toggleCaseSearch').setAttribute('aria-expanded', String(expanded));
+    if (expanded) $('#caseSearch').focus();
+    else { $('#caseSearch').value = ''; applyCaseFilters(); }
+  });
+  $('#caseSearch').addEventListener('input', applyCaseFilters);
 
   function activateTab(tab) {
     const tablist = tab.closest('[role="tablist"]');
@@ -296,6 +308,7 @@
   async function loadSources() {
     if (!workspaceKey()) return;
     const sources = await api('/api/sources');
+    sourcesById = new Map(sources.map(source => [source.id, source]));
     const select = $('#investigationSource');
     select.innerHTML = sources
       .filter(source => source.kind === 'postgresql' && source.status === 'ready')
@@ -308,7 +321,12 @@
       <dl><div><dt>Mode</dt><dd>read-only</dd></div><div><dt>Egress</dt><dd>${source.allow_external_egress ? 'approved' : 'local only'}</dd></div></dl>
       <button class="inspect-connected-source" data-source-id="${esc(source.id)}">View configured scope →</button></article>`).join('');
     $$('.inspect-connected-source', catalog).forEach(button => button.addEventListener('click', () => {
-      showToast('Configured table scope is shown on this source card. Create an investigation to run a bounded query.');
+      const source = sourcesById.get(button.dataset.sourceId);
+      if (!source) return showToast('Source details are unavailable.');
+      const drawer = $('#runtimeDrawer');
+      $('#runtimeDrawerTitle').textContent = source.name;
+      $('.drawer-body', drawer).innerHTML = `<p class="lead">Configured scope for this read-only source.</p><dl class="detail-list"><div><dt>Status</dt><dd>${esc(source.status)}</dd></div><div><dt>Allowed schemas</dt><dd>${esc((source.allowed_schemas || []).join(', ') || 'none')}</dd></div><div><dt>Allowed tables</dt><dd>${esc((source.allowed_tables || []).join(', ') || 'none')}</dd></div><div><dt>External egress</dt><dd>${source.allow_external_egress ? 'approved' : 'local only'}</dd></div></dl>`;
+      openDrawer('runtimeDrawer', button);
     }));
   }
 
@@ -608,7 +626,12 @@
       openDrawer('denialDrawer', event.currentTarget);
     } catch (error) { showToast(error.message || 'Policy could not be loaded.'); }
   });
-  $('#inspectSample').addEventListener('click', event => openDrawer('evidenceDrawer', event.currentTarget));
+  $('#inspectSample').addEventListener('click', event => {
+    const drawer = $('#runtimeDrawer');
+    $('#runtimeDrawerTitle').textContent = 'Fictional SaaS sample';
+    $('.drawer-body', drawer).innerHTML = '<p class="lead">Built-in synthetic dataset for safe offline replay.</p><dl class="detail-list"><div><dt>Tables</dt><dd>6</dd></div><div><dt>Relations</dt><dd>9</dd></div><div><dt>Dataset hash</dt><dd>8c91…d42a</dd></div><div><dt>Database access</dt><dd>None</dd></div></dl>';
+    openDrawer('runtimeDrawer', event.currentTarget);
+  });
   $('#reviewSourceContract').addEventListener('click', event => {
     const drawer = $('#runtimeDrawer');
     $('#runtimeDrawerTitle').textContent = 'PostgreSQL source contract';
@@ -618,11 +641,8 @@
 
   $$('.case-filters button').forEach(button => button.addEventListener('click', () => {
     $$('.case-filters button').forEach(item => item.classList.toggle('active', item === button));
-    const wanted = button.textContent.trim().toLowerCase();
-    $$('.case-card').forEach(card => {
-      const state = $('.case-state', card)?.textContent.trim().toLowerCase() || '';
-      card.hidden = wanted !== 'all' && !state.includes(wanted);
-    });
+    activeCaseFilter = button.textContent.trim().toLowerCase();
+    applyCaseFilters();
   }));
 
   $$('.path-node').forEach(node => node.addEventListener('click', () => {

@@ -56,8 +56,9 @@
           <aside class="case-list" aria-label="Investigations">
             <div class="case-list-head">
               <div><p class="eyebrow">Workspace</p><h1 id="investigationsTitle">Investigations</h1></div>
-              <button class="icon-button" aria-label="Filter investigations">⌕</button>
+              <button class="icon-button" id="toggleCaseSearch" aria-label="Search investigations" aria-expanded="false" aria-controls="caseSearch">⌕</button>
             </div>
+            <label class="case-search" id="caseSearchWrap" hidden><span class="sr-only">Search investigations</span><input id="caseSearch" type="search" placeholder="Search investigations" autocomplete="off"></label>
             <div class="case-filters" role="group" aria-label="Investigation filters">
               <button class="active">All</button><button>Open</button><button>Complete</button>
             </div>
@@ -67,12 +68,12 @@
                 <b>Webhook failures after deployment</b><p>Fictional SaaS sample · 6 evidence items</p>
                 <div><span class="classification supported">SUPPORTED</span><small>3 cited signals</small></div>
               </button>
-              <button class="case-card" data-case="queue">
+              <button class="case-card" data-case="queue" data-filter-state="open" disabled title="Illustrative preview; not available for replay">
                 <span class="case-state reviewing">REVIEWING</span><time>42 min ago</time>
                 <b>Queue latency spike</b><p>PostgreSQL synthetic sample · 8 evidence items</p>
                 <div><span class="classification possible">POSSIBLE</span><small>needs verification</small></div>
               </button>
-              <button class="case-card" data-case="billing">
+              <button class="case-card" data-case="billing" data-filter-state="open" disabled title="Illustrative preview; not available for replay">
                 <span class="case-state blocked">POLICY BLOCKED</span><time>Yesterday</time>
                 <b>Billing aggregation anomaly</b><p>Synthetic sample · query denied</p>
                 <div><span class="classification unknown">UNKNOWN</span><small>insufficient access</small></div>
@@ -96,7 +97,7 @@
             <div class="scope-strip" aria-label="Investigation scope">
               <div><small>SOURCE</small><b>Fictional SaaS sample</b></div>
               <div><small>DATASET</small><b>synthetic-v1 · hash verified</b></div>
-              <div><small>PLAYBOOK</small><b>Incident correlation</b></div>
+              <div><small>SKILL</small><b>Incident correlation</b></div>
               <div><small>MODE</small><b class="safe-value">READ-ONLY</b></div>
             </div>
 
