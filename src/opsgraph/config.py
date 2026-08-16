@@ -1,9 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     anthropic_model: str = Field(default="claude-sonnet-5", alias="OPSGRAPH_ANTHROPIC_MODEL")
     state_path: Path = Field(default=Path(".opsgraph/state.db"), alias="OPSGRAPH_STATE_PATH")
     postgres_secret_ref: str | None = Field(default=None, alias="OPSGRAPH_POSTGRES_SECRET_REF")
-    allowed_postgres_secret_refs: tuple[str, ...] = Field(
+    allowed_postgres_secret_refs: Annotated[tuple[str, ...], NoDecode] = Field(
         default=("OPSGRAPH_SOURCE_DSN",), alias="OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS"
     )
     web_root: Path = Path(__file__).resolve().parent / "web"
