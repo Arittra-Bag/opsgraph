@@ -330,17 +330,17 @@ main { min-width: 0; overflow: visible; }
 
 /* Investigation conversation: backend-recorded work first, details on demand. */
 :root { --cases: 272px; }
-.investigation-layout { --history-column: var(--cases); grid-template-columns: var(--cases) minmax(0, 1fr); align-items: start; background: linear-gradient(90deg, #0e161a 0, #0b1115 calc(var(--history-column) - 1px), var(--line) calc(var(--history-column) - 1px), var(--line) var(--history-column), transparent var(--history-column)); }
+.investigation-layout { --history-column: var(--cases); grid-template-columns: var(--cases) minmax(0, 1fr); align-items: start; background: linear-gradient(90deg, #0c1216 0, #0c1216 calc(var(--history-column) - 1px), var(--line) calc(var(--history-column) - 1px), var(--line) var(--history-column), transparent var(--history-column)); }
 .investigation-layout.history-hidden { --history-column: 44px; grid-template-columns: 44px minmax(0, 1fr); }
 .history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .history-heading h1 { margin: 0; font-size: 22px; }
 .history-heading .eyebrow { margin-bottom: 3px; }
 .history-toggle { min-height: 36px; border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; }
 .history-toggle:hover { color: var(--text); }
-.history-rail { position: sticky; top: 0; width: 44px; min-height: calc(100dvh - 64px); border: 0; border-right: 1px solid var(--line); background: #0c1216; color: var(--muted); padding: 14px 0; }
+.history-rail { position: sticky; top: 0; width: 44px; min-height: calc(100dvh - 64px); border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); padding: 14px 0; }
 .history-rail span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .history-rail b { display: block; margin-top: 10px; color: var(--teal); }
-.case-list { position: sticky; top: 0; height: calc(100dvh - 64px); max-height: calc(100dvh - 64px); overflow-y: auto; background: linear-gradient(180deg, #0e161a 0%, #0b1115 100%); }
+.case-list { position: sticky; top: 0; height: calc(100dvh - 64px); max-height: calc(100dvh - 64px); overflow-y: auto; background: transparent; }
 .case-workspace { min-width: 0; }
 
 .run-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: rgba(10, 15, 18, .96); }
