@@ -137,12 +137,17 @@
     $('#saveSkill').disabled = !state.authenticated;
     const active = state.run && !terminal(state.run.status);
     $('#submitRun').disabled = state.busy || !state.authenticated || !ready.length || !state.modelTested || Boolean(active);
-    $('#investigationSource').disabled = Boolean(state.run) || state.busy;
-    $('#investigationSkill').disabled = Boolean(state.run) || state.busy;
+    const linkedFollowup = Boolean(state.run);
+    $('#investigationSource').disabled = linkedFollowup || state.busy;
+    $('#sourceComposerField').classList.toggle('is-locked', linkedFollowup);
+    $('#sourceLockBadge').hidden = !linkedFollowup;
+    $('#sourceFieldHelp').textContent = linkedFollowup ? 'Follow-ups use the same source. Start a new investigation to change it.' : 'Choose an inspected source.';
+    $('#investigationSkill').disabled = state.busy || Boolean(active);
+    $('#playbookFieldHelp').textContent = active ? 'Available when the current run reaches a terminal state.' : linkedFollowup ? 'Choose the playbook for this follow-up.' : 'Choose the playbook for this investigation.';
     $('#investigationQuestion').disabled = state.busy || Boolean(active);
     $('#submitRun').textContent = state.busy ? 'Submitting…' : state.run ? 'Ask follow-up' : 'Start investigation';
     $('#composerTitle').textContent = state.run ? 'Ask a follow-up' : 'Start an investigation';
-    $('#composerContext').textContent = active ? 'This investigation is still active. You can cancel it or wait for a terminal state.' : state.run ? 'Creates a linked run with this source and playbook. Previous evidence remains unchanged; new evidence has its own capture time.' : !state.authenticated ? 'Connect your workspace, inspect a source, and test your model before asking.' : !ready.length ? 'Configure a source in Sources. Model availability does not block source inspection.' : !state.modelTested ? 'Test the actual model connection in Settings before your first question.' : 'Choose an inspected source and a bounded operational question, including a time range where relevant.';
+    $('#composerContext').textContent = active ? 'This investigation is still active. You can cancel it or wait for a terminal state.' : state.run ? 'Creates a linked run against the same source. Choose the playbook for this follow-up; previous evidence remains unchanged.' : !state.authenticated ? 'Connect your workspace, inspect a source, and test your model before asking.' : !ready.length ? 'Configure a source in Sources. Model availability does not block source inspection.' : !state.modelTested ? 'Test the actual model connection in Settings before your first question.' : 'Choose an inspected source and a bounded operational question, including a time range where relevant.';
     if (state.run?.error?.code === 'clarification_required') {
       $('#composerTitle').textContent = 'Clarify your question';
       $('#composerContext').textContent = 'Answer the clarification above with the needed definitions, join keys or time rules. This creates a linked attempt; nothing is treated as completed evidence from the blocked attempt.';

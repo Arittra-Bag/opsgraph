@@ -22,7 +22,7 @@
   </header>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Primary navigation">
-      <button class="new-investigation" id="newInvestigation"><span aria-hidden="true">＋</span>New investigation</button>
+      <button class="new-investigation" id="newInvestigation"><span aria-hidden="true">＋</span><b>New investigation</b></button>
       <nav id="primaryNav">
         <button class="nav-item active" data-view="investigations" aria-current="page">Investigations</button>
         <button class="nav-item" data-view="sources">Sources</button>
@@ -82,7 +82,7 @@
               <h2 id="composerTitle">Start an investigation</h2><p id="composerContext" class="helper">Choose an inspected source and a bounded operational question.</p>
               <form id="investigationForm">
                 <label for="investigationQuestion">Question</label><textarea id="investigationQuestion" required minlength="8" maxlength="800" rows="3" placeholder="Describe the issue and relevant time range…"></textarea>
-                <details class="scope-summary composer-scope" id="composerScopeDetails" open><summary>Source and query scope</summary><div class="composer-controls"><div><label for="investigationSource">Approved source</label><select id="investigationSource" required><option value="">Connect a source first</option></select></div><div><label for="investigationSkill">Playbook</label><select id="investigationSkill"><option value="">General read-only</option></select></div></div><div id="composerScope">Select a source to review its configured scope.</div></details>
+                <details class="scope-summary composer-scope" id="composerScopeDetails" open><summary>Source and query scope</summary><div class="composer-controls"><div class="composer-field" id="sourceComposerField"><label for="investigationSource">Approved source</label><div class="select-shell"><select id="investigationSource" required aria-describedby="sourceFieldHelp"><option value="">Connect a source first</option></select><span class="field-status" id="sourceLockBadge" aria-hidden="true" hidden>Same source</span></div><p class="field-help" id="sourceFieldHelp">Choose an inspected source.</p></div><div class="composer-field"><label for="investigationSkill">Playbook</label><select id="investigationSkill" aria-describedby="playbookFieldHelp"><option value="">General read-only</option></select><p class="field-help" id="playbookFieldHelp">Choose the playbook for this investigation.</p></div></div><div id="composerScope">Select a source to review its configured scope.</div></details>
                 <div class="notice error" id="composerError" role="alert" hidden></div><div class="composer-actions"><p class="helper">Read-only queries. No automatic remediation.</p><button class="primary" id="submitRun" type="submit">Start investigation</button></div>
               </form>
             </section>
