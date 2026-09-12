@@ -13,7 +13,7 @@ policy exists.
 
 ## Supported boundary
 
-- Local sample mode with synthetic data
+- Actual connected PostgreSQL investigations; public sample execution is retired
 - PostgreSQL schema-only SQL parsed as data, never executed
 - Live PostgreSQL discovery and SELECT execution through a separately provisioned,
   verified read-only role and read-only transactions
@@ -30,7 +30,17 @@ to cloud inference.
 - Connector secrets remain environment-variable references; there is no vault.
 - Investigation metadata, skills, and hash-chained audit events use local SQLite.
   The audit head is not externally anchored or cryptographically signed.
-- Connected runs are not resumable mid-graph.
+- Interrupted runs preserve captured evidence and require explicit fresh retry;
+  automatic mid-graph continuation is not supported.
+- One narrowly detected answer inconsistency may cause one additional model
+  answer call against the same captured evidence. It never reruns planning or
+  SQL. A second inconsistent response fails without accepting the prose; this
+  guard is not a general factuality or business-semantics check.
+- The packaged launcher binds only to 127.0.0.1. Its browser handoff expires
+  after 60 seconds and is single-use; the workspace key never enters the URL.
+  Normal API access continues to require the workspace key.
+- Private workspace files and backups contain credentials and evidence. POSIX
+  permission checks do not establish equivalent Windows ACL protection.
 - No customer or production data is approved for this release.
 
 ## Non-negotiable rules

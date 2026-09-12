@@ -1,0 +1,37 @@
+[
+  {
+    "file": "pglast-7.18-project-header.txt",
+    "sha256": "a0d0331bd41e8e169f80e4767300cbcac30e350a171167b59a044e90c68f2e79",
+    "source_archive_member": "pglast-7.18/pglast/__init__.py",
+    "source_member_sha256": "3cb9f059de3674cc6384eed29b95b9b46f9178c65b39d4c6074678892bdb0d69",
+    "copy": "py-header"
+  },
+  {
+    "file": "libpg_query-LICENSE.txt",
+    "sha256": "f9352c20940619a380a5e9f23cebe34d8f797cfbd747fc236a7a3e5fc8ef9b41",
+    "source_archive_member": "pglast-7.18/libpg_query/LICENSE",
+    "source_member_sha256": "f9352c20940619a380a5e9f23cebe34d8f797cfbd747fc236a7a3e5fc8ef9b41",
+    "copy": "all"
+  },
+  {
+    "file": "libpg_query-protobuf-c-NOTICE.txt",
+    "sha256": "e8185daf5bcd355692052fbdc990ea2d8acef9b4c3a41a32f189f272667e9d6b",
+    "source_archive_member": "pglast-7.18/libpg_query/vendor/protobuf-c/protobuf-c.c",
+    "source_member_sha256": "4ff2afde88ecd4ea063c808c65a4eec11fba6b5eb8e53a8ee6185867b795a50d",
+    "copy": "c-header"
+  },
+  {
+    "file": "libpg_query-xxhash-NOTICE.txt",
+    "sha256": "20bf2c9b132fe78c4256abb204159403d987af7a45345f1bdde07ecc094bed7f",
+    "source_archive_member": "pglast-7.18/libpg_query/vendor/xxhash/xxhash.h",
+    "source_member_sha256": "7a15f72484e64cbf828d51e7429f43f5b8ccb52da8825b1ed79b9f27de5dec92",
+    "copy": "c-header"
+  },
+  {
+    "file": "libpg_query-Bison-NOTICE.txt",
+    "sha256": "d365a921f09d5b9c7091387a9dc775b306934795fbee8417f957a4be005fd45f",
+    "source_archive_member": "pglast-7.18/libpg_query/src/postgres/src_backend_parser_gram.c",
+    "source_member_sha256": "d8f77c6e08afae91001dc2d984aa1dab46518fb0793807ab0a55247dd0f09e96",
+    "copy": "bison"
+  }
+]

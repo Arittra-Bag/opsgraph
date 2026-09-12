@@ -8,6 +8,7 @@ unknown statement. It is not a complete PostgreSQL grammar or dump importer.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -21,7 +22,7 @@ class ColumnSchema(BaseModel):
     data_type: str
     nullable: bool = True
     default: str | None = None
-    primary_key: bool = False
+    primary_key: bool | None = None
 
 
 class TableSchema(BaseModel):
@@ -38,6 +39,77 @@ class SchemaSnapshot(BaseModel):
     dialect: str = "postgresql"
     tables: tuple[TableSchema, ...]
     fingerprint: str
+    inspected_at: datetime | None = None
+
+    def scoped(self, allowed_tables: tuple[str, ...]) -> SchemaSnapshot:
+        """Freeze only explicitly approved physical metadata; never widen scope."""
+        tables = tuple(
+            table
+            for table in self.tables
+            if f"{table.schema_name}.{table.table_name}" in allowed_tables
+        )
+        return self.model_copy(
+            update={
+                "tables": tables,
+                "fingerprint": stable_hash([table.model_dump(mode="json") for table in tables]),
+            }
+        )
+
+    def inspection_payload(self, *, status: str) -> dict:
+        """Inspectable physical metadata, with honest type and semantic limits."""
+        warnings = []
+        supported = {
+            "smallint",
+            "integer",
+            "bigint",
+            "numeric",
+            "decimal",
+            "real",
+            "double precision",
+            "boolean",
+            "text",
+            "character varying",
+            "character",
+            "date",
+            "timestamp with time zone",
+            "uuid",
+            "json",
+            "jsonb",
+        }
+        for table in self.tables:
+            for column in table.columns:
+                if column.data_type.lower() in supported:
+                    continue
+                message = (
+                    "Timezone is not recorded. Supply its meaning explicitly and use an "
+                    "explicit timezone conversion; OpsGraph never assumes UTC."
+                    if column.data_type.lower() == "timestamp without time zone"
+                    else "Values of this type may be unsupported by evidence serialization. "
+                    "Exclude the column or use an explicit, reviewed SQL conversion."
+                )
+                warnings.append(
+                    {
+                        "table": f"{table.schema_name}.{table.table_name}",
+                        "column": column.name,
+                        "data_type": column.data_type,
+                        "message": message,
+                    }
+                )
+        return {
+            **self.model_dump(mode="json"),
+            "status": status,
+            "freshness": "last_inspection",
+            "type_warnings": warnings,
+            "metadata_limits": [
+                "New inspections discover columns with SELECT privilege in schemas with USAGE. "
+                "Application scope is table-level; "
+                "restrict columns using database grants or views.",
+                "Relationships, join cardinality, business meanings, units, status definitions "
+                "and time semantics are unavailable unless explicitly supplied by the operator.",
+                "Metadata is compared before planning and each query, not locked for the run. "
+                "A concurrent database change can still occur after a check.",
+            ],
+        }
 
 
 class SchemaParseError(ValueError):

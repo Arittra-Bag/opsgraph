@@ -129,3 +129,21 @@ def test_policy_failure_denies_without_calling_executor() -> None:
     with pytest.raises(PermissionError, match="unavailable"):
         broker.query(principal=principal, sql="SELECT * FROM incidents")
     assert executor.sql == ""
+
+
+@pytest.mark.parametrize("rows", [(("x" * 16_385,),), tuple(("x" * 15_000,) for _ in range(10))])
+def test_evidence_payload_bounds_reject_instead_of_altering_hash(rows):
+    class LargeResult:
+        def execute_readonly(self, sql, *, timeout_ms):
+            return QueryResult(("payload",), rows)
+
+    broker = QueryBroker(
+        policy=FailClosedPolicy(
+            StaticPolicyEvaluator({("analyst", "core.query.read"): Obligation()})
+        ),
+        validator=SelectOnlyValidator(),
+        executor=LargeResult(),
+    )
+    principal = Principal(subject="tester", workspace_id="local", roles={"analyst"})
+    with pytest.raises(ValueError, match="evidence limit"):
+        broker.query(principal=principal, sql="SELECT payload FROM public.incidents")

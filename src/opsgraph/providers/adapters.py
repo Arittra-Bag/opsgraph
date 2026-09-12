@@ -11,7 +11,9 @@ from opsgraph.providers.base import (
     EgressDeniedError,
     ProviderConfigurationError,
     ProviderInvocationError,
+    ProviderOutputTruncatedError,
     ProviderUnavailableError,
+    invocation_error,
     parse_json_object,
     require_api_key,
     require_external_egress,
@@ -31,6 +33,19 @@ DeterministicResponder = Callable[[StructuredRequest], dict[str, Any]]
 
 def _default_deterministic_response(request: StructuredRequest) -> dict[str, Any]:
     return {"status": "deterministic", "content": request.messages[-1].content}
+
+
+def _reported_model(response: Any) -> str | None:
+    value = getattr(response, "model", None)
+    return value if isinstance(value, str) and 0 < len(value) <= 256 else None
+
+
+def _provider_http_client(config: ProviderConfig) -> Any:
+    # HTTPX is installed with either optional provider SDK. Keep core imports
+    # usable without those optional dependencies.
+    import httpx
+
+    return httpx.Client(timeout=config.timeout_seconds, follow_redirects=False, trust_env=False)
 
 
 class DeterministicProvider:
@@ -136,6 +151,8 @@ class AnthropicProvider:
                 },
                 messages=[message.model_dump(mode="json") for message in request.messages],
             )
+            if getattr(response, "stop_reason", None) == "max_tokens":
+                raise ProviderOutputTruncatedError("Anthropic model output reached its token limit")
             text = "".join(
                 str(getattr(block, "text", ""))
                 for block in getattr(response, "content", ())
@@ -150,12 +167,13 @@ class AnthropicProvider:
         except ProviderInvocationError:
             raise
         except Exception as exc:
-            raise ProviderInvocationError("Anthropic provider invocation failed") from exc
+            raise invocation_error(exc, "Anthropic") from None
         return StructuredResponse(
             provider=self.config.kind,
             model=self.config.model,
             output=output,
             usage=provider_usage,
+            reported_model=_reported_model(response),
         )
 
     def _get_client(self) -> Any:
@@ -172,7 +190,33 @@ class AnthropicProvider:
             raise ProviderUnavailableError(
                 "Anthropic provider requires the optional 'anthropic' package"
             ) from exc
-        return module.Anthropic(api_key=require_api_key(config))
+        return module.Anthropic(
+            api_key=require_api_key(config),
+            # Match the endpoint shown in setup; never inherit an ambient SDK URL.
+            base_url="https://api.anthropic.com",
+            max_retries=0,
+            http_client=_provider_http_client(config),
+        )
+
+
+def _wire_schema(schema: dict[str, Any], profile: str) -> dict[str, Any]:
+    """Explicit Ollama grammar projection; canonical application validation stays strict."""
+    if profile == "standard":
+        return schema
+
+    def project(value, named_schemas=False):
+        if isinstance(value, dict):
+            schema_maps = {"properties", "$defs", "definitions", "patternProperties"}
+            return {
+                key: project(child, key in schema_maps)
+                for key, child in value.items()
+                if named_schemas or key not in {"minLength", "maxLength"}
+            }
+        if isinstance(value, list):
+            return [project(child) for child in value]
+        return value
+
+    return project(schema)
 
 
 class OpenAICompatibleProvider:
@@ -232,7 +276,13 @@ class OpenAICompatibleProvider:
             messages.append({"role": "system", "content": request.system})
         messages.extend(message.model_dump(mode="json") for message in request.messages)
         try:
+            options = {}
+            if self.config.schema_profile == "ollama":
+                options["temperature"] = 0
+            if self.config.reasoning_effort is not None:
+                options["reasoning_effort"] = self.config.reasoning_effort
             response = client.chat.completions.create(
+                **options,
                 model=self.config.model,
                 messages=messages,
                 max_tokens=self.config.max_output_tokens,
@@ -242,11 +292,15 @@ class OpenAICompatibleProvider:
                     "json_schema": {
                         "name": "opsgraph_response",
                         "strict": True,
-                        "schema": request.response_schema,
+                        "schema": _wire_schema(request.response_schema, self.config.schema_profile),
                     },
                 },
             )
             choice = response.choices[0]
+            if getattr(choice, "finish_reason", None) == "length":
+                raise ProviderOutputTruncatedError(
+                    "OpenAI-compatible model output reached its token limit"
+                )
             output = parse_json_object(choice.message.content)
             usage = getattr(response, "usage", None)
             provider_usage = ProviderUsage(
@@ -256,12 +310,13 @@ class OpenAICompatibleProvider:
         except ProviderInvocationError:
             raise
         except Exception as exc:
-            raise ProviderInvocationError("OpenAI-compatible provider invocation failed") from exc
+            raise invocation_error(exc, "OpenAI-compatible") from None
         return StructuredResponse(
             provider=self.config.kind,
             model=self.config.model,
             output=output,
             usage=provider_usage,
+            reported_model=_reported_model(response),
         )
 
     def _get_client(self) -> Any:
@@ -289,6 +344,10 @@ class OpenAICompatibleProvider:
                 if config.api_key is not None
                 else "opsgraph-no-key"
             ),
+            max_retries=0,
             base_url=config.base_url,
             timeout=config.timeout_seconds,
+            # Egress approval applies to this endpoint. Redirects and ambient
+            # proxy configuration must not silently change its destination.
+            http_client=_provider_http_client(config),
         )

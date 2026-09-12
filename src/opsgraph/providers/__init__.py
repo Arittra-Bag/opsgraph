@@ -7,6 +7,8 @@ from .base import (
     ProviderConfigurationError,
     ProviderError,
     ProviderInvocationError,
+    ProviderOutputTruncatedError,
+    ProviderTimeoutError,
     ProviderUnavailableError,
 )
 from .factory import create_provider
@@ -34,6 +36,8 @@ __all__ = [
     "ProviderError",
     "ProviderHealth",
     "ProviderInvocationError",
+    "ProviderOutputTruncatedError",
+    "ProviderTimeoutError",
     "ProviderKind",
     "ProviderUnavailableError",
     "ProviderUsage",

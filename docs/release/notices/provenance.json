@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "observed_on": "2026-09-12",
+  "scope": "OpsGraph 0.1.0a4 R5 macos-arm64-cp311 runtime wheelhouse; supplemental notices and exact wheel provenance, not legal clearance",
+  "pglast": {
+    "version": "7.18",
+    "declared_license": "GPL-3.0-or-later",
+    "wheel": "pglast-7.18-cp311-cp311-macosx_11_0_arm64.whl",
+    "wheel_sha256": "f91aeb2d31c0e9790182d4a022905df7773d87c32d8c16c383e2f50652d9a833",
+    "release_metadata": "https://pypi.org/pypi/pglast/7.18/json",
+    "source_archive": {
+      "comment_text": null,
+      "core-metadata": false,
+      "digests": {
+        "blake2b_256": "e667fdd5a7f256704a457039423f16bba3bfc14d52672e607217816738230125",
+        "md5": "b8044f24add11a4895620fae798b4a4a",
+        "sha256": "18b52362cea47c87025d031015232da555c70e34762a351633ae040db1ec3c01"
+      },
+      "downloads": -1,
+      "filename": "pglast-7.18.tar.gz",
+      "has_sig": false,
+      "md5_digest": "b8044f24add11a4895620fae798b4a4a",
+      "packagetype": "sdist",
+      "python_version": "source",
+      "requires_python": null,
+      "size": 3414276,
+      "upload_time": "2026-07-22T12:52:48",
+      "upload_time_iso_8601": "2026-07-22T12:52:48.099887Z",
+      "url": "https://files.pythonhosted.org/packages/e6/67/fdd5a7f256704a457039423f16bba3bfc14d52672e607217816738230125/pglast-7.18.tar.gz",
+      "yanked": false,
+      "yanked_reason": null
+    },
+    "source_archive_relative_to_release": "third-party-sources/pglast-7.18.tar.gz",
+    "tag": "v7.18",
+    "tag_object": "92762e2ef91f58b2f4b3c9864c5415f85645aba5",
+    "commit": "8a2ea399c3d87ae68ad680ea52af02c9257be0af",
+    "repository": "https://github.com/lelit/pglast",
+    "libpg_query_commit": "7be1aed1f1f968a36cf541319f71e845850f0381",
+    "libpg_query_archive_identity": {
+      "compared_file_count": 748,
+      "mismatch_count": 0,
+      "mismatches": [],
+      "source": "https://api.github.com/repos/pganalyze/libpg_query/git/trees/7be1aed1f1f968a36cf541319f71e845850f0381?recursive=1",
+      "method": "Git blob SHA-1 comparison of every regular libpg_query archive member against pinned upstream tree; archive itself is verified with SHA-256"
+    },
+    "source_scope": "Unmodified upstream source distribution, including generated parser C, build scripts and a subset of libpg_query's repository. The wheel has not been rebuilt from this source; complete Corresponding Source for an integrated OpsGraph distribution is not established."
+  },
+  "langsmith": {
+    "version": "0.11.0",
+    "declared_license": "MIT",
+    "wheel": "langsmith-0.11.0-py3-none-any.whl",
+    "wheel_sha256": "e87a3929915936c066b3fa3283ec3f3f0013e2ef7f98a443a7fbe3fab8e784a3",
+    "tag": "v0.11.0",
+    "commit": "19be2e470924dde3ca8ac91cc46931d7f899d221",
+    "version_source": "https://github.com/langchain-ai/langsmith-sdk/blob/19be2e470924dde3ca8ac91cc46931d7f899d221/python/langsmith/__init__.py",
+    "license_source": "https://github.com/langchain-ai/langsmith-sdk/blob/19be2e470924dde3ca8ac91cc46931d7f899d221/LICENSE"
+  },
+  "canonical_license_sources": {
+    "GPL-3.0.txt": "https://www.gnu.org/licenses/gpl-3.0.txt",
+    "PostgreSQL-17.7-COPYRIGHT.txt": "https://github.com/postgres/postgres/blob/fbb530a3dff569222bea7098ad4de3d8bde97740/COPYRIGHT",
+    "langsmith-0.11.0-LICENSE.txt": "https://github.com/langchain-ai/langsmith-sdk/blob/19be2e470924dde3ca8ac91cc46931d7f899d221/LICENSE"
+  },
+  "psycopg_binary_review": {
+    "version": "3.3.5",
+    "wheel": "psycopg_binary-3.3.5-cp311-cp311-macosx_11_0_arm64.whl",
+    "wheel_sha256": "fdbeb38c9b7ca8fa57a7bda3802bedb62f4494ad3dd46c7dd36dc3f77fd5093f",
+    "declared_license": "LGPL-3.0-only",
+    "notice_files": [
+      {
+        "member": "psycopg_binary-3.3.5.dist-info/licenses/LICENSE.txt",
+        "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+        "size": 7652
+      }
+    ],
+    "native_member_count": 12,
+    "native_members": [
+      "psycopg_binary/pq.cpython-311-darwin.so",
+      "psycopg_binary/_psycopg.cpython-311-darwin.so",
+      "psycopg_binary/.dylibs/libcom_err.3.0.dylib",
+      "psycopg_binary/.dylibs/libldap.2.dylib",
+      "psycopg_binary/.dylibs/libpq.5.dylib",
+      "psycopg_binary/.dylibs/libssl.3.dylib",
+      "psycopg_binary/.dylibs/libcrypto.3.dylib",
+      "psycopg_binary/.dylibs/libgssapi_krb5.2.2.dylib",
+      "psycopg_binary/.dylibs/liblber.2.dylib",
+      "psycopg_binary/.dylibs/libkrb5.3.3.dylib",
+      "psycopg_binary/.dylibs/libkrb5support.1.1.dylib",
+      "psycopg_binary/.dylibs/libk5crypto.3.1.dylib"
+    ],
+    "upstream_build_commit": null,
+    "scope": "Exact selected 3.3.5 wheel has twelve native members and one LGPL license text. Complete embedded-component notices, build/source correspondence and applicable relinking material remain unresolved. The historical 3.3.4 build-script revision is not attributed to this wheel."
+  },
+  "notice_files": [
+    {
+      "file": "GPL-3.0.txt",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "size": 35149
+    },
+    {
+      "file": "PostgreSQL-17.7-COPYRIGHT.txt",
+      "sha256": "5ed3ce5c9373dff7f98b1fae7a6c7ccd98df7d734d46d24c1bcebf1240be8307",
+      "size": 1198
+    },
+    {
+      "file": "langsmith-0.11.0-LICENSE.txt",
+      "sha256": "34e0b9842c7a31d34e53bc7eb224e81e07a34996106e029bbc72dea2d449f496",
+      "size": 1066
+    },
+    {
+      "file": "libpg_query-Bison-NOTICE.txt",
+      "sha256": "d365a921f09d5b9c7091387a9dc775b306934795fbee8417f957a4be005fd45f",
+      "size": 1746
+    },
+    {
+      "file": "libpg_query-LICENSE.txt",
+      "sha256": "f9352c20940619a380a5e9f23cebe34d8f797cfbd747fc236a7a3e5fc8ef9b41",
+      "size": 1561
+    },
+    {
+      "file": "libpg_query-protobuf-c-NOTICE.txt",
+      "sha256": "e8185daf5bcd355692052fbdc990ea2d8acef9b4c3a41a32f189f272667e9d6b",
+      "size": 1409
+    },
+    {
+      "file": "libpg_query-xxhash-NOTICE.txt",
+      "sha256": "20bf2c9b132fe78c4256abb204159403d987af7a45345f1bdde07ecc094bed7f",
+      "size": 1661
+    },
+    {
+      "file": "pglast-7.18-project-header.txt",
+      "sha256": "a0d0331bd41e8e169f80e4767300cbcac30e350a171167b59a044e90c68f2e79",
+      "size": 299
+    }
+  ],
+  "extracted_notice_provenance": [
+    {
+      "file": "pglast-7.18-project-header.txt",
+      "sha256": "a0d0331bd41e8e169f80e4767300cbcac30e350a171167b59a044e90c68f2e79",
+      "source_archive_member": "pglast-7.18/pglast/__init__.py",
+      "source_member_sha256": "3cb9f059de3674cc6384eed29b95b9b46f9178c65b39d4c6074678892bdb0d69",
+      "copy": "py-header"
+    },
+    {
+      "file": "libpg_query-LICENSE.txt",
+      "sha256": "f9352c20940619a380a5e9f23cebe34d8f797cfbd747fc236a7a3e5fc8ef9b41",
+      "source_archive_member": "pglast-7.18/libpg_query/LICENSE",
+      "source_member_sha256": "f9352c20940619a380a5e9f23cebe34d8f797cfbd747fc236a7a3e5fc8ef9b41",
+      "copy": "all"
+    },
+    {
+      "file": "libpg_query-protobuf-c-NOTICE.txt",
+      "sha256": "e8185daf5bcd355692052fbdc990ea2d8acef9b4c3a41a32f189f272667e9d6b",
+      "source_archive_member": "pglast-7.18/libpg_query/vendor/protobuf-c/protobuf-c.c",
+      "source_member_sha256": "4ff2afde88ecd4ea063c808c65a4eec11fba6b5eb8e53a8ee6185867b795a50d",
+      "copy": "c-header"
+    },
+    {
+      "file": "libpg_query-xxhash-NOTICE.txt",
+      "sha256": "20bf2c9b132fe78c4256abb204159403d987af7a45345f1bdde07ecc094bed7f",
+      "source_archive_member": "pglast-7.18/libpg_query/vendor/xxhash/xxhash.h",
+      "source_member_sha256": "7a15f72484e64cbf828d51e7429f43f5b8ccb52da8825b1ed79b9f27de5dec92",
+      "copy": "c-header"
+    },
+    {
+      "file": "libpg_query-Bison-NOTICE.txt",
+      "sha256": "d365a921f09d5b9c7091387a9dc775b306934795fbee8417f957a4be005fd45f",
+      "source_archive_member": "pglast-7.18/libpg_query/src/postgres/src_backend_parser_gram.c",
+      "source_member_sha256": "d8f77c6e08afae91001dc2d984aa1dab46518fb0793807ab0a55247dd0f09e96",
+      "copy": "bison"
+    }
+  ],
+  "historical_psycopg_binary_review_3_3_4": {
+    "version": "3.3.4",
+    "commit": "83f110367cdd249cc0a352e2246ecea9e878e5a0",
+    "build_script": "https://github.com/psycopg/psycopg/blob/83f110367cdd249cc0a352e2246ecea9e878e5a0/tools/ci/build_libpq.sh",
+    "scope": "Wheel has 12 native members and one LGPL license text. Build script describes OpenSSL, libpq, Kerberos and OpenLDAP; actual wheel dependency versions, complete source correspondence and separate notices remain unresolved. Build script was read, not executed."
+  },
+  "current_wheel_inventory": {
+    "file": "wheel-license-inventory.json",
+    "sha256": "329c6d5e0d9144a3a0db9f86b2c74293e29cd7f485205b18101bc07d64113509",
+    "dependency_count": 53,
+    "application_wheel_sha256": "850f8a0253a6ef8de2847f10ea089539b0560e99848b937730e26c12736fa9bd",
+    "scope": "Observed artifact metadata; not complete native source coverage or legal clearance"
+  }
+}

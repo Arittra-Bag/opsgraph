@@ -1,0 +1,84 @@
+name: Bug report
+description: Report an installation, investigation, evidence, or interface problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use purpose-made test data and report what you observed, including failed attempts.
+        Do not include keys, passwords, DSNs, customer records, `.env`, raw state databases, or full exports.
+        Report suspected vulnerabilities privately through [GitHub Security Advisories](https://github.com/Arittra-Bag/opsgraph/security/advisories/new).
+  - type: input
+    id: candidate
+    attributes:
+      label: Candidate or version
+      description: Include the release/commit and artifact SHA-256, or the supplied private tester candidate ID. A base commit alone does not identify an edited checkout.
+      placeholder: "Candidate ID; version; wheel SHA-256 if available"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected workflow
+      options:
+        - Installation or configuration
+        - Source inspection or model probe
+        - Query or evidence capture
+        - Incorrect claim or unclear limitation
+        - History, export, retry, or follow-up
+        - Cancellation, reconnect, or restart
+        - Keyboard, zoom, or interface
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Record the actual environment; distinguish native Windows from WSL, native Ubuntu from a container, and host from guest OS.
+      placeholder: |
+        OS/build and architecture; native/VM/container:
+        Python and browser versions:
+        Install route:
+        PostgreSQL version:
+        Model service/version, model name/digest, timeout:
+        RAM/CPU (for model or installation failures):
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include a harmless question and minimal table/column meanings if relevant. Omit real records and secrets.
+      placeholder: |
+        1.
+        2.
+        Frequency and any help or retries needed:
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: For an incorrect claim, state the expected observation and how you independently checked it.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include the visible state and error, run/attempt ID if available, whether earlier evidence remained available, and whether an answer-validation retry appeared or another SQL capture was created. A completed run can still contain a wrong interpretation.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Minimal redacted evidence
+      description: Optional screenshot, bounded log excerpt, or purpose-made capture comparison. Describe row/value comparison separately from hash verification. Inspect attachments for private content before sharing.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Report privacy
+      options:
+        - label: I removed credentials and private/customer data from this report and its attachments.
+          required: true

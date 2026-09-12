@@ -1,0 +1,66 @@
+# Secondary Windows compatibility check. GitHub Actions owns Linux/macOS,
+# packaging, and container validation. This job uses fixtures only.
+version: 2.1
+
+orbs:
+  win: circleci/windows@5.1.1
+
+jobs:
+  windows-server-2022-python-312:
+    executor:
+      name: win/server-2022
+      version: "2026.05.1"
+      size: medium
+    environment:
+      OPSGRAPH_ACCEPTANCE: "0"
+      OPSGRAPH_ACCEPTANCE_SCENARIOS: "0"
+      OPSGRAPH_ACCEPTANCE_SCHEMA_CHANGE: "0"
+      UV_PYTHON_INSTALL_DIR: ".circleci-tools/python"
+    steps:
+      - checkout
+      - run:
+          name: Install checksum-verified uv
+          command: |
+            New-Item -ItemType Directory -Force .circleci-tools | Out-Null
+            python --version
+            python -m pip download --isolated --no-cache-dir --disable-pip-version-check `
+              --index-url https://pypi.org/simple --no-deps --only-binary=:all: `
+              --dest .circleci-tools uv==0.9.26
+            $wheel = Get-Item .circleci-tools\uv-0.9.26-py3-none-win_amd64.whl
+            $actual = (Get-FileHash -Algorithm SHA256 $wheel).Hash.ToLowerInvariant()
+            if ($actual -ne "0315fc321f5644b12118f9928086513363ed9b29d74d99f1539fda1b6b5478ab") {
+              throw "uv wheel SHA-256 mismatch"
+            }
+            python -m pip install --isolated --disable-pip-version-check `
+              --no-index --no-deps $wheel.FullName
+            python -m uv --version
+      - run:
+          name: Install checksum-verified managed CPython
+          command: |
+            Remove-Item Env:UV_PYTHON_DOWNLOADS_JSON_URL -ErrorAction SilentlyContinue
+            Remove-Item Env:UV_PYTHON_INSTALL_MIRROR -ErrorAction SilentlyContinue
+            python -m uv python install --no-config --no-bin --no-registry `
+              --install-dir .circleci-tools\python 3.12.12
+      - run:
+          name: Verify lock and install dependencies
+          command: |
+            python -m uv lock --check --no-config
+            python -m uv sync --no-config --managed-python --no-python-downloads `
+              --python 3.12.12 --locked --all-extras
+            $version = & .venv\Scripts\python.exe -c "import platform; print(platform.python_version())"
+            if ($version -ne "3.12.12") { throw "Expected exact CPython 3.12.12" }
+      - run:
+          name: Run Python compatibility tests
+          command: |
+            & .venv\Scripts\python.exe --version
+            & .venv\Scripts\python.exe -m pytest -q -ra
+
+workflows:
+  native-compatibility:
+    jobs:
+      - windows-server-2022-python-312:
+          filters:
+            branches:
+              only:
+                - main
+                - codex/opsgraph-productization

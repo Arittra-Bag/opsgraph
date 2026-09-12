@@ -30,6 +30,14 @@ class ProviderInvocationError(ProviderError):
     pass
 
 
+class ProviderOutputTruncatedError(ProviderInvocationError):
+    """The provider stopped at its output-token limit; output is incomplete."""
+
+
+class ProviderTimeoutError(ProviderInvocationError):
+    """A bounded model call expired without a usable structured result."""
+
+
 class EgressDeniedError(ProviderError):
     pass
 
@@ -72,3 +80,39 @@ def parse_json_object(value: Any) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise ProviderInvocationError("provider JSON output must be an object")
     return parsed
+
+
+def is_timeout_error(exc: Exception) -> bool:
+    """Recognize built-in and optional SDK timeout types without exposing their messages."""
+    return isinstance(exc, TimeoutError) or (
+        type(exc).__name__ == "APITimeoutError"
+        and type(exc).__module__.split(".")[0] in {"openai", "anthropic"}
+    )
+
+
+def invocation_error(exc: Exception, provider: str) -> ProviderInvocationError:
+    """Classify failures using status metadata only, never provider bodies or URLs."""
+    if is_timeout_error(exc):
+        return ProviderTimeoutError(f"{provider} model call timed out")
+    status = getattr(exc, "status_code", None)
+    if status in {401, 403}:
+        detail = "access denied; verify the backend API key and model permissions"
+    elif status == 404:
+        detail = "model or API route not found; verify the model ID and endpoint base URL"
+    elif status in {400, 422}:
+        detail = (
+            "request rejected; verify structured JSON-schema support, model ID "
+            "and configured request options"
+        )
+    elif status == 429:
+        detail = "rate or quota limit reached; check provider limits before retrying"
+    elif isinstance(status, int) and 500 <= status <= 599:
+        detail = "service unavailable; check the model server and retry when healthy"
+    elif type(exc).__name__ == "APIConnectionError" and type(exc).__module__.split(".")[0] in {
+        "openai",
+        "anthropic",
+    }:
+        detail = "connection failed; verify the endpoint, server availability and TLS setup"
+    else:
+        detail = "invocation failed; verify the model server and configuration"
+    return ProviderInvocationError(f"{provider} {detail}")

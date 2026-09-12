@@ -6,5 +6,12 @@ PREVIEW = ROOT / "web"
 
 
 def test_browser_preview_mirrors_packaged_ui_assets():
-    for relative in ("index.html", "static/app.css", "static/app.js", "static/favicon.svg"):
+    for relative in (
+        "index.html",
+        "static/app.css",
+        "static/app.js",
+        "static/events.js",
+        "static/view-state.js",
+        "static/favicon.svg",
+    ):
         assert (PREVIEW / relative).read_bytes() == (CANONICAL / relative).read_bytes()

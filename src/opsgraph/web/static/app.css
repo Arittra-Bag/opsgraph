@@ -124,3 +124,192 @@ main { min-width: 0; min-height: 0; overflow: hidden; }
 }
 @media (max-width: 380px) { .trust-signal { font-size: 9px; }.case-card { min-width: 245px; }.canvas-scroll, .case-header { padding-inline: 14px; }.case-actions { display: grid; grid-template-columns: 1fr 1fr; }.decision-meta { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
+
+/* Connected investigation workspace: existing palette and controls, fewer fixed panes. */
+:root { --sidebar: 190px; --cases: 248px; --faint: #98a6ae; }
+[hidden] { display: none !important; }
+body { overflow: auto; }
+button, input, select, textarea { font: inherit; }
+input, textarea { cursor: text; }
+textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+button:disabled { cursor: not-allowed; }
+input, select, textarea { max-width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: #0c1216; color: var(--text); padding: 10px 12px; }
+textarea { width: 100%; resize: vertical; }
+label { display: block; margin: 10px 0 6px; color: var(--text-2); font-size: 14px; }
+small, .helper { color: var(--muted); font-size: 13px; line-height: 1.6; }
+pre, code { overflow-wrap: normal; }
+pre { max-width: 100%; overflow: auto; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.trust-bar { height: auto; min-height: 64px; flex-wrap: wrap; padding-block: 10px; }
+.trust-signals { flex: 1; flex-wrap: wrap; }
+.trust-signal { font-size: 11px; min-height: 28px; }
+.trust-signals .trust-signal { display: inline-flex; }
+.workspace-connect { margin-left: auto; }
+.app-shell { height: auto; min-height: calc(100dvh - 64px); grid-template-columns: var(--sidebar) minmax(0, 1fr); }
+.sidebar { position: sticky; top: 0; height: calc(100dvh - 20px); }
+.nav-item { display: block; font-size: 14px; min-height: 44px; }
+.local-runtime { margin-top: 32px; }
+main { min-width: 0; overflow: visible; }
+.view { height: auto; }
+.workspace-toolbar { display: flex; gap: 16px; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+.workspace-toolbar h1 { margin: 0; font-size: 23px; }
+.investigation-layout { height: auto; grid-template-columns: var(--cases) minmax(0, 1fr); }
+.investigation-layout.history-hidden { grid-template-columns: minmax(0, 1fr); }
+.case-list { overflow: visible; }
+.case-list input { width: 100%; }
+.case-list label { margin-top: 0; }
+.case-card { border: 1px solid var(--line-soft); overflow-wrap: anywhere; }
+.case-card b { font-size: 14px; }
+.case-card time { display: block; float: none; margin-top: 8px; }
+.case-card .case-state { font-size: 11px; color: var(--text-2); }
+.case-workspace { overflow: visible; }
+.case-header { display: block; }
+.case-actions { flex-wrap: wrap; margin-top: 18px; white-space: normal; }
+.case-actions .secondary { display: inline-flex; align-items: center; }
+.scope-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.scope-strip b { white-space: normal; font-size: 13px; overflow-wrap: anywhere; }
+.scope-strip small { font-size: 10px; }
+.canvas-scroll { overflow: visible; }
+.setup-card, .composer-section { margin: 24px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.setup-card h2 { font-size: clamp(23px, 3vw, 32px); line-height: 1.2; }
+.setup-card > p { color: var(--muted); max-width: 70ch; }
+.setup-checklist { list-style: none; padding: 0; margin: 22px 0 0; }
+.setup-checklist li { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 16px 0; border-top: 1px solid var(--line); }
+.setup-checklist span { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+.setup-checklist button { flex-shrink: 0; }
+.composer-section { margin-top: 10px; }
+.composer-section h2 { font-size: 20px; }
+.composer-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.composer-controls select { width: 100%; }
+.composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
+.composer-actions p { margin: 0; }
+.notice { padding: 13px 16px; border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+.notice.error { border-color: #794e42; background: #251b19; color: #ffc7b9; }
+#globalError, #runError { margin: 16px 24px; }
+.connection-state { margin: 12px 24px 0; color: var(--muted); font-size: 13px; }
+.connection-state.disconnected { color: var(--amber); }
+.decision-card { display: block; border-color: #3b6057; }
+.decision-card h3 { font-size: 21px; line-height: 1.4; }
+.decision-card li { margin-top: 8px; color: var(--text-2); font-size: 14px; }
+.finding-grid { grid-template-columns: minmax(0, 1fr); }
+.finding { min-height: 0; }
+.finding h3 { overflow-wrap: anywhere; }
+.classification { font-size: 11px; }
+.finding-head small { font-size: 12px; }
+.finding .citation-button { display: inline-block; margin-right: 12px; }
+.activity-panel, .evidence-section { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
+.activity-panel summary { cursor: pointer; min-height: 36px; }
+#activityLog { padding-left: 23px; font-size: 13px; color: var(--text-2); }
+#activityLog li { margin-block: 12px; }
+#activityLog time { display: block; color: var(--muted); }
+.evidence-reference { width: 100%; text-align: left; padding: 12px; margin: 7px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.evidence-reference span { display: block; color: var(--muted); font-size: 13px; margin-top: 6px; }
+.evidence-drawer { width: min(700px, 100vw); }
+.detail-list div { display: block; border-bottom: 1px solid var(--line); }
+.detail-list dt { font-weight: 700; color: var(--text-2); }
+.detail-list dd { margin: 6px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+.evidence-table-wrap { overflow-x: auto; max-width: 100%; }
+.evidence-table { border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.evidence-table td, .evidence-table th { padding: 9px; border: 1px solid var(--line); text-align: left; }
+.source-setup { align-items: start; }
+.source-card { min-height: 0; }
+.source-card button { min-height: 44px; }
+.checkbox-label { display: flex; align-items: flex-start; gap: 10px; }
+.checkbox-label input { min-height: 20px; margin: 0; }
+.checkbox-label span { font-size: 13px; }
+#inspectedTables { margin-top: 12px; border: 1px solid var(--line); padding: 12px; border-radius: 8px; }
+#inspectedTables label { overflow-wrap: anywhere; }
+.data-block { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 20px; max-width: 1180px; margin: 0 auto; }
+.runtime-details { max-width: 1180px; margin: 24px auto; }
+.settings-grid section { min-width: 0; }
+.settings-grid p { color: var(--muted); font-size: 14px; }
+.settings-grid button { margin-top: 14px; }
+.catalog-grid article p { overflow-wrap: anywhere; }
+.drawer-body p { overflow-wrap: anywhere; }
+@media (max-width: 1180px) {
+  :root { --sidebar: 165px; --cases: 220px; }
+  .sidebar { padding-inline: 10px; }
+  .new-investigation { font-size: 13px; text-align: left; }
+  .new-investigation span { font-size: 20px; margin-right: 6px; }
+  .nav-item { font-size: 14px; border-left: 3px solid transparent; text-align: left; }
+  .local-runtime { display: block; padding: 12px; }
+  .local-runtime b, .local-runtime p { display: block; }
+}
+@media (max-width: 900px) {
+  .app-shell { display: block; }
+  .sidebar { position: static; height: auto; width: 100%; flex-direction: column; align-items: stretch; overflow: visible; padding: 10px; }
+  .new-investigation { width: auto; align-self: flex-start; }
+  .sidebar nav { gap: 4px; flex-wrap: wrap; }
+  .nav-item { width: auto; min-width: 0; padding: 10px; font-size: 13px; }
+  .local-runtime { display: none; }
+  .investigation-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .case-list { border-right: 0; max-height: 300px; overflow-y: auto; }
+  #caseList { display: block; overflow: visible; }
+  .case-card { min-width: 0; }
+  .trust-bar { position: static; gap: 10px; }
+  .trust-signals { order: 3; width: 100%; }
+  .settings-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .workspace-toolbar { padding: 16px; }
+  .workspace-toolbar h1 { font-size: 20px; }
+  .setup-card, .composer-section { padding: 16px; margin: 16px; }
+  .setup-checklist li { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .composer-controls { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .composer-actions { flex-direction: column; align-items: stretch; }
+  .case-actions { display: flex; }
+  .scope-strip { grid-template-columns: minmax(0, 1fr); }
+  .evidence-drawer { width: 100%; }
+  .drawer header { gap: 12px; }
+  .drawer h2 { font-size: 21px; }
+  .source-grid { grid-template-columns: minmax(0, 1fr); }
+  .catalog-view { padding: 22px 16px; }
+  .trust-signal { font-size: 10px; }
+}
+
+.advanced-skills { max-width: 1180px; margin: 28px auto 0; padding: 20px; border: 1px solid var(--line); border-radius: 12px; }
+.advanced-skills summary { cursor: pointer; min-height: 34px; }
+.advanced-skills p { font-size: 14px; color: var(--muted); }
+
+.previous-turn { margin: 20px 24px 0; padding: 18px; border: 1px solid var(--line); border-left: 3px solid var(--teal); border-radius: 9px; background: var(--panel); }
+.previous-turn summary { cursor: pointer; min-height: 28px; color: var(--teal); font-weight: 600; overflow-wrap: anywhere; }
+.previous-turn p { font-size: 14px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .previous-turn { margin: 16px; } }
+
+/* Form checkboxes stay beside their labels rather than inheriting text-input width. */
+.credential-form .checkbox-label input[type="checkbox"], .checkbox-label input[type="checkbox"] { width: 20px; height: 20px; min-height: 20px; flex: 0 0 20px; padding: 0; margin-top: 2px; }
+.credential-form .checkbox-label, .checkbox-label { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; }
+.skip-link:not(:focus-visible) { width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip-link:focus-visible { position: fixed; top: 1rem; left: 1rem; width: auto; height: auto; padding: .7rem 1rem; overflow: visible; clip-path: none; transform: none; }
+
+.case-card > b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+
+/* Closed fixed drawers must not enlarge the mobile layout viewport. */
+.drawer:not(.open) { display: none; }
+.drawer.open { display: flex; transform: none; visibility: visible; }
+
+#runIdentity { overflow-wrap: anywhere; }
+#conclusionTitle { overflow-wrap: anywhere; }
+
+/* Scope and physical metadata stay inspectable without adding permanent columns. */
+.scope-summary { min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+.scope-summary summary, .schema-table summary { cursor: pointer; min-height: 32px; color: var(--text-2); font-size: 14px; font-weight: 650; overflow-wrap: anywhere; }
+.run-scope { margin: 16px 24px; }
+.composer-scope { margin: 16px 0; }
+.scope-summary-list { margin: 8px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.scope-summary-list > div { min-width: 0; }
+.scope-summary-list dt { color: var(--muted); font-size: 12px; }
+.scope-summary-list dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 13px; color: var(--text-2); }
+.current-operation { margin: 16px 24px 0; padding-left: 12px; border-left: 3px solid var(--teal); color: var(--text-2); font-size: 14px; overflow-wrap: anywhere; }
+.schema-table { min-width: 0; margin: 18px 0; border-top: 1px solid var(--line); padding-top: 12px; }
+.schema-table .evidence-table-wrap { margin-top: 8px; }
+#inspectedTables { min-width: 0; }
+.source-setup > * { min-width: 0; }
+#inspectedTables h3 { margin: 0 0 12px; font-size: 17px; }
+#inspectedTables ul { padding-left: 22px; }
+#inspectedTables li { overflow-wrap: anywhere; }
+.finding p { line-height: 1.6; }
+@media (max-width: 600px) {
+  .run-scope { margin: 16px; }
+  .current-operation { margin-inline: 16px; }
+  .scope-summary-list { grid-template-columns: minmax(0, 1fr); }
+}

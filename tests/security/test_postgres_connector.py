@@ -5,6 +5,7 @@ import pytest
 from opsgraph.brokers import (
     ConnectorUnavailable,
     PsycopgReadOnlyExecutor,
+    QueryExecutionFailed,
     UnsafeDatabaseRole,
 )
 
@@ -131,6 +132,50 @@ def test_connector_errors_do_not_expose_dsn_or_driver_message() -> None:
     assert caught.value.__cause__ is None
 
 
+@pytest.mark.parametrize("sqlstate", ["21000", "22012", "42601", "42703"])
+def test_invalid_query_is_actionable_redacted_and_rolled_back(sqlstate) -> None:
+    connection = FakeConnection()
+    original = connection._cursor.execute
+
+    class DriverError(RuntimeError):
+        pass
+
+    error = DriverError("private-driver-message-with-record-values")
+    error.sqlstate = sqlstate
+
+    def execute(sql, params=None):
+        if sql.startswith("SELECT * FROM public.incidents"):
+            raise error
+        return original(sql, params)
+
+    connection._cursor.execute = execute
+    executor = PsycopgReadOnlyExecutor("secret-dsn", connector=lambda *a, **kw: connection)
+    with pytest.raises(QueryExecutionFailed) as caught:
+        executor.execute_readonly("SELECT * FROM public.incidents", timeout_ms=900)
+    assert "recorded query" in str(caught.value)
+    assert "private-driver-message" not in str(caught.value)
+    assert caught.value.__cause__ is None
+    assert connection.rolled_back and connection.closed
+
+
+def test_role_check_error_is_not_mislabeled_as_a_model_query_failure() -> None:
+    connection = FakeConnection()
+
+    class DriverError(RuntimeError):
+        sqlstate = "42703"
+
+    def fail(sql, params=None):
+        raise DriverError("private-driver-details")
+
+    connection._cursor.execute = fail
+    executor = PsycopgReadOnlyExecutor("secret-dsn", connector=lambda *a, **kw: connection)
+    with pytest.raises(ConnectorUnavailable) as caught:
+        executor.execute_readonly("SELECT * FROM public.incidents", timeout_ms=900)
+    assert not isinstance(caught.value, QueryExecutionFailed)
+    assert "private-driver-details" not in str(caught.value)
+    assert connection.rolled_back and connection.closed
+
+
 def test_schema_discovery_reads_metadata_only_and_hashes_snapshot() -> None:
     connection = SchemaConnection()
     executor = PsycopgReadOnlyExecutor("secret-dsn", connector=lambda *args, **kwargs: connection)
@@ -140,10 +185,14 @@ def test_schema_discovery_reads_metadata_only_and_hashes_snapshot() -> None:
     assert snapshot.fingerprint.startswith("sha256:")
     assert snapshot.tables[0].table_name == "jobs"
     assert [column.name for column in snapshot.tables[0].columns] == ["id", "status"]
+    assert all(column.primary_key is None for column in snapshot.tables[0].columns)
     discovery = next(
         (sql, params)
         for sql, params in connection._cursor.executed
         if "information_schema.columns" in sql
     )
-    assert discovery[1] == (["public"],)
+    assert discovery[1] == (["public"], None, None)
+    assert "has_column_privilege" in discovery[0] and "'SELECT'" in discovery[0]
+    assert "has_schema_privilege" in discovery[0] and "'USAGE'" in discovery[0]
+    assert snapshot.inspected_at is not None
     assert connection.rolled_back and connection.closed

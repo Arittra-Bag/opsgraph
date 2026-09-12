@@ -8,7 +8,7 @@ __pycache__/
 .coverage
 .uv-cache/
 work/
-ed_local_incident_csv_export_2026-08-13/
+*_incident_csv_export_*/
 dist/
 build/
 *.egg-info/

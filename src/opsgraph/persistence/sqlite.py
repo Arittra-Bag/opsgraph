@@ -75,6 +75,35 @@ class SQLiteWorkspaceStore:
             raise ValueError("stored workspace record must be a JSON object")
         return WorkspaceRecord(workspace_id, record_id, value)
 
+    def put_if_unchanged(
+        self, expected: WorkspaceRecord, records: tuple[WorkspaceRecord, ...]
+    ) -> bool:
+        """Atomically save related metadata only while its source revision is unchanged."""
+        workspace, record_id = self._key(expected.workspace_id, expected.record_id)
+        expected_json = json.dumps(expected.value, sort_keys=True, separators=(",", ":"))
+        values = []
+        for record in records:
+            key = self._key(record.workspace_id, record.record_id)
+            if key[0] != workspace:
+                raise ValueError("atomic metadata update must stay inside one workspace")
+            values.append((*key, json.dumps(record.value, sort_keys=True, separators=(",", ":"))))
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT value_json FROM workspace_records WHERE workspace_id=? AND record_id=?",
+                (workspace, record_id),
+            ).fetchone()
+            if row is None or row[0] != expected_json:
+                return False
+            connection.executemany(
+                "INSERT INTO workspace_records (workspace_id, record_id, value_json) "
+                "VALUES (?,?,?) ON CONFLICT(workspace_id, record_id) DO UPDATE SET "
+                "value_json=excluded.value_json, "
+                "updated_at=CURRENT_TIMESTAMP",
+                values,
+            )
+        return True
+
     def list(self, *, workspace_id: str) -> tuple[WorkspaceRecord, ...]:
         self._validate_component(workspace_id, "workspace_id")
         with self._lock, self._connect() as connection:

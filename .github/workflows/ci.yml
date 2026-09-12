@@ -2,44 +2,184 @@ name: ci
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  OPSGRAPH_ACCEPTANCE: "0"
+  OPSGRAPH_ACCEPTANCE_SCENARIOS: "0"
+  OPSGRAPH_ACCEPTANCE_SCHEMA_CHANGE: "0"
+  SOURCE_DATE_EPOCH: "1789171200"
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.13"]
+  quality-package:
+    name: Quality and package — Ubuntu 24.04 / Python 3.13
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          python-version: ${{ matrix.python-version }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.9.26"
+          python-version: "3.13"
           enable-cache: true
       - run: uv lock --check
-      - run: uv sync --locked --all-extras
-      - run: uv run ruff check src tests
-      - run: uv run ruff format --check src tests
-      - run: uv run pytest -q
-      - run: uv build
+      # Install only locked wheels; test imports use the configured src path.
+      # Application packaging is a separate explicit, hash-constrained build.
+      - run: uv sync --locked --all-extras --no-build --no-install-project
+      - run: uv run --locked --no-sync --no-build ruff check src tests scripts
+      - run: uv run --locked --no-sync --no-build ruff format --check src tests scripts
+      - run: uv run --locked --no-sync --no-build python -m pytest -q -ra
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.23.2"
+      - name: Run all dependency-free frontend tests
+        run: node --test tests/frontend/*.cjs
+      - run: uv build --build-constraints requirements-build.lock --require-hashes
       - name: Clean wheel smoke test
-        run: |
-          uv venv /tmp/opsgraph-wheel
-          uv pip install --python /tmp/opsgraph-wheel/bin/python dist/*.whl
-          /tmp/opsgraph-wheel/bin/python -c "from opsgraph.config import Settings; from opsgraph.runtime import build_runtime; runtime = build_runtime(Settings(api_key='a'*24)); assert runtime.settings.web_root.joinpath('index.html').is_file(); assert len(runtime.skills.list_published()) == 3"
-  container-smoke:
-    needs: test
-    runs-on: ubuntu-latest
+        run: uv run --locked --no-sync --no-build python scripts/wheel_smoke.py
+      - name: Record source distribution checksums
+        run: sha256sum dist/opsgraph-* > dist/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opsgraph-source-distributions-${{ github.sha }}
+          path: |
+            dist/opsgraph-*
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 3
+
+  fixture-compatibility:
+    name: Fixture compatibility — ${{ matrix.label }} — no live PostgreSQL/model
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python: "3.11"
+            label: Ubuntu 24.04 x64 / Python 3.11
+          - os: windows-2025
+            python: "3.11"
+            label: Windows Server 2025 x64 / Python 3.11
+          - os: windows-2025
+            python: "3.13"
+            label: Windows Server 2025 x64 / Python 3.13
+          - os: macos-26
+            python: "3.11"
+            label: macOS 26 arm64 / Python 3.11
+          - os: macos-26
+            python: "3.13"
+            label: macOS 26 arm64 / Python 3.13
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.9.26"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv lock --check
+      # Install only locked wheels; test imports use the configured src path.
+      # Application packaging is a separate explicit, hash-constrained build.
+      - run: uv sync --locked --all-extras --no-build --no-install-project
+      - run: uv run --locked --no-sync --no-build python --version
+      - run: uv run --locked --no-sync --no-build python -m pytest -q -ra
+
+  native-bundle:
+    name: Native offline bundle — ${{ matrix.label }} — no live PostgreSQL/model
+    needs:
+      - quality-package
+      - fixture-compatibility
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: ubuntu-x64-cp311
+            label: Ubuntu 24.04 x64
+          - os: windows-2025
+            target: windows-x64-cp311
+            label: Windows Server 2025 x64
+          - os: macos-26
+            target: macos-arm64-cp311
+            label: macOS 26 arm64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.9.26"
+          enable-cache: true
+      - name: Build current application wheel
+        run: >-
+          uv build --wheel
+          --build-constraints requirements-build.lock
+          --require-hashes
+          --out-dir dist
+      - name: Download host-selected locked runtime wheels
+        run: >-
+          python -m pip download
+          --disable-pip-version-check
+          --only-binary=:all:
+          --require-hashes
+          --dest ci-wheelhouse
+          -r requirements.lock
+      - name: Build, install, launch and maintain the native bundle
+        run: >-
+          python scripts/ci_bundle_acceptance.py
+          --platform ${{ matrix.target }}
+          --wheel dist/opsgraph-0.1.0b1-py3-none-any.whl
+          --wheelhouse ci-wheelhouse
+          --output ci-artifacts/opsgraph-0.1.0b1-${{ matrix.target }}.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opsgraph-${{ matrix.target }}-${{ github.sha }}
+          path: |
+            ci-artifacts/opsgraph-0.1.0b1-${{ matrix.target }}.zip
+            ci-artifacts/opsgraph-0.1.0b1-${{ matrix.target }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 3
+
+  container-smoke:
+    name: Container configuration smoke — Ubuntu 24.04 x64
+    needs: quality-package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Build alpha container
         run: docker build --tag opsgraph-alpha:ci --file deploy/container/Dockerfile .
-      - name: Start and verify sample-mode container
+      - name: Start and verify configuration-only container
         run: |
-          docker run --detach --name opsgraph-alpha-ci -p 127.0.0.1:8000:8000 -e OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars opsgraph-alpha:ci
+          docker volume create opsgraph-ci-state >/dev/null
+          docker run --detach --name opsgraph-alpha-ci \
+            --publish 127.0.0.1:8000:8000 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:size=64m,mode=1770,uid=10001,gid=10001 \
+            --mount type=volume,source=opsgraph-ci-state,target=/data \
+            --env OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars \
+            opsgraph-alpha:ci
           for attempt in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8000/api/health; then break; fi
             if [ "$attempt" = 20 ]; then docker logs opsgraph-alpha-ci; exit 1; fi
@@ -47,10 +187,15 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8000/assets/static/app.js >/dev/null
       - name: Verify Compose configuration
-        run: OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars docker compose -f deploy/compose.yaml config >/dev/null
+        run: >-
+          OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars
+          OPSGRAPH_LOCAL_MODEL_URL=http://127.0.0.1:11434/v1
+          docker compose -f deploy/compose.yaml config >/dev/null
       - name: Show container logs on failure
         if: failure()
         run: docker logs opsgraph-alpha-ci || true
-      - name: Stop sample-mode container
+      - name: Stop configuration-only container
         if: always()
-        run: docker rm --force opsgraph-alpha-ci || true
+        run: |
+          docker rm --force opsgraph-alpha-ci || true
+          docker volume rm opsgraph-ci-state || true

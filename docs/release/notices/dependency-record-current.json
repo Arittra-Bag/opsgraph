@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "observed_on": "2026-09-12",
+  "scope": "R5 application and unchanged R4/R5 runtime wheelhouse, macos-arm64-cp311",
+  "inventory_file": "wheel-license-inventory.json",
+  "inventory_sha256": "329c6d5e0d9144a3a0db9f86b2c74293e29cd7f485205b18101bc07d64113509",
+  "application_wheel": "opsgraph-0.1.0a4-py3-none-any.whl",
+  "application_wheel_sha256": "850f8a0253a6ef8de2847f10ea089539b0560e99848b937730e26c12736fa9bd",
+  "requirements_lock_sha256": "76121485e8a5d362fa1907bc49ee08b3493510c3e7c6c57c5b42f0b64981ee90",
+  "dependency_count": 53,
+  "native_distribution_count": 15,
+  "missing_declared_license_files": [],
+  "no_named_license_members": [
+    "langsmith",
+    "pglast"
+  ],
+  "unresolved": [
+    "LangSmith and pglast named wheel notice gaps are supplemented by the sibling license texts; this does not establish every component notice.",
+    "pglast source archive is a separately identified upstream source candidate; the wheel has not been rebuilt and complete integrated Corresponding Source is not established.",
+    "psycopg-binary 3.3.5 includes only an LGPL license file; complete native component notices, source correspondence and relinking material remain unresolved.",
+    "Other embedded native libraries have not received a complete source/notice assessment.",
+    "Integrated GPL distribution scope and all applicable license obligations remain unresolved; no publication or legal clearance is asserted.",
+    "This native macOS inventory does not cover the separate Linux container or establish Windows/Ubuntu support."
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "observed_on": "2026-09-12",
+  "scope": "Beta macOS CPython3.11 arm64 pglast/Psycopg source and notice supplement; no execution of upstream build scripts",
+  "sources": [
+    {
+      "file": "pglast-7.18.tar.gz",
+      "size": 3414276,
+      "sha256": "18b52362cea47c87025d031015232da555c70e34762a351633ae040db1ec3c01",
+      "source": "https://files.pythonhosted.org/packages/e6/67/fdd5a7f256704a457039423f16bba3bfc14d52672e607217816738230125/pglast-7.18.tar.gz"
+    },
+    {
+      "file": "psycopg-3.3.5.tar.gz",
+      "size": 166508,
+      "sha256": "d0a3d9ccf5788af054cbd745278cb02401b5c312aeaafbf2c6144460aec47da4",
+      "source": "https://files.pythonhosted.org/packages/72/73/8fb739d0f6bba247b9b93c9840c402a4f88545be5f1d4b02b23366371c00/psycopg-3.3.5.tar.gz"
+    },
+    {
+      "file": "psycopg_c-3.3.5.tar.gz",
+      "size": 694569,
+      "sha256": "5e11edaa0040a64d0af351a8fd3e276a824cd92fe34abc350cd67aa07ad36c55",
+      "source": "https://files.pythonhosted.org/packages/21/7b/5da2274bdbfed6b02aea463e2b803b8d4406bbc9d6c6f6bfd7122492254f/psycopg_c-3.3.5.tar.gz"
+    },
+    {
+      "file": "psycopg-source-ea542c9534cc.tar.gz",
+      "size": 759772,
+      "sha256": "a604bf855778b317c196f1daf8de912ee23c28b9ec4d64eca875cce977bbf66f",
+      "source": "https://codeload.github.com/psycopg/psycopg/tar.gz/ea542c9534cc9841d50450e0c156b549cc6c805a"
+    },
+    {
+      "file": "build_libpq.sh",
+      "size": 7120,
+      "sha256": "2cb45ac4c8bb5e8fc3c738c597817bcb2d224bc66073d10023f15665bee9cb8b",
+      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/build_libpq.sh"
+    },
+    {
+      "file": "packages-bin.yml",
+      "size": 9121,
+      "sha256": "763c6ab0014cee4c1a1263f2c943dd7683bc6c9a56231b3fc77a41ffcbe168f5",
+      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/.github/workflows/packages-bin.yml"
+    },
+    {
+      "file": "copy_to_binary.py",
+      "size": 1389,
+      "sha256": "522dcd9abd006606f8aa12ac8bf4cf3db15841618aa0bdca4b773525d07e9eb3",
+      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/copy_to_binary.py"
+    },
+    {
+      "file": "orjson-3.12.0.tar.gz",
+      "size": 4142915,
+      "sha256": "d14203fb1aae2ad9b3d52f8a0e82aeb10197ef1c9bc61da7f358bd70b00123d5",
+      "source": "https://files.pythonhosted.org/packages/0f/f3/742fb1f62b825f2c010697eaf4e828004bc2a81e7e806666989c132c7c42/orjson-3.12.0.tar.gz",
+      "purpose": "Source for declared MPL-covered components; upstream archive retains license texts"
+    }
+  ],
+  "notices": [
+    {
+      "file": "PostgreSQL-18.6-COPYRIGHT.txt",
+      "size": 1198,
+      "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+      "source": "https://github.com/postgres/postgres/blob/REL_18_6/COPYRIGHT"
+    },
+    {
+      "file": "OpenSSL-3.5.8-LICENSE.txt",
+      "size": 10175,
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "source": "https://github.com/openssl/openssl/blob/openssl-3.5.8/LICENSE.txt"
+    },
+    {
+      "file": "OpenSSL-3.5.8-AUTHORS.md",
+      "size": 1022,
+      "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e",
+      "source": "https://github.com/openssl/openssl/blob/openssl-3.5.8/AUTHORS.md"
+    },
+    {
+      "file": "OpenSSL-3.5.8-ACKNOWLEDGEMENTS.md",
+      "size": 159,
+      "sha256": "58dee45791f007ced048114717f86672778fe75c551827c57e760861446ce3c3",
+      "source": "https://github.com/openssl/openssl/blob/openssl-3.5.8/ACKNOWLEDGEMENTS.md"
+    },
+    {
+      "file": "Kerberos-1.22.2-NOTICE.txt",
+      "size": 63690,
+      "sha256": "d37fcb886de2ad1c602f61c99c6893bcbd9a1949f54d9a6bb40d191204eb605e",
+      "source": "https://github.com/krb5/krb5/blob/krb5-1.22.2-final/NOTICE"
+    },
+    {
+      "file": "OpenLDAP-2.6.14-LICENSE.txt",
+      "size": 2214,
+      "sha256": "310fe25c858a9515fc8c8d7d1f24a67c9496f84a91e0a0e41ea9975b1371e569",
+      "source": "https://github.com/openldap/openldap/blob/OPENLDAP_REL_ENG_2_6_14/LICENSE"
+    },
+    {
+      "file": "OpenLDAP-2.6.14-COPYRIGHT.txt",
+      "size": 2345,
+      "sha256": "5b4dfc20608c4d5d75573e899569b8ee0e06658ebcf14fa14566e309bcbab14c",
+      "source": "https://github.com/openldap/openldap/blob/OPENLDAP_REL_ENG_2_6_14/COPYRIGHT"
+    },
+    {
+      "file": "LGPL-3.0.txt",
+      "size": 7652,
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+      "source": "psycopg_binary-3.3.5-cp311-cp311-macosx_11_0_arm64.whl:psycopg_binary-3.3.5.dist-info/licenses/LICENSE.txt"
+    }
+  ],
+  "selected_wheels": {
+    "pglast-7.18-cp311-cp311-macosx_11_0_arm64.whl": "f91aeb2d31c0e9790182d4a022905df7773d87c32d8c16c383e2f50652d9a833",
+    "psycopg_binary-3.3.5-cp311-cp311-macosx_11_0_arm64.whl": "fdbeb38c9b7ca8fa57a7bda3802bedb62f4494ad3dd46c7dd36dc3f77fd5093f"
+  },
+  "native_version_evidence": "Tagged Psycopg build configuration selects PostgreSQL18.6/OpenSSL3.5.8/Kerberos1.22.2/OpenLDAP2.6.14. OpenSSL3.5.8 string directly verified in selected macOS libcrypto. No independent rebuild or exact-runner attestation claimed.",
+  "remaining_scope": [
+    "Windows/Linux native bundled components require separate inventories/notices.",
+    "Linux secondary libcrypto1.1.1k patch applicability remains unverified.",
+    "Other native wheels retain supplier notices/SBOMs; no exhaustive transitive-source certification."
+  ]
+}

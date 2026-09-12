@@ -1,4 +1,4 @@
-# Alpha threat model
+# Beta threat model
 
 ## Protected assets
 
@@ -15,8 +15,9 @@ browser -> authenticated API -> orchestrator -> policy/tool broker
                                              -> evidence + audit persistence
 ```
 
-Only the source-broker boundary may eventually decrypt datasource credentials.
-The API, model, playbooks, and browser must never receive them.
+Datasource credentials are resolved from explicitly allowlisted backend
+environment references only when a connector is created. They must never enter
+model messages, playbooks, browser responses, persisted run state or exports.
 
 ## Hostile inputs
 
@@ -24,7 +25,7 @@ Treat prompts, database values, identifiers, comments, logs, uploaded SQL, and
 playbook text as untrusted. Stored prompt injection must remain inert data. The
 authorization result must be correct even when model output is malicious.
 
-## Alpha mitigations
+## Current mitigations
 
 - Workspace-scoped API identity
 - Reserved `core.*` tool namespace
@@ -33,11 +34,13 @@ authorization result must be correct even when model output is malicious.
 - Single-statement `SELECT` validation and bounded result obligations
 - PostgreSQL AST validation, verified role restrictions, and read-only transactions
 - Stable evidence digests and append-only hash-chained audit events
-- Offline deterministic sample mode
+- Backend-held datasource/model credentials and sanitized provider errors
+- Same-origin browser API requests with redirects rejected
+- Bounded persisted evidence, authenticated event streams and explicit retry
 
 ## Deferred controls
 
-Production authentication, encrypted durable secrets, isolated
-source workers, OPA sidecar deployment, local inference gateway hardening,
-signed releases, SBOMs, and external security review are required before
-customer-data pilots.
+Team authentication, encrypted credential storage, isolated source workers,
+central policy deployment, signing, an SBOM and external security review are not
+provided by this beta. Operators must keep the service private, restrict source
+roles and protect the workspace filesystem and backups.

@@ -1,0 +1,3 @@
+purpose: Investigate a question against explicitly approved PostgreSQL tables using bounded read-only queries.
+required_evidence: []
+conclusion_classes: [supported, possible, unknown, contradictory]
