@@ -7,7 +7,7 @@
   const stamp = value => value ? new Date(value).toLocaleString(undefined, { timeZoneName: 'short' }) : 'Not recorded';
   const viewState = window.OpsGraphViewState;
   const terminal = status => ['completed', 'failed', 'blocked', 'interrupted', 'cancelled'].includes(status);
-  const state = { authenticated: false, sources: [], skills: [], runs: [], run: null, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0 };
+  const state = { authenticated: false, sources: [], skills: [], runs: [], run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0 };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
   // A launcher supplies only a short-lived single-use token, never the API key.
   const launchToken = new URLSearchParams(location.hash.slice(1)).get('connect');
@@ -153,6 +153,46 @@
   }
   function scopeMarkup(fields) {
     return `<dl class="scope-summary-list">${Object.entries(fields).map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>`;
+  }
+  function durationLabel(milliseconds) {
+    if (!Number.isFinite(milliseconds)) return '';
+    if (milliseconds < 1000) return `${milliseconds} ms`;
+    const seconds = Math.round(milliseconds / 1000);
+    if (seconds < 60) return `${seconds} s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return remainder ? `${minutes} min ${remainder} s` : `${minutes} min`;
+  }
+  function renderExecutionProgress() {
+    if (!state.run) return;
+    const progress = viewState.stageProgress(state.run.id, state.runEvents);
+    const titles = {
+      completed: 'Execution recorded',
+      failed: 'Execution failed',
+      blocked: 'Execution blocked',
+      interrupted: 'Execution interrupted',
+      cancelled: 'Execution cancelled',
+      cancelling: 'Cancellation requested',
+    };
+    $('#executionTitle').textContent = titles[state.run.status] || 'Investigation in progress';
+    $('.execution-card').dataset.state = state.run.status;
+    if (!state.runEvents.length) {
+      $('#stageSummary').textContent = state.runEventsLoaded || state.run.legacy_provenance
+        ? 'Detailed stage history is unavailable for this saved attempt.'
+        : 'Loading recorded stage history…';
+      $('#stageList').innerHTML = '<li class="stage-unavailable">No recorded stage events are available.</li>';
+      return;
+    }
+    const parts = [`${progress.completed} of ${progress.total} stages completed`];
+    if (progress.current) parts.push(progress.current.label);
+    if (progress.durationMs != null) parts.push(durationLabel(progress.durationMs));
+    $('#stageSummary').textContent = parts.join(' · ');
+    $('#stageList').innerHTML = progress.stages.map(stage => {
+      const status = stage.status === 'complete' ? 'Completed' : stage.status === 'running' ? 'In progress' : 'Not started';
+      const marker = stage.status === 'complete' ? '✓' : stage.status === 'running' ? '•' : '—';
+      const elapsed = stage.elapsedMs == null ? '' : `<small>+${esc(durationLabel(stage.elapsedMs))}</small>`;
+      return `<li class="stage-${esc(stage.status)}"><span aria-hidden="true">${marker}</span><div><b>${esc(stage.label)}</b><small>${esc(status)}</small></div>${elapsed}</li>`;
+    }).join('');
   }
   function renderComposerScope() {
     const source = state.sources.find(item => item.id === $('#investigationSource').value);
@@ -322,7 +362,7 @@
   }
   function clearWorkspace() {
     state.authEpoch++; stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
-    state.authenticated = false; state.modelTested = false; state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
+    state.authenticated = false; state.modelTested = false; state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
     $('#investigationQuestion').value = ''; $('#sourceCatalog').textContent = 'Connect workspace to load sources.'; $('#skillCatalog').textContent = 'Connect workspace to load playbooks.';
@@ -418,6 +458,7 @@
       'Playbook version': configuration.skill_version || 'Unavailable',
     }) + '<p class="helper">These are this attempt’s recorded execution bounds. Current source settings may differ. Column permissions are enforced by PostgreSQL; schema names do not establish business meaning.</p>' : '<p class="helper">Execution scope has not been recorded for this attempt. Historical records may lack these details; current settings do not establish historical scope.</p>';
     $('#currentOperation').textContent = viewState.currentOperation(run, state.lastEvent);
+    renderExecutionProgress();
     const previousId = run.retry_of || run.parent_run_id;
     const previous = state.runs.find(item => item.id === previousId);
     const previousExpanded = $('#previousTurn').dataset.runId === run.id && $('#previousTurn details')?.open;
@@ -428,16 +469,18 @@
     $('#cancelRun').hidden = terminal(run.status); $('#cancelRun').disabled = run.status === 'cancelling'; $('#cancelRun').textContent = run.status === 'cancelling' ? 'Cancellation requested' : 'Cancel run';
     $('#retryRun').hidden = !['failed', 'blocked', 'interrupted', 'cancelled'].includes(run.status);
     notice('#runError', run.error ? `${run.error.message || run.error.code}${run.status === 'interrupted' ? '\nBackend process stopped. Retry explicitly to create a separate attempt; this run will not resume automatically.' : ''}` : run.status === 'cancelling' ? 'Cancellation requested. The backend must finish or interrupt its current bounded operation before cancellation is confirmed.' : '');
-    const answer = run.answer; $('#conclusionCard').hidden = !answer;
+    const answer = run.answer; $('#answerThread').hidden = !answer; $('#conclusionCard').hidden = !answer;
     $('#conclusionTitle').textContent = answer?.summary || '';
     $('#limitations').innerHTML = (answer?.limitations || []).map(limit => `<li>${esc(limit)}</li>`).join('') || (answer ? '<li>No additional limitation recorded by the model. This does not establish completeness.</li>' : '');
     const classes = new Set(['supported', 'possible', 'unknown', 'contradictory']);
     $('#findingGrid').innerHTML = (answer?.findings || []).map((finding, index) => {
       const classification = classes.has(finding.classification) ? finding.classification : 'unknown';
-      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(classification.toUpperCase())} · MODEL ASSESSMENT</span><small>${(finding.evidence_ids || []).length} references</small></div><h3>${esc(finding.claim)}</h3><p class="helper">${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.</p>${(finding.evidence_ids || []).length ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}">Inspect referenced evidence →</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
+      const referenceCount = (finding.evidence_ids || []).length;
+      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(classification.toUpperCase())} · MODEL ASSESSMENT</span><small>${referenceCount} ${referenceCount === 1 ? 'reference' : 'references'}</small></div><h3>${esc(finding.claim)}</h3><p class="helper">${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.</p>${referenceCount ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}">Inspect referenced evidence →</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
     }).join('');
     $('#evidenceSection').hidden = !(run.evidence || []).length;
-    $('#toggleEvidence').textContent = `Inspect evidence (${(run.evidence || []).length} captures)`;
+    $('#toggleEvidence').dataset.count = String((run.evidence || []).length);
+    $('#toggleEvidence').textContent = `Show captured records (${(run.evidence || []).length})`;
     $('#captureStatus').textContent = viewState.captureStatus(run);
     $('#evidenceLedger').innerHTML = (run.evidence || []).map((item, index) => `<button class="evidence-reference" data-evidence="${index}" data-focus-key="capture:${esc(run.id)}:${esc(item.provenance?.capture_id || item.evidence_hash || index)}"><b>${esc(item.purpose || `Capture ${index + 1}`)}</b><span>${run.status === 'completed' ? 'Recorded capture' : 'Partial evidence'} · ${esc(item.provenance?.source_id || run.source_id)} · collected ${esc(stamp(item.provenance?.finished_at || item.created_at))} · ${(item.rows || []).length} rows${item.truncated ? ' · truncated' : ''}</span></button>`).join('');
     if (terminal(run.status)) $('#streamState').textContent = `Saved ${run.status} state · updated ${stamp(run.updated_at)}.`;
@@ -480,16 +523,16 @@
       id = runId(id);
       const run = await api(`/api/runs/${encodeURIComponent(id)}`);
       if (token !== state.streamToken) return;
-      $('#activityLog').replaceChildren(); state.lastEventId = 0; state.lastEvent = null; $('#investigationQuestion').value = ''; renderRun(run); showView('investigations', false); streamRun(id, token);
+      $('#activityLog').replaceChildren(); state.lastEventId = 0; state.lastEvent = null; state.runEvents = []; state.runEventsLoaded = false; $('#evidencePanel').hidden = true; $('#toggleEvidence').setAttribute('aria-expanded', 'false'); $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = false; renderRun(run); showView('investigations', false); streamRun(id, token);
     } catch (error) { notice('#globalError', error.message); }
   }
   function addEvent(event) {
     const item = document.createElement('li'); const time = document.createElement('time');
     time.dateTime = event.created_at || ''; time.textContent = stamp(event.created_at);
     const label = document.createElement('span');
-    label.textContent = viewState.eventLabel(event); state.lastEvent = viewState.operationEvent(state.lastEvent, event);
+    label.textContent = viewState.eventLabel(event); state.lastEvent = viewState.operationEvent(state.lastEvent, event); state.runEvents.push(event);
     if (state.run?.id === event.run_id) $('#currentOperation').textContent = viewState.currentOperation(state.run, state.lastEvent);
-    item.append(time, label); $('#activityLog').append(item);
+    item.append(time, label); $('#activityLog').append(item); renderExecutionProgress();
   }
   async function streamRun(id, token) {
     let delay = 1000;
@@ -509,6 +552,7 @@
         while (true) { const { value, done } = await reader.read(); if (done) break; if (token !== state.streamToken) { await reader.cancel(); return; } parser.push(decoder.decode(value, { stream: true })); }
         parser.push(decoder.decode()); parser.finish(); await pending; if (refreshError) throw refreshError;
         if (token !== state.streamToken) return;
+        state.runEventsLoaded = true;
         const run = await api(`/api/runs/${encodeURIComponent(id)}`); if (token !== state.streamToken) return; renderRun(run);
         if (terminal(run.status)) return;
         throw new Error('Event connection ended while this run remains active.');
@@ -550,8 +594,8 @@
     finally { state.busy = false; $('#retryRun').disabled = false; readiness(); restoreFocus(); }
   }
   function newInvestigation() {
-    stopStream(); state.run = null; state.lastEvent = null; state.pending = null; sessionStorage.removeItem('opsgraph.selectedRun'); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
-    $('#investigationQuestion').value = ''; notice('#composerError'); showView('investigations'); readiness(); renderHistory();
+    stopStream(); state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.lastEvent = null; state.pending = null; sessionStorage.removeItem('opsgraph.selectedRun'); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
+    $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = true; notice('#composerError'); showView('investigations'); readiness(); renderHistory();
     if (!state.authenticated) openDrawer('credentialDrawer', $('#newInvestigation')); else $('#investigationQuestion').focus();
   }
 
@@ -612,8 +656,20 @@
   $('#skillForm').addEventListener('submit', saveSkill); $('#publishSkill').addEventListener('click', publishSkill);
   $('#skillJson').addEventListener('input', () => { state.savedSkill = null; $('#publishSkill').disabled = true; });
   $('#inspectedTables').addEventListener('change', () => { $('#sourceTables').value = $$('[data-inspected-table]:checked').map(input => input.dataset.inspectedTable).join(', '); });
-  $('#toggleHistory').addEventListener('click', () => { const hidden = !$('#historyPanel').hidden; $('#historyPanel').hidden = hidden; $('.investigation-layout').classList.toggle('history-hidden', hidden); $('#toggleHistory').setAttribute('aria-expanded', String(!hidden)); $('#toggleHistory').textContent = hidden ? 'Show history' : 'Hide history'; });
-  $('#toggleEvidence').addEventListener('click', () => { $('#evidencePanel').hidden = !$('#evidencePanel').hidden; $('#toggleEvidence').setAttribute('aria-expanded', String(!$('#evidencePanel').hidden)); });
+  function setHistoryHidden(hidden) {
+    $('#historyPanel').hidden = hidden; $('#showHistory').hidden = !hidden;
+    $('.investigation-layout').classList.toggle('history-hidden', hidden);
+    $('#toggleHistory').setAttribute('aria-expanded', String(!hidden)); $('#showHistory').setAttribute('aria-expanded', String(!hidden));
+  }
+  $('#toggleHistory').addEventListener('click', () => { setHistoryHidden(true); $('#showHistory').focus(); });
+  $('#showHistory').addEventListener('click', () => { setHistoryHidden(false); $('#caseSearch').focus(); });
+  $('#stageDisclosure').addEventListener('toggle', () => { $('#stageDisclosure > summary').textContent = $('#stageDisclosure').open ? 'Hide recorded stages' : 'Show recorded stages'; });
+  $('#toggleEvidence').addEventListener('click', () => {
+    $('#evidencePanel').hidden = !$('#evidencePanel').hidden;
+    const expanded = !$('#evidencePanel').hidden;
+    $('#toggleEvidence').setAttribute('aria-expanded', String(expanded));
+    $('#toggleEvidence').textContent = `${expanded ? 'Hide' : 'Show'} captured records (${$('#toggleEvidence').dataset.count || '0'})`;
+  });
   $('#exportEvidence').addEventListener('click', async () => { if (!state.run) return; try { download(`${state.run.id}.json`, await api(`/api/runs/${encodeURIComponent(state.run.id)}/export`)); } catch (error) { notice('#runError', error.message); } });
   $('#exportAudit').addEventListener('click', async () => { try { download('opsgraph-audit.json', await api('/api/audit')); } catch (error) { notice('#globalError', error.message); } });
   window.addEventListener('beforeunload', stopStream);

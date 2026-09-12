@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { eventLabel, currentOperation, operationEvent, captureStatus, classificationExplanation, previewScope, focusBookmark, focusTarget } = require('../../src/opsgraph/web/static/view-state.js');
+const { eventLabel, currentOperation, operationEvent, captureStatus, classificationExplanation, stageProgress, previewScope, focusBookmark, focusTarget } = require('../../src/opsgraph/web/static/view-state.js');
 
 test('operation labels distinguish actual stage start from completion', () => {
   assert.equal(eventLabel({ type: 'stage_started', data: { stage: 'plan' } }), 'Planning bounded PostgreSQL queries');
@@ -53,6 +53,47 @@ test('classification explanation does not convert citation membership into verif
   assert.match(classificationExplanation('contradictory'), /refuting the proposition/);
   assert.match(classificationExplanation('unknown'), /insufficient evidence/);
   assert.match(classificationExplanation('invalid'), /unavailable.*uncertain/);
+});
+
+test('stage progress counts only recorded completions for the selected run', () => {
+  const events = [
+    { run_id: 'run-1', type: 'stage_started', data: { stage: 'route' }, created_at: '2026-09-13T00:00:00Z' },
+    { run_id: 'run-1', type: 'stage_completed', data: { stage: 'route' }, created_at: '2026-09-13T00:00:01Z' },
+    { run_id: 'run-2', type: 'stage_completed', data: { stage: 'plan' }, created_at: '2026-09-13T00:00:02Z' },
+    { run_id: 'run-1', type: 'stage_started', data: { stage: 'plan' }, created_at: '2026-09-13T00:00:03Z' },
+    { run_id: 'run-1', type: 'completed', data: {}, created_at: '2026-09-13T00:00:04Z' },
+  ];
+  const progress = stageProgress('run-1', events);
+  assert.equal(progress.completed, 1);
+  assert.equal(progress.total, 4);
+  assert.equal(progress.current.id, 'plan');
+  assert.equal(progress.durationMs, null);
+  assert.deepEqual(progress.stages.map(stage => stage.status), ['complete', 'running', 'pending', 'pending']);
+});
+
+test('stage progress derives duration only after four explicit recorded completions', () => {
+  const events = ['route', 'plan', 'execute', 'reconcile'].flatMap((stage, index) => [
+    { run_id: 'run-1', type: 'stage_started', data: { stage }, created_at: `2026-09-13T00:00:0${index * 2}Z` },
+    { run_id: 'run-1', type: 'stage_completed', data: { stage }, created_at: `2026-09-13T00:00:0${index * 2 + 1}Z` },
+  ]);
+  events.push({ ...events[1], created_at: '2026-09-13T00:00:09Z' });
+  const progress = stageProgress('run-1', events);
+  assert.equal(progress.completed, 4);
+  assert.equal(progress.current, null);
+  assert.equal(progress.durationMs, 7000);
+  assert.deepEqual(progress.stages.map(stage => stage.elapsedMs), [1000, 3000, 5000, 7000]);
+});
+
+test('missing, malformed and unknown stage events never fabricate progress', () => {
+  const progress = stageProgress('run-1', [
+    { run_id: 'run-1', type: 'stage_completed', data: { stage: 'unknown' }, created_at: '2026-09-13T00:00:00Z' },
+    { run_id: 'run-1', type: 'stage_started', data: { stage: 'route' }, created_at: 'invalid' },
+    null,
+  ]);
+  assert.equal(progress.completed, 0);
+  assert.equal(progress.current.id, 'route');
+  assert.equal(progress.durationMs, null);
+  assert.equal(progress.stages[0].elapsedMs, null);
 });
 
 const source = { allowed_schemas: ['public', 'jobs'], allowed_tables: ['public.jobs', 'jobs.archive'] };

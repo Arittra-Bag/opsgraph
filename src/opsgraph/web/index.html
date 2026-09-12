@@ -36,13 +36,14 @@
     <main id="workspace" tabindex="-1">
       <div class="notice error" id="globalError" role="alert" hidden></div>
       <section class="view active" data-view-panel="investigations" aria-labelledby="investigationsTitle">
-        <div class="workspace-toolbar"><h1 id="investigationsTitle">Investigations</h1><button class="secondary" id="toggleHistory" aria-controls="historyPanel" aria-expanded="true">Hide history</button></div>
         <div class="investigation-layout">
           <aside class="case-list" id="historyPanel" aria-label="Investigation history">
+            <div class="history-heading"><div><p class="eyebrow">Saved work</p><h1 id="investigationsTitle">Investigations</h1></div><button class="history-toggle" id="toggleHistory" aria-controls="historyPanel" aria-expanded="true">Hide ‹</button></div>
             <label for="caseSearch">Search history</label><input id="caseSearch" type="search" placeholder="Question or source">
             <p class="helper" id="historyMessage">Connect your workspace to load saved investigations.</p>
             <div id="caseList"></div>
           </aside>
+          <button class="history-rail" id="showHistory" aria-controls="historyPanel" aria-expanded="false" hidden><span>History</span><b aria-hidden="true">›</b></button>
           <section class="case-workspace" aria-label="Current investigation">
             <section class="setup-card" id="onboarding" aria-labelledby="setupTitle">
               <p class="eyebrow">First investigation</p><h2 id="setupTitle">Connect your source. Ask a real question.</h2>
@@ -54,30 +55,34 @@
               </ol>
             </section>
             <section id="runWorkspace" hidden>
-              <section class="previous-turn" id="previousTurn" aria-label="Previous conversation turn" hidden></section>
-              <header class="case-header"><div><p class="eyebrow" id="runIdentity"></p><h2 id="caseTitle"></h2><p id="runRelation"></p></div><div class="case-actions"><button class="secondary" id="exportEvidence">Export investigation</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry as new attempt</button></div></header>
-              <div class="scope-strip"><div><small>SOURCE</small><b id="runSource"></b></div><div><small>CREATED</small><b id="runCreated"></b></div><div><small>PLAYBOOK</small><b id="runSkill"></b></div><div><small>STATE</small><b id="runState" aria-live="polite"></b></div></div>
-              <details class="run-scope scope-summary"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details>
-              <p class="current-operation" id="currentOperation" role="status"></p>
-              <p class="connection-state" id="streamState" role="status"></p>
-              <div class="notice error" id="runError" role="alert" hidden></div>
-              <div class="canvas-scroll">
-                <section class="decision-card" id="conclusionCard" hidden><div><p class="eyebrow">Model overview · unverified interpretation</p><h3 id="conclusionTitle"></h3><p>Review individual findings, referenced evidence and unresolved limitations. A citation does not establish support.</p><a href="#findingGrid">Review cited findings</a><ul id="limitations"></ul></div></section>
-                <section class="finding-grid" id="findingGrid" aria-label="Findings"></section>
-                <section class="evidence-section" id="evidenceSection" hidden>
-                  <p id="captureStatus" class="helper"></p>
-                  <button class="secondary" id="toggleEvidence" aria-expanded="false" aria-controls="evidencePanel">Inspect evidence</button>
-                  <div id="evidencePanel" hidden><p class="helper">References identify what the model cited. They do not independently establish semantic support or causality.</p><div id="evidenceLedger"></div></div>
+              <header class="run-toolbar"><div class="run-toolbar-meta"><span>Investigation · <b id="runIdentity"></b></span><span class="run-state-badge" id="runState" aria-live="polite"></span><details class="run-scope"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details></div><div class="case-actions"><button class="secondary" id="exportEvidence">Export investigation</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry as new attempt</button></div></header>
+              <div class="canvas-scroll conversation">
+                <section class="previous-turn" id="previousTurn" aria-label="Previous conversation turn" hidden></section>
+                <article class="conversation-message operator-message" aria-labelledby="caseTitle">
+                  <header class="message-author"><span aria-hidden="true">OP</span><div><b>You</b><small>asked <time id="runCreated"></time></small></div></header>
+                  <h2 id="caseTitle"></h2><p id="runRelation" class="helper"></p>
+                  <div class="message-context"><span>Source <b id="runSource"></b></span><span>Playbook <b id="runSkill"></b></span></div>
+                </article>
+                <section class="execution-card" aria-labelledby="executionTitle">
+                  <div class="execution-heading"><span class="execution-dot" aria-hidden="true"></span><div><h3 id="executionTitle">Execution recorded</h3><p id="stageSummary" aria-live="polite">Waiting for recorded stage events.</p></div></div>
+                  <details class="stage-disclosure" id="stageDisclosure"><summary>Show recorded stages</summary><ol class="stage-list" id="stageList"></ol><details class="activity-panel"><summary>Recorded activity</summary><p class="helper">Events recorded by the backend while work happens.</p><ol id="activityLog" aria-live="polite" aria-relevant="additions"></ol></details></details>
+                  <p class="current-operation" id="currentOperation" role="status"></p><p class="connection-state" id="streamState" role="status"></p>
                 </section>
-                <details class="activity-panel" open><summary>Recorded activity</summary><p class="helper">Events recorded by the backend while work happens.</p><ol id="activityLog" aria-live="polite" aria-relevant="additions"></ol></details>
+                <div class="notice error" id="runError" role="alert" hidden></div>
+                <article class="conversation-message opsgraph-message" id="answerThread" hidden>
+                  <header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>Model assessment grounded in the recorded evidence</small></div></header>
+                  <section class="decision-card" id="conclusionCard" hidden><div><p class="eyebrow">Model overview · unverified interpretation</p><h3 id="conclusionTitle"></h3><p>Review individual findings, referenced evidence and unresolved limitations. A citation does not establish support.</p><a href="#findingGrid">Review cited findings</a></div></section>
+                  <section class="finding-grid" id="findingGrid" aria-label="Findings"></section>
+                  <section class="limitations-section" id="limitationsSection"><h3>What this result does not establish</h3><ul id="limitations"></ul><p id="captureStatus" class="helper"></p></section>
+                  <section class="evidence-section" id="evidenceSection" hidden><button class="secondary" id="toggleEvidence" aria-expanded="false" aria-controls="evidencePanel">Show captured records</button><div id="evidencePanel" hidden><p class="helper">References identify what the model cited. They do not independently establish semantic support or causality.</p><div id="evidenceLedger"></div></div></section>
+                </article>
               </div>
             </section>
             <section class="composer-section" aria-labelledby="composerTitle">
               <h2 id="composerTitle">Start an investigation</h2><p id="composerContext" class="helper">Choose an inspected source and a bounded operational question.</p>
               <form id="investigationForm">
-                <div class="composer-controls"><div><label for="investigationSource">Approved source</label><select id="investigationSource" required><option value="">Connect a source first</option></select></div><div><label for="investigationSkill">Playbook</label><select id="investigationSkill"><option value="">General read-only</option></select></div></div>
-                <details class="scope-summary composer-scope" open><summary>Source and query scope</summary><div id="composerScope">Select a source to review its configured scope.</div></details>
                 <label for="investigationQuestion">Question</label><textarea id="investigationQuestion" required minlength="8" maxlength="800" rows="3" placeholder="Describe the issue and relevant time range…"></textarea>
+                <details class="scope-summary composer-scope" id="composerScopeDetails" open><summary>Source and query scope</summary><div class="composer-controls"><div><label for="investigationSource">Approved source</label><select id="investigationSource" required><option value="">Connect a source first</option></select></div><div><label for="investigationSkill">Playbook</label><select id="investigationSkill"><option value="">General read-only</option></select></div></div><div id="composerScope">Select a source to review its configured scope.</div></details>
                 <div class="notice error" id="composerError" role="alert" hidden></div><div class="composer-actions"><p class="helper">Read-only queries. No automatic remediation.</p><button class="primary" id="submitRun" type="submit">Start investigation</button></div>
               </form>
             </section>

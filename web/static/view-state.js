@@ -7,6 +7,7 @@
     execute: ['Collecting PostgreSQL evidence', 'Planned query execution completed'],
     reconcile: ['Reviewing captured evidence with the model', 'Model evidence review completed'],
   };
+  const stageOrder = Object.keys(stages);
   const eventLabels = {
     legacy_imported: 'Previous investigation imported; execution time may be unavailable',
     configured: 'Run configuration recorded', plan_completed: 'Query plan recorded', schema_checked: 'Database schema checked',
@@ -55,6 +56,46 @@
       contradictory: 'The model classifies the cited evidence as refuting the proposition in this finding.',
     }[value] || 'The classification is unavailable; treat this claim as uncertain.';
   }
+  function stageProgress(runId, events) {
+    const recorded = new Map(stageOrder.map(stage => [stage, { status: 'pending', startedAt: null, completedAt: null }]));
+    for (const event of events || []) {
+      if (event?.run_id !== runId || !['stage_started', 'stage_completed'].includes(event.type)) continue;
+      const stage = event.data?.stage;
+      if (!recorded.has(stage)) continue;
+      const value = recorded.get(stage);
+      const timestamp = Date.parse(event.created_at || '');
+      if (event.type === 'stage_started') {
+        if (value.status !== 'complete') value.status = 'running';
+        if (value.startedAt == null && Number.isFinite(timestamp)) value.startedAt = timestamp;
+      } else {
+        value.status = 'complete';
+        if (value.completedAt == null && Number.isFinite(timestamp)) value.completedAt = timestamp;
+      }
+    }
+    const starts = [...recorded.values()].map(value => value.startedAt).filter(Number.isFinite);
+    const firstStartedAt = starts.length ? Math.min(...starts) : null;
+    const rows = stageOrder.map(stage => {
+      const value = recorded.get(stage);
+      const timestamp = value.status === 'complete' ? value.completedAt : value.startedAt;
+      return {
+        id: stage,
+        label: stages[stage][value.status === 'complete' ? 1 : 0],
+        status: value.status,
+        elapsedMs: firstStartedAt != null && timestamp != null ? Math.max(0, timestamp - firstStartedAt) : null,
+      };
+    });
+    const completed = rows.filter(row => row.status === 'complete').length;
+    const completedTimes = [...recorded.values()].map(value => value.completedAt).filter(Number.isFinite);
+    return {
+      completed,
+      total: stageOrder.length,
+      current: rows.find(row => row.status === 'running') || null,
+      durationMs: completed === stageOrder.length && firstStartedAt != null && completedTimes.length
+        ? Math.max(0, Math.max(...completedTimes) - firstStartedAt)
+        : null,
+      stages: rows,
+    };
+  }
   function previewScope(source, skill, policy) {
     if (!source || !skill || !policy?.obligations) return null;
     const ceiling = policy.obligations;
@@ -81,7 +122,7 @@
     if (bookmark?.node?.isConnected) return bookmark.node;
     return bookmark?.key ? [...document.querySelectorAll('[data-focus-key]')].find(node => node.dataset.focusKey === bookmark.key) || null : null;
   }
-  const api = { eventLabel, currentOperation, operationEvent, captureStatus, classificationExplanation, previewScope, focusBookmark, focusTarget };
+  const api = { eventLabel, currentOperation, operationEvent, captureStatus, classificationExplanation, stageProgress, previewScope, focusBookmark, focusTarget };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.OpsGraphViewState = api;
 })(typeof window !== 'undefined' ? window : globalThis);
