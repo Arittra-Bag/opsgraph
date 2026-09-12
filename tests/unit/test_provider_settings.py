@@ -1,3 +1,4 @@
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -50,7 +51,8 @@ def test_save_is_private_and_survives_restart(configured):
     assert "private-provider-key" not in client.get("/api/providers/configuration").text
     restarted = build_runtime(runtime.settings)
     assert restarted.provider.config.api_key.get_secret_value() == "private-provider-key"
-    assert settings_path(runtime.settings).stat().st_mode & 0o077 == 0
+    if os.name == "posix":
+        assert settings_path(runtime.settings).stat().st_mode & 0o077 == 0
 
 
 def test_reject_cross_origin_and_secret_validation_echo(configured):
