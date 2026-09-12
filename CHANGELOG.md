@@ -15,7 +15,6 @@
 - Public documentation curated for users and contributors. Installer and source
   archives include only explicitly approved documentation and required notices.
 
-See [beta notes](docs/release/release-notes-0.1.0b1.md),
-[validation status](docs/validation/status.md) and the
+See [beta notes](docs/release/release-notes-0.1.0b1.md) and the
 [support matrix](docs/release/support-matrix.md) for tested capabilities and limits.
 Own source remains Apache-2.0; bundled dependencies retain their own licenses.

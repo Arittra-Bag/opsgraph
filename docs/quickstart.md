@@ -30,7 +30,8 @@ configuration. Our local adapter uses [Ollama's OpenAI-compatible endpoint](http
 
 ## Install once, launch whenever needed
 
-1. Check the ZIP against its adjacent `.sha256` file using `shasum -a 256 FILE.zip`.
+1. Check the ZIP against its adjacent `.sha256` file using
+   `shasum -a 256 -c FILE.zip.sha256`.
    This detects changed bytes; authenticity depends on trusting the source of
    both files. Beta bundles are unsigned; obtain the archive and checksum from
    the same trusted release page.

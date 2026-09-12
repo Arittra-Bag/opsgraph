@@ -1,13 +1,13 @@
 # Security policy
 
-OpsGraph Alpha is a public validation build. Do not connect production systems,
+OpsGraph Beta is a public validation build. Do not connect production systems,
 upload customer data, or expose it directly to the internet.
 
 ## Reporting a vulnerability
 
 Please report suspected vulnerabilities privately through the
 [GitHub security advisory form](https://github.com/Arittra-Bag/opsgraph/security/advisories/new).
-Do not open a public issue with exploit details. Only the latest `0.1.x` alpha
+Do not open a public issue with exploit details. Only the latest `0.1.x` beta
 line is supported; security fixes are released on `main` until a stable release
 policy exists.
 
@@ -20,11 +20,11 @@ policy exists.
 - Read-only query plans passing deterministic policy and PostgreSQL AST brokers
 - Declarative built-in and custom skills only
 
-The alpha does not support executable plug-ins, write operations, automatic
+The beta does not support executable plug-ins, write operations, automatic
 remediation, full database dumps, archive extraction, or transparent fallback
 to cloud inference.
 
-## Alpha limitations
+## Beta limitations
 
 - Local API-key authentication is not production identity or SSO.
 - Connector secrets remain environment-variable references; there is no vault.
