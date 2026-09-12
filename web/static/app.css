@@ -146,7 +146,7 @@ pre { max-width: 100%; overflow: auto; font: 13px/1.6 ui-monospace, SFMono-Regul
 .trust-signal { font-size: 11px; min-height: 28px; }
 .trust-signals .trust-signal { display: inline-flex; }
 .workspace-connect { margin-left: auto; }
-.app-shell { height: auto; min-height: calc(100dvh - 64px); grid-template-columns: var(--sidebar) minmax(0, 1fr); }
+.app-shell { height: auto; min-height: calc(100dvh - 64px); grid-template-columns: var(--sidebar) minmax(0, 1fr); background: linear-gradient(90deg, #0b1014 0, #0b1014 calc(var(--sidebar) - 1px), var(--line) calc(var(--sidebar) - 1px), var(--line) var(--sidebar), transparent var(--sidebar)); }
 .sidebar { position: sticky; top: 0; height: calc(100dvh - 20px); }
 .nav-item { display: block; font-size: 14px; min-height: 44px; }
 .local-runtime { margin-top: 32px; }
@@ -237,7 +237,7 @@ main { min-width: 0; overflow: visible; }
   .local-runtime b, .local-runtime p { display: block; }
 }
 @media (max-width: 900px) {
-  .app-shell { display: block; }
+  .app-shell { display: block; background: none; }
   .sidebar { position: static; height: auto; width: 100%; flex-direction: column; align-items: stretch; overflow: visible; padding: 10px; }
   .new-investigation { width: auto; align-self: flex-start; }
   .sidebar nav { gap: 4px; flex-wrap: wrap; }
