@@ -4,7 +4,7 @@ The launcher keeps configuration/history outside the extracted bundle. Never put
 `--directory` inside `.venv`; the launcher rejects that location. The default
 macOS location is `~/Library/Application Support/OpsGraph`. Exports and state
 contain questions, SQL, source metadata and captured records. A backup also
-contains **database credentials and the workspace key**. Keep it private and
+contains **database/model credentials and the workspace key**. Keep it private and
 never attach it to an issue. Disk encryption is the operator's responsibility.
 
 ## Shutdown and later launch
@@ -27,7 +27,9 @@ refuses a live coordinator lock and verifies the SQLite copy.
 ```
 
 Both output directories must be new; existing directories are never overwritten.
-Backup contains private `.env`, a consistent `state.db`, and checksummed manifest.
+Backup contains private `.env`, a consistent `state.db`, a checksummed manifest,
+and browser-saved model settings when present. These settings live beside the
+state database in `state.db.provider/settings.env` and can contain an API key.
 Restore validates checksums/integrity and updates the state path for the new
 workspace. It preserves source references, workspace key, history and evidence;
 it cannot restore the external PostgreSQL database or model files. Windows

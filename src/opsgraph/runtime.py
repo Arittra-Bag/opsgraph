@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
+from threading import RLock
+from uuid import uuid4
 
 from pydantic import SecretStr
 
@@ -30,6 +32,8 @@ class Runtime:
     tools: ToolRegistry
     skills: SkillRepository
     provider: ModelProvider
+    provider_lock: object = field(default_factory=RLock)
+    provider_revision: str = field(default_factory=lambda: uuid4().hex)
 
 
 def _provider(settings: Settings) -> ModelProvider:
@@ -66,6 +70,10 @@ def _provider(settings: Settings) -> ModelProvider:
             model="opsgraph-replay-v1",
             egress_enabled=False,
         )
+    from opsgraph.provider_settings import load_provider_config
+
+    config = load_provider_config(settings, config)
+    settings.model_provider = config.kind
     return create_provider(config)
 
 

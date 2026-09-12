@@ -68,6 +68,10 @@ class RunAPI:
             raise HTTPException(404, "investigation not found") from exc
 
     def submit(self, body, principal, *, retry_of=None):
+        with self.runtime.provider_lock:
+            return self._submit(body, principal, retry_of=retry_of)
+
+    def _submit(self, body, principal, *, retry_of=None):
         if self.runtime.settings.mode != "connected":
             raise HTTPException(
                 409, "Migration mode cannot execute investigations. Configure connected mode."
@@ -463,7 +467,9 @@ class RunAPI:
         @router.post("/api/providers/current/test")
         def probe(principal: Annotated[Principal, Depends(require_principal)]):
             self.authorize(principal, "core.provider.test", "current-provider")
-            provider = self.runtime.provider
+            with self.runtime.provider_lock:
+                provider = self.runtime.provider
+                configuration_revision = self.runtime.provider_revision
             if provider.config.kind == "deterministic":
                 raise HTTPException(409, "Configure a real local or hosted model provider.")
             try:
@@ -507,8 +513,14 @@ class RunAPI:
                     "Model test failed. Verify model availability, structured-output support "
                     "and server configuration.",
                 ) from exc
+            with self.runtime.provider_lock:
+                if self.runtime.provider is not provider:
+                    raise HTTPException(
+                        409, "Model configuration changed during this test. Test again."
+                    )
             return {
                 "ok": True,
+                "configuration_revision": configuration_revision,
                 "provider": provider.config.kind,
                 "model": provider.config.model,
                 "reported_model": response.reported_model,

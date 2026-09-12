@@ -63,7 +63,8 @@ with `python3.11 -I Install.py launch --port 8010`.
 
 In **Sources**, enter explicit schema-qualified tables and select **Inspect**.
 Review the returned columns and unavailable business meanings. In **Settings**,
-run **Test actual model connection**: this makes a real structured request without
+choose Ollama, an OpenAI-compatible endpoint or Anthropic, enter the model and
+save. Credentials stay on the backend. Run **Test actual model connection**: this makes a real structured request without
 source records. Select the general read-only playbook and ask a bounded question.
 Open a finding's citation to inspect its SQL and records, then export if needed.
 

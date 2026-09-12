@@ -78,7 +78,16 @@ unavailable unless the operator supplies them.
 Include needed definitions in your question; request clarification when they
 are missing. A successful inspection does not prove the dataset complete or true.
 
-In **Settings**, run the structured model probe. This calls the actual model
+In **Settings**, choose your provider, model identifier and endpoint, then save.
+API keys are write-only: leave the field blank to keep an existing key for the
+same provider and endpoint, or explicitly clear it. Changing endpoints does not
+forward the previous key. External processing requires deployment permission
+and your explicit approval. Saving sends no model request and does not download
+a model. Wait for unfinished investigations before changing configuration.
+
+Saved browser settings persist across restart and override the model settings
+from initial setup. Use Settings for subsequent model changes. Then run the
+structured model probe. This calls the actual model
 without source records. A failure does not disable source configuration. Check
 runtime, model identifier, URL and timeout; never select fake output to continue.
 

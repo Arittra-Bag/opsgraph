@@ -352,3 +352,15 @@ def test_backup_refuses_legacy_split_tilde_state_without_copying_either_database
     assert not (tmp_path / "blocked").exists()
     assert literal.read_bytes() == b"original workspace metadata"
     assert expanded.read_bytes() == b"original run history"
+
+
+def test_backup_restore_preserves_optional_provider_settings(workspace, tmp_path):
+    provider_path = workspace / ".opsgraph/state.db.provider/settings.env"
+    values = {"PROVIDER_CONFIG": '{"model":"model-one"}', "PROVIDER_KEY": "test-private-key"}
+    write_private_config(provider_path, values)
+    destination = tmp_path / "provider-backup"
+    maintenance.backup(workspace, destination)
+    assert "provider.env" in json.loads((destination / "manifest.json").read_text())["files"]
+    restored = tmp_path / "provider-restored"
+    maintenance.restore(destination, restored)
+    assert read_private_config(restored / ".opsgraph/state.db.provider/settings.env") == values

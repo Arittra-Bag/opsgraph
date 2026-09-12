@@ -7,7 +7,7 @@
   const stamp = value => value ? new Date(value).toLocaleString(undefined, { timeZoneName: 'short' }) : 'Not recorded';
   const viewState = window.OpsGraphViewState;
   const terminal = status => ['completed', 'failed', 'blocked', 'interrupted', 'cancelled'].includes(status);
-  const state = { authenticated: false, sources: [], skills: [], runs: [], run: null, policy: null, lastEvent: null, busy: false, modelTested: false, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0 };
+  const state = { authenticated: false, sources: [], skills: [], runs: [], run: null, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0 };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
   // A launcher supplies only a short-lived single-use token, never the API key.
   const launchToken = new URLSearchParams(location.hash.slice(1)).get('connect');
@@ -122,6 +122,18 @@
     $('#workspaceReadiness').textContent = state.authenticated ? 'Authenticated to this backend.' : 'Use the key created by your OpsGraph operator.';
     $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : 'Configure and inspect an approved read-only source.';
     $('#modelReadiness').textContent = state.modelTested ? 'Actual model connection test passed in this tab.' : 'A real model connection test has not passed in this tab.';
+    const completed = [state.authenticated, ready.length > 0, state.modelTested];
+    ['workspace', 'source', 'model'].forEach((step, index) => {
+      const row = $(`#${step}Step`);
+      row.classList.toggle('step-complete', completed[index]);
+      row.classList.toggle('step-current', index === completed.indexOf(false));
+      if (index === completed.indexOf(false)) row.setAttribute('aria-current', 'step'); else row.removeAttribute('aria-current');
+      const labels = ['Connect workspace', 'Inspect PostgreSQL', 'Check your model'];
+      $(`#${step}StepTitle`).textContent = `${completed[index] ? '✓' : `${index + 1}.`} ${labels[index]}${completed[index] ? ' — complete' : ''}`;
+    });
+    $('#setupCredential').hidden = state.authenticated;
+    $('#setupSource').textContent = ready.length ? 'Review source' : 'Configure source';
+    $('#setupModel').textContent = state.modelTested ? 'Review model' : 'Configure model';
     $('#saveSkill').disabled = !state.authenticated;
     const active = state.run && !terminal(state.run.status);
     $('#submitRun').disabled = state.busy || !state.authenticated || !ready.length || !state.modelTested || Boolean(active);
@@ -135,7 +147,8 @@
       $('#composerTitle').textContent = 'Clarify your question';
       $('#composerContext').textContent = 'Answer the clarification above with the needed definitions, join keys or time rules. This creates a linked attempt; nothing is treated as completed evidence from the blocked attempt.';
     }
-    $('#testProvider').disabled = !state.authenticated;
+    $('#testProvider').disabled = !state.authenticated || state.providerBusy || state.providerDirty;
+    $('#providerFields').disabled = !state.authenticated || state.providerBusy || !state.providerConfiguration;
     renderComposerScope();
   }
   function scopeMarkup(fields) {
@@ -166,24 +179,95 @@
     } catch (error) { notice('#globalError', error.message); $('#runtimeDetails').textContent = error.message; }
   }
   async function loadProvider() {
-    const current = await api('/api/providers/current'); const health = current.health || {};
+    const epoch = state.authEpoch;
+    const current = await api('/api/providers/current');
+    if (epoch !== state.authEpoch) return;
+    const health = current.health || {};
     $('#providerConfig').innerHTML = `<div><dt>Configured provider</dt><dd>${esc(health.provider || 'Not reported')}</dd></div><div><dt>Configured model</dt><dd>${esc(health.model || 'Not reported')}</dd></div><div><dt>Configuration status</dt><dd>${esc(health.status || 'Unknown')}: ${esc(health.detail || 'No detail reported')}</dd></div><div><dt>External inference</dt><dd>${current.capabilities?.external_egress === true ? 'Configured provider uses external egress' : current.capabilities?.external_egress === false ? 'Provider reports no external egress' : 'Not reported'}</dd></div>`;
     return current;
   }
+  function providerFormMode() {
+    const anthropic = $('#modelProvider').value === 'anthropic';
+    $('#modelEndpointField').hidden = anthropic;
+    $('#modelEndpoint').required = !anthropic;
+    $('#modelProfile').disabled = anthropic;
+    $('#modelReasoning').disabled = anthropic;
+  }
+  function fillProviderForm(configuration) {
+    if (state.providerConfiguration?.revision !== configuration.revision) {
+      state.modelTested = false;
+      $('#providerTestStatus').textContent = 'Configuration changed. Run an actual model connection test.';
+      $('#trustModel').textContent = 'Model configured · untested';
+    }
+    state.providerConfiguration = configuration;
+    $('#modelProvider').value = configuration.provider;
+    $('#modelName').value = configuration.model || '';
+    $('#modelEndpoint').value = configuration.endpoint || '';
+    $('#modelProfile').value = configuration.schema_profile || 'standard';
+    $('#modelReasoning').value = configuration.reasoning_effort || '';
+    $('#modelTimeout').value = configuration.timeout_seconds || 300;
+    $('#modelApiKey').value = ''; $('#clearModelKey').checked = false;
+    $('#modelExternalEgress').checked = configuration.allow_external_egress === true;
+    $('#modelExternalEgress').disabled = configuration.deployment_egress_enabled !== true;
+    $('#modelEgressStatus').textContent = configuration.deployment_egress_enabled === true ? 'External requests require this explicit approval. Keep off for local inference.' : 'External inference is disabled by this deployment. Ask the operator to enable it before choosing a remote endpoint.';
+    $('#modelKeyStatus').textContent = configuration.api_key_configured ? 'A key is stored on the backend. Leave blank to retain it for the same provider and endpoint. Changing either requires entering the appropriate key again.' : 'No key stored. Local runtimes may not require one. Keys are sent only to this backend and never displayed again.';
+    state.providerDirty = false; providerFormMode(); readiness();
+  }
+  async function loadProviderConfiguration() {
+    const epoch = state.authEpoch;
+    const configuration = await api('/api/providers/configuration');
+    if (epoch !== state.authEpoch) return;
+    fillProviderForm(configuration);
+    $('#providerSaveStatus').textContent = 'Configuration loaded. Saving does not run a model request.';
+  }
+  async function saveProviderConfiguration(event) {
+    event.preventDefault();
+    if (state.providerBusy) return;
+    const epoch = state.authEpoch;
+    const restoreFocus = guardAsyncFocus($('#saveProvider'), $('#providerSaveStatus'));
+    state.providerBusy = true; state.providerTestToken++; readiness(); notice('#providerSaveError');
+    const request = { provider: $('#modelProvider').value, model: $('#modelName').value.trim(), endpoint: $('#modelProvider').value === 'anthropic' ? null : $('#modelEndpoint').value.trim(), api_key: $('#modelApiKey').value, clear_api_key: $('#clearModelKey').checked, schema_profile: $('#modelProfile').value, reasoning_effort: $('#modelReasoning').value || null, timeout_seconds: Number($('#modelTimeout').value), allow_external_egress: $('#modelExternalEgress').checked };
+    $('#modelApiKey').value = '';
+    $('#providerSaveStatus').textContent = 'Saving model configuration on this backend…';
+    try {
+      const saved = await api('/api/providers/configuration', { method: 'PUT', body: JSON.stringify(request) });
+      if (epoch !== state.authEpoch) return;
+      state.modelTested = false; fillProviderForm(saved);
+      notice('#providerError'); $('#providerTestStatus').textContent = 'Configuration changed. Run a new actual model connection test.';
+      $('#trustModel').textContent = 'Model configured · untested';
+      $('#providerSaveStatus').textContent = 'Saved. Now test the actual model connection. No investigation data was sent.';
+      await loadProvider().catch(error => { if (epoch === state.authEpoch) notice('#providerError', `Configuration saved, but its status could not be refreshed. ${error.message}`); });
+    } catch (error) {
+      if (epoch !== state.authEpoch) return;
+      if (![400, 403, 409, 422].includes(error.status)) { state.modelTested = false; $('#trustModel').textContent = 'Model configuration unverified'; }
+      notice('#providerSaveError', error.message);
+      $('#providerSaveStatus').textContent = 'Save was not confirmed. Review the error and retry; re-enter a new API key if you supplied one.';
+    } finally { request.api_key = ''; if (epoch === state.authEpoch) { state.providerBusy = false; readiness(); restoreFocus(); } }
+  }
   async function testProvider() {
+    if (state.providerBusy || state.providerDirty) return;
+    const token = ++state.providerTestToken; state.providerBusy = true;
     const restoreFocus = guardAsyncFocus($('#testProvider'), $('#providerTestStatus'));
     notice('#providerError'); $('#testProvider').disabled = true; $('#providerTestStatus').textContent = 'Running an actual bounded model request…';
     state.modelTested = false; readiness(); $('#testProvider').disabled = true;
     try {
       const result = await api('/api/providers/current/test', { method: 'POST' });
-      state.modelTested = result.ok === true;
-      if (!state.modelTested) throw new Error(result.health?.detail || 'Model test failed. Check the model runtime, configured model and network address.');
+      if (token !== state.providerTestToken) return;
+      if (result.ok !== true) throw new Error(result.health?.detail || 'Model test failed. Check the model runtime, configured model and network address.');
+      const configuration = await api('/api/providers/configuration');
+      if (token !== state.providerTestToken) return;
+      fillProviderForm(configuration);
+      if (!result.configuration_revision || result.configuration_revision !== configuration.revision) throw new Error('Model configuration changed during the connection test. Test the current configuration again.');
+      await loadProvider();
+      if (token !== state.providerTestToken) return;
+      state.modelTested = true;
       $('#providerTestStatus').textContent = `Real connection test passed: ${result.provider || result.health?.provider || 'configured provider'} / ${result.model || result.health?.model || 'configured model'} · ${stamp(result.checked_at)}.`;
       $('#trustModel').textContent = 'Actual model test passed';
-      await loadProvider();
     } catch (error) {
+      if (token !== state.providerTestToken) return;
+      state.modelTested = false;
       notice('#providerError', error.message); $('#providerTestStatus').textContent = 'Model unavailable. Source setup and saved investigations remain available.'; $('#trustModel').textContent = 'Model test failed';
-    } finally { readiness(); restoreFocus(); }
+    } finally { if (token === state.providerTestToken) state.providerBusy = false; readiness(); restoreFocus(); }
   }
   async function loadSources() {
     state.sources = (await api('/api/sources')).filter(source => source.kind === 'postgresql');
@@ -215,7 +299,7 @@
   async function loadAudit() { $('#auditDetails').textContent = json(await api('/api/audit')); }
   async function loadWorkspace() {
     state.authenticated = true; notice('#globalError');
-    const results = await Promise.allSettled([loadSources(), loadSkills(), loadProvider(), loadHistory(), loadPolicy()]);
+    const results = await Promise.allSettled([loadSources(), loadSkills(), loadProvider(), loadProviderConfiguration(), loadHistory(), loadPolicy()]);
     const rejected = results.filter(item => item.status === 'rejected');
     if (rejected.some(item => item.reason.status === 401)) { state.authenticated = false; throw rejected.find(item => item.reason.status === 401).reason; }
     if (rejected.length) notice('#globalError', rejected.map(item => item.reason.message).join('\n'));
@@ -238,7 +322,7 @@
   }
   function clearWorkspace() {
     state.authEpoch++; stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
-    state.authenticated = false; state.modelTested = false; state.sources = []; state.skills = []; state.runs = []; state.run = null; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
+    state.authenticated = false; state.modelTested = false; state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
     $('#investigationQuestion').value = ''; $('#sourceCatalog').textContent = 'Connect workspace to load sources.'; $('#skillCatalog').textContent = 'Connect workspace to load playbooks.';
@@ -513,6 +597,16 @@
   $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
   $('#sourceForm').addEventListener('submit', saveSource); $('#investigationForm').addEventListener('submit', submitRun);
   $('#investigationSource').addEventListener('change', renderComposerScope); $('#investigationSkill').addEventListener('change', renderComposerScope);
+  $('#providerForm').addEventListener('submit', saveProviderConfiguration);
+  $('#providerForm').addEventListener('input', () => { state.providerDirty = true; $('#providerSaveStatus').textContent = 'Unsaved changes. Save before testing this configuration.'; readiness(); });
+  $('#modelProvider').addEventListener('change', () => {
+    $('#modelApiKey').value = ''; $('#clearModelKey').checked = false; $('#modelExternalEgress').checked = false;
+    const local = $('#modelProvider').value === 'ollama';
+    $('#modelName').value = local ? 'qwen3:8b' : '';
+    $('#modelEndpoint').value = local ? 'http://127.0.0.1:11434/v1' : '';
+    $('#modelProfile').value = local ? 'ollama' : 'standard'; $('#modelReasoning').value = local ? 'none' : '';
+    state.providerDirty = true; providerFormMode(); readiness();
+  });
   $('#testProvider').addEventListener('click', testProvider); $('#cancelRun').addEventListener('click', cancelRun); $('#retryRun').addEventListener('click', retryRun);
   $('#caseSearch').addEventListener('input', renderHistory);
   $('#skillForm').addEventListener('submit', saveSkill); $('#publishSkill').addEventListener('click', publishSkill);

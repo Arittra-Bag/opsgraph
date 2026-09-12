@@ -313,3 +313,15 @@ main { min-width: 0; overflow: visible; }
   .current-operation { margin-inline: 16px; }
   .scope-summary-list { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Setup progress reflects authenticated and verified backend state. */
+.setup-checklist .step-complete b { color: #7cdbb5; }
+.setup-checklist .step-current { border-left: 3px solid var(--teal); padding-left: 12px; }
+.setup-checklist button[hidden] { display: none; }
+#providerFields { min-width: 0; border: 0; padding: 0; margin: 0; }
+#providerFields:disabled { opacity: .65; }
+#providerForm input, #providerForm select { max-width: 100%; }
+#providerForm .helper { font-size: 12px; line-height: 1.5; }
+.model-advanced { margin-top: 20px; border-block: 1px solid var(--line); padding-block: 12px; }
+.model-advanced summary, .runtime-details > summary { cursor: pointer; color: var(--text-2); font-weight: 600; }
+#modelEndpointField[hidden] { display: none; }

@@ -605,3 +605,7 @@ from opsgraph.persistence.runs import TERMINAL  # noqa: E402
 run_api = RunAPI(runtime, authorize)
 app.include_router(run_api.router)
 app.router.lifespan_context = run_api.lifespan
+
+from opsgraph.api.provider_settings import router_for  # noqa: E402
+
+app.include_router(router_for(runtime, run_api))

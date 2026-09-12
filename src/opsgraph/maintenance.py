@@ -75,7 +75,10 @@ def _read_manifest(path: Path) -> dict:
     if not isinstance(version, str) or not re.fullmatch(r"[0-9][0-9A-Za-z.+!-]{0,63}", version):
         raise MaintenanceError("Backup manifest has an invalid version. Use a complete backup.")
     files = manifest["files"]
-    if not isinstance(files, dict) or set(files) != {".env", "state.db"}:
+    if not isinstance(files, dict) or set(files) not in (
+        {".env", "state.db"},
+        {".env", "state.db", "provider.env"},
+    ):
         raise MaintenanceError(
             "Backup manifest must describe exactly the configuration and state files."
         )
@@ -175,10 +178,17 @@ def backup(directory: Path, destination: Path) -> None:
                 source.backup(target)
                 if target.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                     raise MaintenanceError("Backup integrity check failed; do not use this backup.")
+        names = [".env", "state.db"]
+        provider_file = state.parent / (state.name + ".provider") / "settings.env"
+        if provider_file.exists() or provider_file.is_symlink():
+            _safe_path(provider_file)
+            read_private_config(provider_file)
+            private_bytes(destination / "provider.env", provider_file.read_bytes())
+            names.append("provider.env")
         manifest = {
             "format": 1,
             "opsgraph_version": __version__,
-            "files": {name: digest(destination / name) for name in (".env", "state.db")},
+            "files": {name: digest(destination / name) for name in names},
             "contains_credentials_and_evidence": True,
         }
         private_bytes(destination / "manifest.json", json.dumps(manifest, indent=2).encode())
@@ -206,6 +216,11 @@ def restore(source: Path, destination: Path) -> None:
     private_bytes(destination / ".opsgraph/state.db", (source / "state.db").read_bytes())
     values["OPSGRAPH_STATE_PATH"] = str(destination / ".opsgraph/state.db")
     write_private_config(destination / ".env", values)
+    if "provider.env" in manifest["files"]:
+        provider_values = read_private_config(source / "provider.env")
+        write_private_config(
+            destination / ".opsgraph/state.db.provider/settings.env", provider_values
+        )
 
 
 def run_maintenance(action: str, directory: Path | None, other: Path) -> int:

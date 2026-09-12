@@ -184,7 +184,8 @@ outside the application until a supported retention feature exists.
 
 Stop the backend cleanly before an offline backup. Back up the entire
 `.opsgraph` directory (or stopped container state volume), including any SQLite
-sidecar files, to private storage. Store `.env` separately with restricted
+sidecar files and the private `state.db.provider` model-settings directory, to
+private storage. Store `.env` separately with restricted
 permissions; never include it in shared evidence exports. Restore only while
 the backend is stopped, using a fresh directory and a compatible application
 version. Keep the original backup unchanged. Test restoration by reopening
