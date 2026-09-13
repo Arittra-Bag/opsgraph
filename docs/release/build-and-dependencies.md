@@ -265,7 +265,7 @@ source, notice or license compliance.
 
 Use `docs/release/notices/beta-source-manifest.json` to fetch each original
 archive or build file from its recorded URL and verify its SHA-256 before use.
-GitHub `blob` URLs in the historical records refer to raw file content, not HTML.
+The manifest uses direct archive or raw-content URLs, not HTML file views.
 Keep the archives unchanged under `sources/`; retain the original wheel notice
 and SBOM members under `wheel-notices/<platform>/<wheel>/`, and copy the release
 notice/provenance records under `notices/`. Include the upstream image manifest

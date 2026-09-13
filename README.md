@@ -38,7 +38,7 @@ and supply any missing business definitions before acting on an answer.
 ## Get started
 
 **[Beta 1 (`v0.1.0b1`)](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1) is a prerelease for evaluation.**
-Download a matching offline bundle and checksum, or use the source checkout below.
+Download a matching offline bundle and checksum, or use the `v0.1.0b1` source checkout below.
 The [bundle quickstart](docs/quickstart.md) explains installation and verification.
 Release assets include matching application and dependency source archives.
 Older alpha downloads do not contain the current beta workflow.
@@ -60,7 +60,7 @@ You need:
 Run these commands in Terminal on macOS/Linux or PowerShell on Windows:
 
 ```sh
-git clone https://github.com/Arittra-Bag/opsgraph.git
+git clone --branch v0.1.0b1 --single-branch https://github.com/Arittra-Bag/opsgraph.git
 cd opsgraph
 uv sync --locked --all-extras
 uv run opsgraph launch --configure

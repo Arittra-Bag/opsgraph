@@ -31,7 +31,7 @@ configuration. Our local adapter uses [Ollama's OpenAI-compatible endpoint](http
 ## Install once, launch whenever needed
 
 Download the matching bundle from [Beta 1 release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1).
-Alternatively, use the [source checkout instructions](../README.md#linux-macos-and-windows);
+Alternatively, use the [Beta 1 source checkout instructions](../README.md#linux-macos-and-windows);
 the browser steps below are the same. Read the platform limits in the
 [support matrix](release/support-matrix.md) before installing.
 

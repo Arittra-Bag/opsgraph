@@ -10,7 +10,7 @@ source whose scope and business meaning you understand.
 
 Download a matching bundle from [Beta 1 release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1),
 then follow [quick start](quickstart.md). The
-[source quickstart](../README.md#linux-macos-and-windows) is also available.
+[Beta 1 source quickstart](../README.md#linux-macos-and-windows) is also available.
 The versioned offline bundle includes
 launch scripts and exact locked dependency wheels; CPython and the model runtime
 remain explicit prerequisites. `opsgraph launch` stores configuration in a stable

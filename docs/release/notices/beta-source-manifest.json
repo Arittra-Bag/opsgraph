@@ -39,7 +39,7 @@
       "file": "build_libpq.sh",
       "size": 7120,
       "sha256": "2cb45ac4c8bb5e8fc3c738c597817bcb2d224bc66073d10023f15665bee9cb8b",
-      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/build_libpq.sh"
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/build_libpq.sh"
     },
     {
       "name": "certifi",
@@ -83,7 +83,7 @@
       "file": "copy_to_binary.py",
       "size": 1389,
       "sha256": "522dcd9abd006606f8aa12ac8bf4cf3db15841618aa0bdca4b773525d07e9eb3",
-      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/copy_to_binary.py"
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/copy_to_binary.py"
     },
     {
       "file": "cyrus-sasl-2.1.26-24.el7_9.src.rpm",
@@ -322,7 +322,7 @@
       "file": "packages-bin.yml",
       "size": 9121,
       "sha256": "763c6ab0014cee4c1a1263f2c943dd7683bc6c9a56231b3fc77a41ffcbe168f5",
-      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/.github/workflows/packages-bin.yml"
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/.github/workflows/packages-bin.yml"
     },
     {
       "name": "packaging",
