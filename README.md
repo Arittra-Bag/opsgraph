@@ -78,13 +78,14 @@ locations, separate-browser access and recovery, see the [quickstart](docs/quick
 
 | Environment | Validation available for this beta |
 | --- | --- |
-| macOS 26 arm64 | CI fixtures and offline installer lifecycle; real PostgreSQL/model workflow exercised locally on macOS 26.2 |
+| macOS 26 arm64 | CI fixtures and offline installer lifecycle |
 | Linux: Ubuntu 24.04 x64 | CI fixtures and offline installer lifecycle; full native database/model workflow not yet verified |
 | Windows Server 2025 x64 | CI fixtures and offline installer lifecycle; Windows 11 and full native database/model workflow not yet verified |
 | Docker | Image configuration and health checks; complete container investigation workflow not yet verified |
 
 These checks cover different things; see the [support matrix](docs/release/support-matrix.md)
-for exact versions and provider coverage. This is a public validation beta for
+for exact versions, provider coverage and previously recorded live macOS workflow
+results. The screenshot uses a saved investigation from that earlier testing. This is a public validation beta for
 one operator, not a stable or production-ready release.
 
 ## Your first investigation

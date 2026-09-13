@@ -144,7 +144,7 @@ Set these values for your own services:
 | `OPSGRAPH_LOCAL_MODEL_URL` | The model's container-reachable OpenAI-compatible URL; see the routing notes below |
 | `OPSGRAPH_LOCAL_MODEL` | An installed model identifier, such as `qwen3:8b` |
 | `OPSGRAPH_LOCAL_SCHEMA_PROFILE` | `ollama` for the tested Ollama path; `standard` for other compatible endpoints |
-| `OPSGRAPH_PROVIDER_TIMEOUT_SECONDS` | `300` for the documented slow local-model path; tune within the supported 1–600 second range |
+| `OPSGRAPH_PROVIDER_TIMEOUT_SECONDS` | `300` for the documented slow local-model path; tune within the supported 0.1–600 second range |
 
 Keep the generated source-reference names unchanged. Quote `.env` values that
 contain special characters using Docker Compose's environment-file rules;
