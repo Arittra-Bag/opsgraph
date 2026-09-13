@@ -1,0 +1,2 @@
+# Keep source and notice hashes identical across native release builds.
+* text=auto eol=lf

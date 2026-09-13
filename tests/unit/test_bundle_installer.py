@@ -290,6 +290,7 @@ def test_bundle_is_reproducible_and_rejects_stale_wheel(builder, tmp_path, monke
     (wheelhouse / "example-1.0-py3-none-any.whl").write_bytes(dependency)
     lock = f"example==1.0\n    --hash=sha256:{installer.digest(dependency)}\n".encode()
     sources = {
+        ".gitattributes": b"* text=auto eol=lf\n",
         "src/opsgraph/__init__.py": b"VERSION = 'fixture'\n",
         "requirements.lock": lock,
         "LICENSE": b"test license",
@@ -346,6 +347,7 @@ def test_archive_build_matches_git_inventory_without_git(builder, tmp_path, monk
     sources = {
         "src/opsgraph/__init__.py": b"VERSION = 'fixture'\n",
         "CHANGELOG.md": b"release history",
+        ".gitattributes": b"* text=auto eol=lf\n",
         "requirements.lock": (
             f"example==1.0\n    --hash=sha256:{installer.digest(dependency)}\n".encode()
         ),

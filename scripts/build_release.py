@@ -45,6 +45,7 @@ ROOT_FILES = {
     "uv.lock",
     "build-constraints.txt",
     ".gitignore",
+    ".gitattributes",
     ".dockerignore",
     ".env.example",
     "Dockerfile",
