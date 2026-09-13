@@ -1,7 +1,6 @@
-# OpsGraph 0.1.0b1 — draft beta release notes
+# OpsGraph Beta 1 — v0.1.0b1
 
-Unreleased. These notes describe the planned first beta; no tag or release is
-published by the documentation update.
+Released 2026-09-13 as a prerelease for public evaluation.
 
 OpsGraph is a self-hosted PostgreSQL investigation workspace for one operator.
 Configure a read-only source and model, ask a bounded question, follow actual
@@ -31,9 +30,12 @@ production-ready or market-adoption claim.
 
 ## Installation assets
 
-Each release artifact must be accompanied by its matching SHA-256 checksum.
-Native bundles must be labelled with their operating system, architecture and
-Python version; a hosted package check is not a full support claim.
+[Release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1) include CPython 3.11 offline bundles for
+macOS arm64, Ubuntu x64 and Windows x64, the application wheel and source archive,
+and `opsgraph-0.1.0b1-third-party-sources.tar.gz`. Download the source supplement
+alongside a binary for its corresponding dependency sources and notices.
+`SHA256SUMS` covers every asset; each bundle also has an adjacent `.sha256` file.
+A hosted package check is not a full native database/model support claim.
 
 For the validated Mac artifact, after obtaining its matching checksum:
 

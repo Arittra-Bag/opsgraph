@@ -30,10 +30,10 @@ configuration. Our local adapter uses [Ollama's OpenAI-compatible endpoint](http
 
 ## Install once, launch whenever needed
 
-The beta bundle is not published yet. Until it is, use the
-[source checkout instructions](../README.md#linux-macos-and-windows); the browser
-steps below are the same. The following bundle instructions apply once matching
-beta artifacts are available on the [releases page](https://github.com/Arittra-Bag/opsgraph/releases).
+Download the matching bundle from [Beta 1 release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1).
+Alternatively, use the [source checkout instructions](../README.md#linux-macos-and-windows);
+the browser steps below are the same. Read the platform limits in the
+[support matrix](release/support-matrix.md) before installing.
 
 1. Download the ZIP for your OS, architecture and CPython 3.11, together with its
    adjacent `.sha256` file. Check the checksum before extracting:

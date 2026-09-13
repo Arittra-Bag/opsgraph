@@ -37,10 +37,10 @@ and supply any missing business definitions before acting on an answer.
 
 ## Get started
 
-**The first beta is being prepared; it has not been published yet.** Use the
-source checkout below today. When available, versioned offline bundles and their
-checksums will appear on the [releases page](https://github.com/Arittra-Bag/opsgraph/releases).
+**[Beta 1 (`v0.1.0b1`)](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1) is a prerelease for evaluation.**
+Download a matching offline bundle and checksum, or use the source checkout below.
 The [bundle quickstart](docs/quickstart.md) explains installation and verification.
+Release assets include matching application and dependency source archives.
 Older alpha downloads do not contain the current beta workflow.
 
 You need:

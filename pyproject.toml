@@ -42,6 +42,12 @@ packages = ["src/opsgraph"]
 exclude = ["/PKG-INFO", "/docs"]
 
 [tool.hatch.build.targets.sdist.force-include]
+"docs/release/notices/beta-wheel-inventory.json" = "docs/release/notices/beta-wheel-inventory.json"
+"docs/release/notices/beta-source-manifest.json" = "docs/release/notices/beta-source-manifest.json"
+"docs/release/notices/OpenSSL-3.6.3-LICENSE.txt" = "docs/release/notices/OpenSSL-3.6.3-LICENSE.txt"
+"docs/release/notices/OpenSSL-3.6.3-AUTHORS.md" = "docs/release/notices/OpenSSL-3.6.3-AUTHORS.md"
+"docs/release/notices/OpenSSL-3.6.3-ACKNOWLEDGEMENTS.md" = "docs/release/notices/OpenSSL-3.6.3-ACKNOWLEDGEMENTS.md"
+"docs/release/notices/PostgreSQL-18.4-COPYRIGHT.txt" = "docs/release/notices/PostgreSQL-18.4-COPYRIGHT.txt"
 "docs/assets/opsgraph-investigation-workspace-beta.png" = "docs/assets/opsgraph-investigation-workspace-beta.png"
 "docs/connector-contract.md" = "docs/connector-contract.md"
 "docs/installation.md" = "docs/installation.md"

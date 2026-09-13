@@ -260,3 +260,19 @@ described in [beta distribution](beta-distribution.md). Preserve original licens
 files inside dependency wheels; OpsGraph's Apache-2.0 grant does not replace
 third-party licenses. A successfully built ZIP alone does not establish complete
 source, notice or license compliance.
+
+## Beta 1 source supplement
+
+Use `docs/release/notices/beta-source-manifest.json` to fetch each original
+archive or build file from its recorded URL and verify its SHA-256 before use.
+GitHub `blob` URLs in the historical records refer to raw file content, not HTML.
+Keep the archives unchanged under `sources/`; retain the original wheel notice
+and SBOM members under `wheel-notices/<platform>/<wheel>/`, and copy the release
+notice/provenance records under `notices/`. Include the upstream image manifest
+and configuration used to trace libxcrypt, plus a `SHA256SUMS` over packet files.
+
+Package that directory as `opsgraph-0.1.0b1-third-party-sources.tar.gz` and publish
+it beside the application wheel, matching application source and native bundles.
+The source RPMs contain downstream patches and build recipes; do not install them
+as runtime dependencies. Upstream build scripts are supplied as source, not run
+by the OpsGraph installer. A final outer `SHA256SUMS` covers all published assets.

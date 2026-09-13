@@ -1,0 +1,3981 @@
+{
+  "schema_version": 1,
+  "observed_on": "2026-09-13",
+  "scope": "Exact locked dependency wheels from merged-main CI run 34755455258. Archive and metadata inspection, not independent native rebuild or vulnerability certification.",
+  "ci_source_commit": "d02e6f01d59368fa2c0003bbe06fbca4307b0c86",
+  "platforms": {
+    "macos-arm64-cp311": [
+      {
+        "name": "annotated-doc",
+        "version": "0.0.5",
+        "wheel": "annotated_doc-0.0.5-py3-none-any.whl",
+        "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "annotated_doc-0.0.5.dist-info/licenses/LICENSE",
+            "sha256": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "wheel": "annotated_types-0.8.0-py3-none-any.whl",
+        "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+        "license_expression": "MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "annotated_types-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "anthropic",
+        "version": "0.122.0",
+        "wheel": "anthropic-0.122.0-py3-none-any.whl",
+        "sha256": "45ec906452ffae6b5f7f0c53d01f50bfb7e4ce878d7ae8e4309d13171e557e67",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "anthropic-0.122.0.dist-info/licenses/LICENSE",
+            "sha256": "8bf96984ff8bcfae7e48cae76a529e8a25317ba9e02abf7fd3cc64fdf95657a6"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "anyio",
+        "version": "4.14.2",
+        "wheel": "anyio-4.14.2-py3-none-any.whl",
+        "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "anyio-4.14.2.dist-info/licenses/LICENSE",
+            "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "certifi",
+        "version": "2026.7.22",
+        "wheel": "certifi-2026.7.22-py3-none-any.whl",
+        "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+        ],
+        "notices": [
+          {
+            "path": "certifi-2026.7.22.dist-info/licenses/LICENSE",
+            "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "charset-normalizer",
+        "version": "3.5.1",
+        "wheel": "charset_normalizer-3.5.1-cp311-cp311-macosx_10_9_universal2.whl",
+        "sha256": "eda059b6bc8bc0812d626fd91a7ce01bf583df0a61296eff390fd94141a34e30",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "charset_normalizer-3.5.1.dist-info/licenses/LICENSE",
+            "sha256": "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "charset_normalizer/cd.cpython-311-darwin.so",
+            "sha256": "e0dfd1d345010a974e0cd59aec76daa61201a1ca151b8377caf19cd19871c393",
+            "version_strings": []
+          },
+          {
+            "path": "charset_normalizer/md.cpython-311-darwin.so",
+            "sha256": "d795991862639c674d0a7db0904c64120376c0b31691d6adf623a3d3fe8ad7b0",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "click",
+        "version": "8.4.2",
+        "wheel": "click-8.4.2-py3-none-any.whl",
+        "sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "click-8.4.2.dist-info/licenses/LICENSE.txt",
+            "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "distro",
+        "version": "1.9.0",
+        "wheel": "distro-1.9.0-py3-none-any.whl",
+        "sha256": "7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "distro-1.9.0.dist-info/LICENSE",
+            "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "docstring_parser",
+        "version": "0.18.0",
+        "wheel": "docstring_parser-0.18.0-py3-none-any.whl",
+        "sha256": "b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "docstring_parser-0.18.0.dist-info/licenses/LICENSE.md",
+            "sha256": "dfe514a337ae8417abd31a8af707bbd6172b03e5430bb083e145899ea97a3eea"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "fastapi",
+        "version": "0.141.1",
+        "wheel": "fastapi-0.141.1-py3-none-any.whl",
+        "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "fastapi-0.141.1.dist-info/licenses/LICENSE",
+            "sha256": "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "wheel": "h11-0.16.0-py3-none-any.whl",
+        "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "h11-0.16.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "wheel": "httpcore-1.0.9-py3-none-any.whl",
+        "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "httpcore-1.0.9.dist-info/licenses/LICENSE.md",
+            "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "httptools",
+        "version": "0.8.0",
+        "wheel": "httptools-0.8.0-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "9518c406d7b310f05adb1a37f80acabac40504a575d7c0da6d3e365c695ac20d",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "f4573e7cb7676745fb5b8d36fa548aa93e391cfb6872ddacd65130c45ea6a92d"
+          },
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/vendor/http-parser/LICENSE-MIT",
+            "sha256": "79e6ba8b687cb54786207342b9b6fcee0ac10218453ed9009b84d949b2233cc0"
+          },
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/vendor/llhttp/LICENSE",
+            "sha256": "628168d68bb5a8a17e0bbefb3bd74e326e1edc20583d76f52f457c82c921867d"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "httptools/parser/parser.cpython-311-darwin.so",
+            "sha256": "dee4c64468e8beaaffa6123a19925d1788a042110aca5f6e3bdf8d64f201c44f",
+            "version_strings": []
+          },
+          {
+            "path": "httptools/parser/url_parser.cpython-311-darwin.so",
+            "sha256": "8a53fc6bcb8793eb45ad9c2cec29c853518b3b5625197eb60ab3a1cf8425d09a",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "wheel": "httpx-0.28.1-py3-none-any.whl",
+        "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "httpx-0.28.1.dist-info/licenses/LICENSE.md",
+            "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "idna",
+        "version": "3.18",
+        "wheel": "idna-3.18-py3-none-any.whl",
+        "sha256": "7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "idna-3.18.dist-info/licenses/LICENSE.md",
+            "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "jiter",
+        "version": "0.16.0",
+        "wheel": "jiter-0.16.0-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "c90c0f63df322be920eda6ce622e3083d8906ba267f8220fe7873213b8b4430e",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "jiter-0.16.0.dist-info/licenses/LICENSE",
+            "sha256": "7c7134b9f7b978c03fca875517cf398db91f19bbb8109b6685e742aa3f57468e"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "jiter/jiter.cpython-311-darwin.so",
+            "sha256": "71cd65dd654c142c5c2bae1193dc3463a8e5f21dfc0e7f1479dbe0db35639fa9",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "jiter-0.16.0.dist-info/sboms/jiter-python.cyclonedx.json",
+            "component_count": 37,
+            "supplier_components": [],
+            "sha256": "796c92c45da906a58f452cd49c458145028487f83297bafafb07669b0bcecc0f"
+          }
+        ]
+      },
+      {
+        "name": "jsonpatch",
+        "version": "1.33",
+        "wheel": "jsonpatch-1.33-py2.py3-none-any.whl",
+        "sha256": "0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "jsonpatch-1.33.dist-info/AUTHORS",
+            "sha256": "84eb449c119b7c37a02a3ccc0c4979bee549c9ccdb2363e5604da1a382e318d4"
+          },
+          {
+            "path": "jsonpatch-1.33.dist-info/LICENSE",
+            "sha256": "4393eb6733fa1e367f41769b382f4f1be7bf0daeb1e243ed92b3f5d8bafd236f"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "jsonpointer",
+        "version": "3.1.1",
+        "wheel": "jsonpointer-3.1.1-py3-none-any.whl",
+        "sha256": "8ff8b95779d071ba472cf5bc913028df06031797532f08a7d5b602d8b2a488ca",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "jsonpointer-3.1.1.dist-info/licenses/AUTHORS",
+            "sha256": "4d58319d0f59c87bef5b07b3fe4db0f19c2d7d5545b034c6bf7b57c89bbef57f"
+          },
+          {
+            "path": "jsonpointer-3.1.1.dist-info/licenses/LICENSE.txt",
+            "sha256": "d8b24f15d472885f788a2d6e985850f264627b86012a17bb242c83f310d907e5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langchain-core",
+        "version": "1.5.5",
+        "wheel": "langchain_core-1.5.5-py3-none-any.whl",
+        "sha256": "537037fd44ead7c1ffb9621011029ad2e347e051519d17f112d7bf7be12f4365",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "langchain_core-1.5.5.dist-info/licenses/LICENSE",
+            "sha256": "4ec67e4ca6e6721dba849b2ca82261597c86a61ee214bbf21416006b7b2d0478"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langchain-protocol",
+        "version": "0.0.18",
+        "wheel": "langchain_protocol-0.0.18-py3-none-any.whl",
+        "sha256": "70b53a86fbf9cedc863555effe44da192ab02d556ddbf2cf95b8873adcf41b5a",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "langchain_protocol-0.0.18.dist-info/licenses/LICENSE",
+            "sha256": "893e6e30275896912c21c77f9f7c112aba85fd985d05b26a29424cf7e511d177"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph",
+        "version": "1.2.11",
+        "wheel": "langgraph-1.2.11-py3-none-any.whl",
+        "sha256": "8bab70de7b2d00b5300fb289bcf38d8b241400f3184c1e95e8ce706fb0e8686b",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph-1.2.11.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-checkpoint",
+        "version": "4.2.0",
+        "wheel": "langgraph_checkpoint-4.2.0-py3-none-any.whl",
+        "sha256": "0547fd228935a0b758865de3a3d6d7a2537c308895d0f9ab092ce9151b5da942",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_checkpoint-4.2.0.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-prebuilt",
+        "version": "1.1.0",
+        "wheel": "langgraph_prebuilt-1.1.0-py3-none-any.whl",
+        "sha256": "51e311747d755b751d5c6b39b0c1446124d3a7643d2515017e6714b323508fc9",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_prebuilt-1.1.0.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-sdk",
+        "version": "0.4.2",
+        "wheel": "langgraph_sdk-0.4.2-py3-none-any.whl",
+        "sha256": "75fa5096c1177ce39c847096a8fe3745ffd480ddb412995f836e9f5f884c43dd",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_sdk-0.4.2.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langsmith",
+        "version": "0.11.0",
+        "wheel": "langsmith-0.11.0-py3-none-any.whl",
+        "sha256": "e87a3929915936c066b3fa3283ec3f3f0013e2ef7f98a443a7fbe3fab8e784a3",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "openai",
+        "version": "2.54.0",
+        "wheel": "openai-2.54.0-py3-none-any.whl",
+        "sha256": "89089789197ccdb87f173a03145ed1598d00795220c93e96cf712b1cbf5e5f2b",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "openai-2.54.0.dist-info/licenses/LICENSE",
+            "sha256": "636eb7d79da9bb6d515a4b3fd417aa26679eb3cf16396ddab4bc55fa74e616e4"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "orjson",
+        "version": "3.12.0",
+        "wheel": "orjson-3.12.0-cp311-cp311-macosx_15_0_arm64.whl",
+        "sha256": "a696529ec96a90d9a5f9570207efe403c8b08f8e4aa2783ee3403511e2fdfa10",
+        "license_expression": "MPL-2.0 AND (Apache-2.0 OR MIT)",
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License",
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+        ],
+        "notices": [
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+          },
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-MIT",
+            "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+          },
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-MPL-2.0",
+            "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "orjson/orjson.cpython-311-darwin.so",
+            "sha256": "0f10dd22ec86fe9639a56ddc2530c2a166c5b430bd1f805f97548b1ddb463103",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "orjson-3.12.0.dist-info/sboms/orjson.cyclonedx.json",
+            "component_count": 22,
+            "supplier_components": [],
+            "sha256": "730555c083417a423f5b4112de2c3521d8edd6fee440a77545065701e3985197"
+          }
+        ]
+      },
+      {
+        "name": "ormsgpack",
+        "version": "1.12.2",
+        "wheel": "ormsgpack-1.12.2-cp311-cp311-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl",
+        "sha256": "bd5f4bf04c37888e864f08e740c5a573c4017f6fd6e99fa944c5c935fabf2dd9",
+        "license_expression": "Apache-2.0 OR MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "ormsgpack-1.12.2.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+          },
+          {
+            "path": "ormsgpack-1.12.2.dist-info/licenses/LICENSE-MIT",
+            "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "ormsgpack/ormsgpack.cpython-311-darwin.so",
+            "sha256": "7346b13bf7baade661f16ff2d22818dbad4f041be6ed1525b080f3386f664039",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "wheel": "packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "license_expression": "Apache-2.0 OR BSD-2-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE",
+            "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+          },
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+            "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+          },
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+            "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "pglast",
+        "version": "7.18",
+        "wheel": "pglast-7.18-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "f91aeb2d31c0e9790182d4a022905df7773d87c32d8c16c383e2f50652d9a833",
+        "license_expression": "GPL-3.0-or-later",
+        "license_classifiers": [],
+        "notices": [],
+        "native_members": [
+          {
+            "path": "pglast/parser.cpython-311-darwin.so",
+            "sha256": "930e765faf3d74dd0bd0de8d9244d5e513a06bfcf59a5acd62d3e83e37b91f2b",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "psycopg",
+        "version": "3.3.5",
+        "wheel": "psycopg-3.3.5-py3-none-any.whl",
+        "sha256": "ce5aa5cdb4f9379f00f487590e5890bfa7df9a164648c969ffa628505e21af4e",
+        "license_expression": "LGPL-3.0-only",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "psycopg-3.3.5.dist-info/licenses/LICENSE.txt",
+            "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "psycopg-binary",
+        "version": "3.3.5",
+        "wheel": "psycopg_binary-3.3.5-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "fdbeb38c9b7ca8fa57a7bda3802bedb62f4494ad3dd46c7dd36dc3f77fd5093f",
+        "license_expression": "LGPL-3.0-only",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "psycopg_binary-3.3.5.dist-info/licenses/LICENSE.txt",
+            "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "psycopg_binary/.dylibs/libcom_err.3.0.dylib",
+            "sha256": "513dd49e6b8f7748b6b9da5df48d953e7129ffa13aa1126d2922fa443e16d658",
+            "version_strings": [
+              "krb5-1.22.2/src/util/et/",
+              "krb5-1.22.2/src/util/et/com_err.so",
+              "krb5-1.22.2/src/util/et/error_message.so",
+              "krb5-1.22.2/src/util/et/et_name.so"
+            ]
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libcrypto.3.dylib",
+            "sha256": "9908e7a62b32b41153e800f4577607f14669bed28457024941556f8901ad75de",
+            "version_strings": [
+              "OpenSSL 3.5.8 25 Aug 2026"
+            ]
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libgssapi_krb5.2.2.dylib",
+            "sha256": "f0c5b071355e3f980222c5a735d8a70d3e9697706f2cfbabae2bfba9aec40981",
+            "version_strings": [
+              "krb5-1.22.2/src/lib/gssapi/generic/",
+              "krb5-1.22.2/src/lib/gssapi/generic/disp_com_err_status.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/disp_major_status.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/gssapi_err_generic.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/gssapi_generic.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/oid_ops.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/rel_buffer.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/rel_oid_set.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/util_buffer.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/util_buffer_set.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/util_errmap.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/util_seqstate.so",
+              "krb5-1.22.2/src/lib/gssapi/generic/util_token.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/",
+              "krb5-1.22.2/src/lib/gssapi/krb5/accept_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/acquire_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/compare_name.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/context_time.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/copy_ccache.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/cred_store.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/delete_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/disp_name.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/disp_status.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/duplicate_name.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/export_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/export_name.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/export_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/get_tkt_flags.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/gssapi_err_krb5.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/gssapi_krb5.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/iakerb.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/import_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/import_name.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/import_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/indicate_mechs.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/init_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/inq_context.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/inq_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/inq_names.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/k5seal.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/k5sealiov.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/k5sealv3.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/k5sealv3iov.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/k5unsealiov.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/krb5_gss_glue.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/lucid_context.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/naming_exts.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/prf.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/process_context_token.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/rel_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/rel_name.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/rel_oid.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/s4u_gss_glue.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/ser_sctx.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/set_allowable_enctypes.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/set_ccache.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/store_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/unwrap.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/util_cksum.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/util_crypt.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/util_seqnum.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/val_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/verify_mic.so",
+              "krb5-1.22.2/src/lib/gssapi/krb5/wrap_size_limit.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_accept_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_acquire_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_acquire_cred_imp_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_acquire_cred_with_pw.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_authorize_localname.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_buffer_set.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_canon_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_compare_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_complete_auth_token.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_context_time.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_decapsulate_token.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_del_name_attr.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_delete_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_dsp_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_dsp_name_ext.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_dsp_status.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_dup_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_encapsulate_token.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_exp_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_export_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_export_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_export_name_comp.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_get_name_attr.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_glue.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_imp_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_imp_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_imp_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_init_sec_context.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_initialize.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_inq_context.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_inq_context_oid.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_inq_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_inq_cred_oid.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_inq_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_inq_names.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_map_name_to_any.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_mech_invoke.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_mechattr.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_negoex.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_oid_ops.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_prf.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_process_context.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_rel_buffer.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_rel_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_rel_name.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_rel_name_mapping.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_rel_oid_set.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_saslname.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_seal.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_set_context_option.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_set_cred_option.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_set_name_attr.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_set_neg_mechs.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_sign.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_store_cred.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_unseal.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_unwrap_aead.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_unwrap_iov.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_verify.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_wrap_aead.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/g_wrap_iov.so",
+              "krb5-1.22.2/src/lib/gssapi/mechglue/gssd_pname_to_uid.so",
+              "krb5-1.22.2/src/lib/gssapi/spnego/",
+              "krb5-1.22.2/src/lib/gssapi/spnego/negoex_ctx.so",
+              "krb5-1.22.2/src/lib/gssapi/spnego/negoex_util.so",
+              "krb5-1.22.2/src/lib/gssapi/spnego/spnego_mech.so",
+              "krb5-5555494478165bc39697306c8490c44443415a55"
+            ]
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libk5crypto.3.1.dylib",
+            "sha256": "7a742f0843ceb484864a48a785c64a76d7ad32f699e32550acdba53602f74b2e",
+            "version_strings": [
+              "krb5-1.22.2/src/lib/crypto/builtin/",
+              "krb5-1.22.2/src/lib/crypto/builtin/aes/",
+              "krb5-1.22.2/src/lib/crypto/builtin/aes/aescrypt.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/aes/aeskey.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/aes/aestab.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/camellia/",
+              "krb5-1.22.2/src/lib/crypto/builtin/camellia/camellia.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/cmac.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/d3_aead.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/d3_kysched.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/des_keys.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/f_aead.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/f_parity.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/f_sched.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/f_tables.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/des/weak_key.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/enc_provider/",
+              "krb5-1.22.2/src/lib/crypto/builtin/enc_provider/aes.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/enc_provider/camellia.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/enc_provider/des3.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/enc_provider/rc4.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/hash_provider/",
+              "krb5-1.22.2/src/lib/crypto/builtin/hash_provider/hash_md4.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/hash_provider/hash_md5.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/hash_provider/hash_sha1.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/hash_provider/hash_sha2.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/hmac.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/kdf.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/md4/",
+              "krb5-1.22.2/src/lib/crypto/builtin/md4/md4.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/md5/",
+              "krb5-1.22.2/src/lib/crypto/builtin/md5/md5.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/pbkdf2.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/sha1/",
+              "krb5-1.22.2/src/lib/crypto/builtin/sha1/shs.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/sha2/",
+              "krb5-1.22.2/src/lib/crypto/builtin/sha2/sha256.so",
+              "krb5-1.22.2/src/lib/crypto/builtin/sha2/sha512.so",
+              "krb5-1.22.2/src/lib/crypto/krb/",
+              "krb5-1.22.2/src/lib/crypto/krb/aead.so",
+              "krb5-1.22.2/src/lib/crypto/krb/block_size.so",
+              "krb5-1.22.2/src/lib/crypto/krb/cf2.so",
+              "krb5-1.22.2/src/lib/crypto/krb/checksum_dk_cmac.so",
+              "krb5-1.22.2/src/lib/crypto/krb/checksum_dk_hmac.so",
+              "krb5-1.22.2/src/lib/crypto/krb/checksum_etm.so",
+              "krb5-1.22.2/src/lib/crypto/krb/checksum_hmac_md5.so",
+              "krb5-1.22.2/src/lib/crypto/krb/checksum_length.so",
+              "krb5-1.22.2/src/lib/crypto/krb/checksum_unkeyed.so",
+              "krb5-1.22.2/src/lib/crypto/krb/cksumtype_to_string.so",
+              "krb5-1.22.2/src/lib/crypto/krb/cksumtypes.so",
+              "krb5-1.22.2/src/lib/crypto/krb/coll_proof_cksum.so",
+              "krb5-1.22.2/src/lib/crypto/krb/crypto_length.so",
+              "krb5-1.22.2/src/lib/crypto/krb/decrypt.so",
+              "krb5-1.22.2/src/lib/crypto/krb/decrypt_iov.so",
+              "krb5-1.22.2/src/lib/crypto/krb/default_state.so",
+              "krb5-1.22.2/src/lib/crypto/krb/derive.so",
+              "krb5-1.22.2/src/lib/crypto/krb/enc_dk_cmac.so",
+              "krb5-1.22.2/src/lib/crypto/krb/enc_dk_hmac.so",
+              "krb5-1.22.2/src/lib/crypto/krb/enc_etm.so",
+              "krb5-1.22.2/src/lib/crypto/krb/enc_raw.so",
+              "krb5-1.22.2/src/lib/crypto/krb/enc_rc4.so",
+              "krb5-1.22.2/src/lib/crypto/krb/encrypt.so",
+              "krb5-1.22.2/src/lib/crypto/krb/encrypt_iov.so",
+              "krb5-1.22.2/src/lib/crypto/krb/encrypt_length.so",
+              "krb5-1.22.2/src/lib/crypto/krb/enctype_util.so",
+              "krb5-1.22.2/src/lib/crypto/krb/etypes.so",
+              "krb5-1.22.2/src/lib/crypto/krb/key.so",
+              "krb5-1.22.2/src/lib/crypto/krb/keyblocks.so",
+              "krb5-1.22.2/src/lib/crypto/krb/keyed_checksum_types.so",
+              "krb5-1.22.2/src/lib/crypto/krb/keyed_cksum.so",
+              "krb5-1.22.2/src/lib/crypto/krb/keylengths.so",
+              "krb5-1.22.2/src/lib/crypto/krb/make_checksum.so",
+              "krb5-1.22.2/src/lib/crypto/krb/make_checksum_iov.so",
+              "krb5-1.22.2/src/lib/crypto/krb/make_random_key.so",
+              "krb5-1.22.2/src/lib/crypto/krb/mandatory_sumtype.so",
+              "krb5-1.22.2/src/lib/crypto/krb/nfold.so",
+              "krb5-1.22.2/src/lib/crypto/krb/old_api_glue.so",
+              "krb5-1.22.2/src/lib/crypto/krb/prf.so",
+              "krb5-1.22.2/src/lib/crypto/krb/prf_aes2.so",
+              "krb5-1.22.2/src/lib/crypto/krb/prf_cmac.so",
+              "krb5-1.22.2/src/lib/crypto/krb/prf_dk.so",
+              "krb5-1.22.2/src/lib/crypto/krb/prf_rc4.so",
+              "krb5-1.22.2/src/lib/crypto/krb/prng.so",
+              "krb5-1.22.2/src/lib/crypto/krb/random_to_key.so",
+              "krb5-1.22.2/src/lib/crypto/krb/s2k_pbkdf2.so",
+              "krb5-1.22.2/src/lib/crypto/krb/s2k_rc4.so",
+              "krb5-1.22.2/src/lib/crypto/krb/state.so",
+              "krb5-1.22.2/src/lib/crypto/krb/string_to_cksumtype.so",
+              "krb5-1.22.2/src/lib/crypto/krb/string_to_key.so",
+              "krb5-1.22.2/src/lib/crypto/krb/valid_cksumtype.so",
+              "krb5-1.22.2/src/lib/crypto/krb/verify_checksum.so",
+              "krb5-1.22.2/src/lib/crypto/krb/verify_checksum_iov.so"
+            ]
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libkrb5.3.3.dylib",
+            "sha256": "6b35d426e3ef681f3725e5bdff4f1d801963e7e58f9633bc22751431ba1f4a3d",
+            "version_strings": [
+              "krb5-1.22.2-final 1.22.2 20260129",
+              "krb5-1.22.2/src/lib/krb5/",
+              "krb5-1.22.2/src/lib/krb5/../../util/profile/prof_err.so",
+              "krb5-1.22.2/src/lib/krb5/../../util/profile/prof_file.so",
+              "krb5-1.22.2/src/lib/krb5/../../util/profile/prof_get.so",
+              "krb5-1.22.2/src/lib/krb5/../../util/profile/prof_init.so",
+              "krb5-1.22.2/src/lib/krb5/../../util/profile/prof_parse.so",
+              "krb5-1.22.2/src/lib/krb5/../../util/profile/prof_set.so",
+              "krb5-1.22.2/src/lib/krb5/../../util/profile/prof_tree.so",
+              "krb5-1.22.2/src/lib/krb5/asn.1/",
+              "krb5-1.22.2/src/lib/krb5/asn.1/asn1_encode.so",
+              "krb5-1.22.2/src/lib/krb5/asn.1/asn1_k_encode.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/",
+              "krb5-1.22.2/src/lib/krb5/ccache/cc_api_macos.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/cc_dir.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/cc_file.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/cc_kcm.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/cc_memory.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/cc_retr.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccapi_util.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccbase.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/cccopy.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/cccursor.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccdefault.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccdefops.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccfns.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccmarshal.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccselect.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccselect_hostname.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccselect_k5identity.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/ccselect_realm.so",
+              "krb5-1.22.2/src/lib/krb5/ccache/kcmrpc.so",
+              "krb5-1.22.2/src/lib/krb5/error_tables/",
+              "krb5-1.22.2/src/lib/krb5/error_tables/asn1_err.so",
+              "krb5-1.22.2/src/lib/krb5/error_tables/k5e1_err.so",
+              "krb5-1.22.2/src/lib/krb5/error_tables/kdb5_err.so",
+              "krb5-1.22.2/src/lib/krb5/error_tables/krb524_err.so",
+              "krb5-1.22.2/src/lib/krb5/error_tables/krb5_err.so",
+              "krb5-1.22.2/src/lib/krb5/error_tables/kv5m_err.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/",
+              "krb5-1.22.2/src/lib/krb5/keytab/kt_file.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/kt_memory.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/ktadd.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/ktbase.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/ktdefault.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/ktfns.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/ktfr_entry.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/ktremove.so",
+              "krb5-1.22.2/src/lib/krb5/keytab/read_servi.so",
+              "krb5-1.22.2/src/lib/krb5/krb/",
+              "krb5-1.22.2/src/lib/krb5/krb/addr_comp.so",
+              "krb5-1.22.2/src/lib/krb5/krb/addr_order.so",
+              "krb5-1.22.2/src/lib/krb5/krb/addr_srch.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ai_authdata.so",
+              "krb5-1.22.2/src/lib/krb5/krb/allow_weak.so",
+              "krb5-1.22.2/src/lib/krb5/krb/appdefault.so",
+              "krb5-1.22.2/src/lib/krb5/krb/auth_con.so",
+              "krb5-1.22.2/src/lib/krb5/krb/authdata.so",
+              "krb5-1.22.2/src/lib/krb5/krb/authdata_dec.so",
+              "krb5-1.22.2/src/lib/krb5/krb/authdata_enc.so",
+              "krb5-1.22.2/src/lib/krb5/krb/authdata_exp.so",
+              "krb5-1.22.2/src/lib/krb5/krb/bld_pr_ext.so",
+              "krb5-1.22.2/src/lib/krb5/krb/bld_princ.so",
+              "krb5-1.22.2/src/lib/krb5/krb/cammac_util.so",
+              "krb5-1.22.2/src/lib/krb5/krb/chk_trans.so",
+              "krb5-1.22.2/src/lib/krb5/krb/chpw.so",
+              "krb5-1.22.2/src/lib/krb5/krb/conv_creds.so",
+              "krb5-1.22.2/src/lib/krb5/krb/conv_princ.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_addrs.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_athctr.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_auth.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_cksum.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_creds.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_ctx.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_data.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_key.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_princ.so",
+              "krb5-1.22.2/src/lib/krb5/krb/copy_tick.so",
+              "krb5-1.22.2/src/lib/krb5/krb/cp_key_cnt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/decode_kdc.so",
+              "krb5-1.22.2/src/lib/krb5/krb/decrypt_tk.so",
+              "krb5-1.22.2/src/lib/krb5/krb/deltat.so",
+              "krb5-1.22.2/src/lib/krb5/krb/enc_helper.so",
+              "krb5-1.22.2/src/lib/krb5/krb/enc_keyhelper.so",
+              "krb5-1.22.2/src/lib/krb5/krb/encode_kdc.so",
+              "krb5-1.22.2/src/lib/krb5/krb/encrypt_tk.so",
+              "krb5-1.22.2/src/lib/krb5/krb/etype_list.so",
+              "krb5-1.22.2/src/lib/krb5/krb/fast.so",
+              "krb5-1.22.2/src/lib/krb5/krb/fwd_tgt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/gc_via_tkt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/gen_save_subkey.so",
+              "krb5-1.22.2/src/lib/krb5/krb/gen_seqnum.so",
+              "krb5-1.22.2/src/lib/krb5/krb/gen_subkey.so",
+              "krb5-1.22.2/src/lib/krb5/krb/get_creds.so",
+              "krb5-1.22.2/src/lib/krb5/krb/get_etype_info.so",
+              "krb5-1.22.2/src/lib/krb5/krb/get_in_tkt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/gic_keytab.so",
+              "krb5-1.22.2/src/lib/krb5/krb/gic_opt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/gic_pwd.so",
+              "krb5-1.22.2/src/lib/krb5/krb/in_tkt_sky.so",
+              "krb5-1.22.2/src/lib/krb5/krb/init_ctx.so",
+              "krb5-1.22.2/src/lib/krb5/krb/init_keyblock.so",
+              "krb5-1.22.2/src/lib/krb5/krb/kdc_rep_dc.so",
+              "krb5-1.22.2/src/lib/krb5/krb/kerrs.so",
+              "krb5-1.22.2/src/lib/krb5/krb/kfree.so",
+              "krb5-1.22.2/src/lib/krb5/krb/libdef_parse.so",
+              "krb5-1.22.2/src/lib/krb5/krb/mk_cred.so",
+              "krb5-1.22.2/src/lib/krb5/krb/mk_error.so",
+              "krb5-1.22.2/src/lib/krb5/krb/mk_priv.so",
+              "krb5-1.22.2/src/lib/krb5/krb/mk_rep.so",
+              "krb5-1.22.2/src/lib/krb5/krb/mk_req.so",
+              "krb5-1.22.2/src/lib/krb5/krb/mk_req_ext.so",
+              "krb5-1.22.2/src/lib/krb5/krb/mk_safe.so",
+              "krb5-1.22.2/src/lib/krb5/krb/pac.so",
+              "krb5-1.22.2/src/lib/krb5/krb/pac_sign.so",
+              "krb5-1.22.2/src/lib/krb5/krb/padata.so",
+              "krb5-1.22.2/src/lib/krb5/krb/parse.so",
+              "krb5-1.22.2/src/lib/krb5/krb/parse_host_string.so",
+              "krb5-1.22.2/src/lib/krb5/krb/plugin.so",
+              "krb5-1.22.2/src/lib/krb5/krb/pr_to_salt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/preauth2.so",
+              "krb5-1.22.2/src/lib/krb5/krb/preauth_ec.so",
+              "krb5-1.22.2/src/lib/krb5/krb/preauth_encts.so",
+              "krb5-1.22.2/src/lib/krb5/krb/preauth_otp.so",
+              "krb5-1.22.2/src/lib/krb5/krb/preauth_pkinit.so",
+              "krb5-1.22.2/src/lib/krb5/krb/preauth_sam2.so",
+              "krb5-1.22.2/src/lib/krb5/krb/princ_comp.so",
+              "krb5-1.22.2/src/lib/krb5/krb/privsafe.so",
+              "krb5-1.22.2/src/lib/krb5/krb/random_str.so",
+              "krb5-1.22.2/src/lib/krb5/krb/rd_cred.so",
+              "krb5-1.22.2/src/lib/krb5/krb/rd_error.so",
+              "krb5-1.22.2/src/lib/krb5/krb/rd_priv.so",
+              "krb5-1.22.2/src/lib/krb5/krb/rd_rep.so",
+              "krb5-1.22.2/src/lib/krb5/krb/rd_req.so",
+              "krb5-1.22.2/src/lib/krb5/krb/rd_req_dec.so",
+              "krb5-1.22.2/src/lib/krb5/krb/rd_safe.so",
+              "krb5-1.22.2/src/lib/krb5/krb/recvauth.so",
+              "krb5-1.22.2/src/lib/krb5/krb/response_items.so",
+              "krb5-1.22.2/src/lib/krb5/krb/s4u_creds.so",
+              "krb5-1.22.2/src/lib/krb5/krb/send_tgs.so",
+              "krb5-1.22.2/src/lib/krb5/krb/sendauth.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_actx.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_adata.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_addr.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_auth.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_cksum.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_ctx.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_key.so",
+              "krb5-1.22.2/src/lib/krb5/krb/ser_princ.so",
+              "krb5-1.22.2/src/lib/krb5/krb/serialize.so",
+              "krb5-1.22.2/src/lib/krb5/krb/set_realm.so",
+              "krb5-1.22.2/src/lib/krb5/krb/sname_match.so",
+              "krb5-1.22.2/src/lib/krb5/krb/srv_dec_tkt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/srv_rcache.so",
+              "krb5-1.22.2/src/lib/krb5/krb/str_conv.so",
+              "krb5-1.22.2/src/lib/krb5/krb/tgtname.so",
+              "krb5-1.22.2/src/lib/krb5/krb/unparse.so",
+              "krb5-1.22.2/src/lib/krb5/krb/val_renew.so",
+              "krb5-1.22.2/src/lib/krb5/krb/valid_times.so",
+              "krb5-1.22.2/src/lib/krb5/krb/vfy_increds.so",
+              "krb5-1.22.2/src/lib/krb5/krb/vic_opt.so",
+              "krb5-1.22.2/src/lib/krb5/krb/walk_rtree.so",
+              "krb5-1.22.2/src/lib/krb5/krb5_libinit.so",
+              "krb5-1.22.2/src/lib/krb5/os/",
+              "krb5-1.22.2/src/lib/krb5/os/accessor.so",
+              "krb5-1.22.2/src/lib/krb5/os/addr.so",
+              "krb5-1.22.2/src/lib/krb5/os/c_ustime.so",
+              "krb5-1.22.2/src/lib/krb5/os/ccdefname.so",
+              "krb5-1.22.2/src/lib/krb5/os/changepw.so",
+              "krb5-1.22.2/src/lib/krb5/os/dnsglue.so",
+              "krb5-1.22.2/src/lib/krb5/os/dnssrv.so",
+              "krb5-1.22.2/src/lib/krb5/os/expand_path.so",
+              "krb5-1.22.2/src/lib/krb5/os/full_ipadr.so",
+              "krb5-1.22.2/src/lib/krb5/os/gen_port.so",
+              "krb5-1.22.2/src/lib/krb5/os/gen_rname.so",
+              "krb5-1.22.2/src/lib/krb5/os/genaddrs.so",
+              "krb5-1.22.2/src/lib/krb5/os/hostaddr.so",
+              "krb5-1.22.2/src/lib/krb5/os/hostrealm.so",
+              "krb5-1.22.2/src/lib/krb5/os/hostrealm_dns.so",
+              "krb5-1.22.2/src/lib/krb5/os/hostrealm_domain.so",
+              "krb5-1.22.2/src/lib/krb5/os/hostrealm_profile.so",
+              "krb5-1.22.2/src/lib/krb5/os/hostrealm_registry.so",
+              "krb5-1.22.2/src/lib/krb5/os/init_os_ctx.so",
+              "krb5-1.22.2/src/lib/krb5/os/krbfileio.so",
+              "krb5-1.22.2/src/lib/krb5/os/ktdefname.so",
+              "krb5-1.22.2/src/lib/krb5/os/localaddr.so",
+              "krb5-1.22.2/src/lib/krb5/os/localauth.so",
+              "krb5-1.22.2/src/lib/krb5/os/localauth_an2ln.so",
+              "krb5-1.22.2/src/lib/krb5/os/localauth_k5login.so",
+              "krb5-1.22.2/src/lib/krb5/os/localauth_names.so",
+              "krb5-1.22.2/src/lib/krb5/os/localauth_rule.so",
+              "krb5-1.22.2/src/lib/krb5/os/locate_kdc.so",
+              "krb5-1.22.2/src/lib/krb5/os/lock_file.so",
+              "krb5-1.22.2/src/lib/krb5/os/mk_faddr.so",
+              "krb5-1.22.2/src/lib/krb5/os/net_read.so",
+              "krb5-1.22.2/src/lib/krb5/os/net_write.so",
+              "krb5-1.22.2/src/lib/krb5/os/port2ip.so",
+              "krb5-1.22.2/src/lib/krb5/os/prompter.so",
+              "krb5-1.22.2/src/lib/krb5/os/read_msg.so",
+              "krb5-1.22.2/src/lib/krb5/os/read_pwd.so",
+              "krb5-1.22.2/src/lib/krb5/os/realm_dom.so",
+              "krb5-1.22.2/src/lib/krb5/os/sendto_kdc.so",
+              "krb5-1.22.2/src/lib/krb5/os/sn2princ.so",
+              "krb5-1.22.2/src/lib/krb5/os/thread_safe.so",
+              "krb5-1.22.2/src/lib/krb5/os/timeofday.so",
+              "krb5-1.22.2/src/lib/krb5/os/toffset.so",
+              "krb5-1.22.2/src/lib/krb5/os/trace.so",
+              "krb5-1.22.2/src/lib/krb5/os/unlck_file.so",
+              "krb5-1.22.2/src/lib/krb5/os/ustime.so",
+              "krb5-1.22.2/src/lib/krb5/os/write_msg.so",
+              "krb5-1.22.2/src/lib/krb5/rcache/",
+              "krb5-1.22.2/src/lib/krb5/rcache/memrcache.so",
+              "krb5-1.22.2/src/lib/krb5/rcache/rc_base.so",
+              "krb5-1.22.2/src/lib/krb5/rcache/rc_dfl.so",
+              "krb5-1.22.2/src/lib/krb5/rcache/rc_file2.so",
+              "krb5-1.22.2/src/lib/krb5/rcache/rc_none.so",
+              "krb5-1.22.2/src/lib/krb5/unicode/",
+              "krb5-1.22.2/src/lib/krb5/unicode/ucdata.so",
+              "krb5-1.22.2/src/lib/krb5/unicode/ucstr.so",
+              "krb5-1.22.2/src/util/profile/",
+              "krb5-555549446fff5ef10fac3931af3946895905f8b1"
+            ]
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libkrb5support.1.1.dylib",
+            "sha256": "ab193f26c7f72bd8e94172ed12db1e28e24cff55205c389de628056a4bb09a54",
+            "version_strings": [
+              "krb5-1.22.2/src/util/support/",
+              "krb5-1.22.2/src/util/support/base64.so",
+              "krb5-1.22.2/src/util/support/bcmp.so",
+              "krb5-1.22.2/src/util/support/dir_filenames.so",
+              "krb5-1.22.2/src/util/support/errors.so",
+              "krb5-1.22.2/src/util/support/fake-addrinfo.so",
+              "krb5-1.22.2/src/util/support/gmt_mktime.so",
+              "krb5-1.22.2/src/util/support/hashtab.so",
+              "krb5-1.22.2/src/util/support/hex.so",
+              "krb5-1.22.2/src/util/support/init-addrinfo.so",
+              "krb5-1.22.2/src/util/support/json.so",
+              "krb5-1.22.2/src/util/support/k5buf.so",
+              "krb5-1.22.2/src/util/support/path.so",
+              "krb5-1.22.2/src/util/support/plugins.so",
+              "krb5-1.22.2/src/util/support/secure_getenv.so",
+              "krb5-1.22.2/src/util/support/strerror_r.so",
+              "krb5-1.22.2/src/util/support/threads.so",
+              "krb5-1.22.2/src/util/support/utf8.so",
+              "krb5-1.22.2/src/util/support/utf8_conv.so",
+              "krb5-1.22.2/src/util/support/zap.so"
+            ]
+          },
+          {
+            "path": "psycopg_binary/.dylibs/liblber.2.dylib",
+            "sha256": "fc18757651348a17cddec6925a5c8ce0e4e1a64d6f685f17eb7ec15a8751a2af",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libldap.2.dylib",
+            "sha256": "d89c570d1ffde9adb4dd92defc47d07d261c21c20e3efc173c140be4d08f0fc4",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libpq.5.dylib",
+            "sha256": "1ea8caf53acd564665c9bc12342c654549b2833011eaac6aa7595fc11b034d51",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/.dylibs/libssl.3.dylib",
+            "sha256": "c6c865d93b10b06fb40f51d5b6d3a281dcfcca549ce69ded417dfa01c0db757d",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/_psycopg.cpython-311-darwin.so",
+            "sha256": "bdc81b97bb20ecc4279987401656082ffe59653a249d5def380b979f993860c3",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/pq.cpython-311-darwin.so",
+            "sha256": "b36f011feb95c4da501bf67a940ae4a1da0db817c13c8dfdcd910cd11b158215",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.4",
+        "wheel": "pydantic-2.13.4-py3-none-any.whl",
+        "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "pydantic-2.13.4.dist-info/licenses/LICENSE",
+            "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.46.4",
+        "wheel": "pydantic_core-2.46.4-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "e0d65b8c354be7fb5f720c3caa8bc940bc2d20ce749c8e06135f07f8ed95dd7c",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "pydantic_core-2.46.4.dist-info/licenses/LICENSE",
+            "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "pydantic_core/_pydantic_core.cpython-311-darwin.so",
+            "sha256": "48bf1901eb4e9123e75ea066dcba7d6302579c888ab1f26878191f6453a38210",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "pydantic_core-2.46.4.dist-info/sboms/pydantic-core.cyclonedx.json",
+            "component_count": 103,
+            "supplier_components": [],
+            "sha256": "7d6726d9debc3c715f2860114b4ceccde59fa7e7b4d696953b3fc3cd3bb8a846"
+          }
+        ]
+      },
+      {
+        "name": "pydantic-settings",
+        "version": "2.15.0",
+        "wheel": "pydantic_settings-2.15.0-py3-none-any.whl",
+        "sha256": "0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42",
+        "license_expression": "MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "pydantic_settings-2.15.0.dist-info/licenses/LICENSE",
+            "sha256": "eb355a753e020346d33d83bf9769135b89fc610568ac531a01c295bcee7fd998"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "python-dotenv",
+        "version": "1.2.2",
+        "wheel": "python_dotenv-1.2.2-py3-none-any.whl",
+        "sha256": "1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "python_dotenv-1.2.2.dist-info/licenses/LICENSE",
+            "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "PyYAML",
+        "version": "6.0.3",
+        "wheel": "pyyaml-6.0.3-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "652cb6edd41e718550aad172851962662ff2681490a8a711af6a4d288dd96824",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "pyyaml-6.0.3.dist-info/licenses/LICENSE",
+            "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "yaml/_yaml.cpython-311-darwin.so",
+            "sha256": "fddcdc7e45b0b363583056a3f313b2f5a7467eab6da2351a6ac1c2100272e0c0",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "requests",
+        "version": "2.34.2",
+        "wheel": "requests-2.34.2-py3-none-any.whl",
+        "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "requests-2.34.2.dist-info/licenses/LICENSE",
+            "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+          },
+          {
+            "path": "requests-2.34.2.dist-info/licenses/NOTICE",
+            "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "requests-toolbelt",
+        "version": "1.0.0",
+        "wheel": "requests_toolbelt-1.0.0-py2.py3-none-any.whl",
+        "sha256": "cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "requests_toolbelt-1.0.0.dist-info/AUTHORS.rst",
+            "sha256": "57df198f62c9098aac95c9b8ec1f0b8efc024080f61d5a0ed89ef4c5da3cf031"
+          },
+          {
+            "path": "requests_toolbelt-1.0.0.dist-info/LICENSE",
+            "sha256": "1f8cf8bdacd98ed6d36d0fec0c07f7765acebd6e81205962ab5146023b3c858d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "sniffio",
+        "version": "1.3.1",
+        "wheel": "sniffio-1.3.1-py3-none-any.whl",
+        "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License",
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE",
+            "sha256": "652c878488d1456361e08c3f8607fd7ba59892a14103d15cce4ff93c85b5cc8b"
+          },
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE.APACHE2",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+          },
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE.MIT",
+            "sha256": "3e6dae555eb92787fc82d1d48355677f454c7f65aeb38d3f9e72bf9a3daf034b"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "starlette",
+        "version": "1.6.0",
+        "wheel": "starlette-1.6.0-py3-none-any.whl",
+        "sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "starlette-1.6.0.dist-info/licenses/LICENSE.md",
+            "sha256": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "tenacity",
+        "version": "9.1.4",
+        "wheel": "tenacity-9.1.4-py3-none-any.whl",
+        "sha256": "6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "tenacity-9.1.4.dist-info/licenses/LICENSE",
+            "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "tqdm",
+        "version": "4.70.0",
+        "wheel": "tqdm-4.70.0-py3-none-any.whl",
+        "sha256": "7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "tqdm-4.70.0.dist-info/licenses/LICENCE",
+            "sha256": "fcff87c3a47ce8028a8512aa182d4fcf0ad1c90544ee75cf9b343684cac194de"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "wheel": "typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+        "license_expression": "PSF-2.0",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+            "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.4",
+        "wheel": "typing_inspection-0.4.4-py3-none-any.whl",
+        "sha256": "65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "typing_inspection-0.4.4.dist-info/licenses/LICENSE",
+            "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "urllib3",
+        "version": "2.7.0",
+        "wheel": "urllib3-2.7.0-py3-none-any.whl",
+        "sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "urllib3-2.7.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "uuid_utils",
+        "version": "0.17.0",
+        "wheel": "uuid_utils-0.17.0-cp311-cp311-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl",
+        "sha256": "f9b093cb3b6c9d6233ef45a05cab064d2aa0a8cb3c5777084c9e20fcb77c2371",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "uuid_utils-0.17.0.dist-info/licenses/LICENSE.md",
+            "sha256": "0c47f52b4c484bd04c78e7c969542eea31afe644f587f3b8a8ccce86352c6046"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "uuid_utils/_uuid_utils.cpython-311-darwin.so",
+            "sha256": "346b8b61f6ea95044afc9898facedbda0019b73ba309a35d28e29c0d629707a8",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "uuid_utils-0.17.0.dist-info/sboms/uuid-utils.cyclonedx.json",
+            "component_count": 36,
+            "supplier_components": [],
+            "sha256": "e125fc38b53b36c0cf4c2decb6239ae2ee6dea246d936fa576a76ca6e822b55d"
+          }
+        ]
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.52.3",
+        "wheel": "uvicorn-0.52.3-py3-none-any.whl",
+        "sha256": "116af2710dbf47c80f463cd20ee4884b6662f4c9f227d797ddc7279d2fcc2c7c",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "uvicorn-0.52.3.dist-info/licenses/LICENSE.md",
+            "sha256": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "uvloop",
+        "version": "0.22.1",
+        "wheel": "uvloop-0.22.1-cp311-cp311-macosx_10_9_universal2.whl",
+        "sha256": "c60ebcd36f7b240b30788554b6f0782454826a0ed765d8430652621b5de674b9",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "uvloop-0.22.1.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "377025287798f9dcd819e1f826fa5fc5e2f382528691ab0528c5cf8c8c282c27"
+          },
+          {
+            "path": "uvloop-0.22.1.dist-info/licenses/LICENSE-MIT",
+            "sha256": "6dd4c399f26de043d77a2ad7e31db4cb5bf08ea8368b0a42d6e158635cc8ab62"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "uvloop/loop.cpython-311-darwin.so",
+            "sha256": "588dc690500980771647c8169e367e21d3ec3b83fb695fd8717a4dd5368e1827",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "watchfiles",
+        "version": "1.2.0",
+        "wheel": "watchfiles-1.2.0-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "6543cf55d170003296d185c0af981f3e1311564907e1f4e08671fc7693a890a5",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "watchfiles-1.2.0.dist-info/licenses/LICENSE",
+            "sha256": "4fd78355b67ce2677ede9fb6f63a250f377bb7e22088136a5f4699adb4bc069f"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "watchfiles/_rust_notify.cpython-311-darwin.so",
+            "sha256": "e3fe5832a649e7ebf0d5ebe76623eaa83d95a8d1868ba5232b6eb7f0eb3d16c9",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "watchfiles-1.2.0.dist-info/sboms/watchfiles_rust_notify.cyclonedx.json",
+            "component_count": 25,
+            "supplier_components": [],
+            "sha256": "e53a3410410dcb0252103e3720a8fac7200edb7ec319093642f043fa25041371"
+          }
+        ]
+      },
+      {
+        "name": "websockets",
+        "version": "15.0.1",
+        "wheel": "websockets-15.0.1-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "d50fd1ee42388dcfb2b3676132c78116490976f1300da28eb629272d5d93e905",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "websockets-15.0.1.dist-info/LICENSE",
+            "sha256": "3d6a0c050d8bec52fabad502e45fb25bd02bcadbd70dea34d447b6a0ff4e6da8"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "websockets/speedups.cpython-311-darwin.so",
+            "sha256": "dc0d8a8e8ab9c5489b5270875760bd6e0d2e1dc8ae4a6ab7f66ab1ba97b5d43c",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "xxhash",
+        "version": "4.0.0",
+        "wheel": "xxhash-4.0.0-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "3b783b3b8a7c6cb79be6be6c32cc0f9c2dc3bbf4beb013bece39b4f8fcb2b4de",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "xxhash-4.0.0.dist-info/licenses/LICENSE",
+            "sha256": "b76e99529f3e47372029e11914a8f4b95d6313463ed5a1a5c9afe96c3e015114"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "xxhash/_xxhash.cpython-311-darwin.so",
+            "sha256": "baa568b18854c18298d24833a4ed07412257cbaab4266ce7dcc38ea9e735d804",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "zstandard",
+        "version": "0.25.0",
+        "wheel": "zstandard-0.25.0-cp311-cp311-macosx_11_0_arm64.whl",
+        "sha256": "a3f79487c687b1fc69f19e487cd949bf3aae653d181dfb5fde3bf6d18894706f",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "zstandard-0.25.0.dist-info/licenses/LICENSE",
+            "sha256": "788fe85e53724a40b299051c4abc9cf74d42b27e7968325b80891c25f79adb4b"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "zstandard/_cffi.cpython-311-darwin.so",
+            "sha256": "e8350f085fd6f18c98c5e75cb37cb4a4cc08ba26fe6c5d7dcb9235d5b7e3fc7b",
+            "version_strings": []
+          },
+          {
+            "path": "zstandard/backend_c.cpython-311-darwin.so",
+            "sha256": "1947b080dd23a941117f37ac7aaf21fcb42a8300e85318fcbd68629d28116d12",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      }
+    ],
+    "ubuntu-x64-cp311": [
+      {
+        "name": "annotated-doc",
+        "version": "0.0.5",
+        "wheel": "annotated_doc-0.0.5-py3-none-any.whl",
+        "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "annotated_doc-0.0.5.dist-info/licenses/LICENSE",
+            "sha256": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "wheel": "annotated_types-0.8.0-py3-none-any.whl",
+        "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+        "license_expression": "MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "annotated_types-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "anthropic",
+        "version": "0.122.0",
+        "wheel": "anthropic-0.122.0-py3-none-any.whl",
+        "sha256": "45ec906452ffae6b5f7f0c53d01f50bfb7e4ce878d7ae8e4309d13171e557e67",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "anthropic-0.122.0.dist-info/licenses/LICENSE",
+            "sha256": "8bf96984ff8bcfae7e48cae76a529e8a25317ba9e02abf7fd3cc64fdf95657a6"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "anyio",
+        "version": "4.14.2",
+        "wheel": "anyio-4.14.2-py3-none-any.whl",
+        "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "anyio-4.14.2.dist-info/licenses/LICENSE",
+            "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "certifi",
+        "version": "2026.7.22",
+        "wheel": "certifi-2026.7.22-py3-none-any.whl",
+        "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+        ],
+        "notices": [
+          {
+            "path": "certifi-2026.7.22.dist-info/licenses/LICENSE",
+            "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "charset-normalizer",
+        "version": "3.5.1",
+        "wheel": "charset_normalizer-3.5.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "c7b742bf31c88566b4bb6335a7f393bb322e580b6bb98df7bd0c25e6e3519ce8",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "charset_normalizer-3.5.1.dist-info/licenses/LICENSE",
+            "sha256": "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "charset_normalizer/cd.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "c75717d720c8a3bc346e831a6003d00521c59639fccf4bef8ed885cf0f2620af",
+            "version_strings": []
+          },
+          {
+            "path": "charset_normalizer/md.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "faeaa8171f2bc4b0ce8acd12e8eecb5089c005b488809a9ac5244ce76bf1a7da",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "click",
+        "version": "8.4.2",
+        "wheel": "click-8.4.2-py3-none-any.whl",
+        "sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "click-8.4.2.dist-info/licenses/LICENSE.txt",
+            "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "distro",
+        "version": "1.9.0",
+        "wheel": "distro-1.9.0-py3-none-any.whl",
+        "sha256": "7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "distro-1.9.0.dist-info/LICENSE",
+            "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "docstring_parser",
+        "version": "0.18.0",
+        "wheel": "docstring_parser-0.18.0-py3-none-any.whl",
+        "sha256": "b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "docstring_parser-0.18.0.dist-info/licenses/LICENSE.md",
+            "sha256": "dfe514a337ae8417abd31a8af707bbd6172b03e5430bb083e145899ea97a3eea"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "fastapi",
+        "version": "0.141.1",
+        "wheel": "fastapi-0.141.1-py3-none-any.whl",
+        "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "fastapi-0.141.1.dist-info/licenses/LICENSE",
+            "sha256": "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "wheel": "h11-0.16.0-py3-none-any.whl",
+        "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "h11-0.16.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "wheel": "httpcore-1.0.9-py3-none-any.whl",
+        "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "httpcore-1.0.9.dist-info/licenses/LICENSE.md",
+            "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "httptools",
+        "version": "0.8.0",
+        "wheel": "httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+        "sha256": "57278e6fa0424c42a8a3e454828ab4f0aff27b40cddf9679579b98c6dce6a376",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "f4573e7cb7676745fb5b8d36fa548aa93e391cfb6872ddacd65130c45ea6a92d"
+          },
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/vendor/http-parser/LICENSE-MIT",
+            "sha256": "79e6ba8b687cb54786207342b9b6fcee0ac10218453ed9009b84d949b2233cc0"
+          },
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/vendor/llhttp/LICENSE",
+            "sha256": "628168d68bb5a8a17e0bbefb3bd74e326e1edc20583d76f52f457c82c921867d"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "httptools/parser/parser.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "e543c89fe106c74743262e57ad5840cf986efc5eaa4a2f4ff495c5c71067310c",
+            "version_strings": []
+          },
+          {
+            "path": "httptools/parser/url_parser.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "3dd3b02b3fa4dfd2893e5868431f4741d06904b6ec9f24c20a3828fb5637db79",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "wheel": "httpx-0.28.1-py3-none-any.whl",
+        "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "httpx-0.28.1.dist-info/licenses/LICENSE.md",
+            "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "idna",
+        "version": "3.18",
+        "wheel": "idna-3.18-py3-none-any.whl",
+        "sha256": "7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "idna-3.18.dist-info/licenses/LICENSE.md",
+            "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "jiter",
+        "version": "0.16.0",
+        "wheel": "jiter-0.16.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "8597d23c87f59294f83bcb6229b9ed1fccee13dbba967b46930d2f1759466fee",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "jiter-0.16.0.dist-info/licenses/LICENSE",
+            "sha256": "7c7134b9f7b978c03fca875517cf398db91f19bbb8109b6685e742aa3f57468e"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "jiter/jiter.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "9f460898f53d32c6596b31b35b0c607b45eb759fb75ebe286d2713d61e380cf9",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "jiter-0.16.0.dist-info/sboms/jiter-python.cyclonedx.json",
+            "component_count": 37,
+            "supplier_components": [],
+            "sha256": "08287cf16baa042e55b3dd85497587ea626bc394e1a605844b6fa6a884f0ca1c"
+          }
+        ]
+      },
+      {
+        "name": "jsonpatch",
+        "version": "1.33",
+        "wheel": "jsonpatch-1.33-py2.py3-none-any.whl",
+        "sha256": "0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "jsonpatch-1.33.dist-info/AUTHORS",
+            "sha256": "84eb449c119b7c37a02a3ccc0c4979bee549c9ccdb2363e5604da1a382e318d4"
+          },
+          {
+            "path": "jsonpatch-1.33.dist-info/LICENSE",
+            "sha256": "4393eb6733fa1e367f41769b382f4f1be7bf0daeb1e243ed92b3f5d8bafd236f"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "jsonpointer",
+        "version": "3.1.1",
+        "wheel": "jsonpointer-3.1.1-py3-none-any.whl",
+        "sha256": "8ff8b95779d071ba472cf5bc913028df06031797532f08a7d5b602d8b2a488ca",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "jsonpointer-3.1.1.dist-info/licenses/AUTHORS",
+            "sha256": "4d58319d0f59c87bef5b07b3fe4db0f19c2d7d5545b034c6bf7b57c89bbef57f"
+          },
+          {
+            "path": "jsonpointer-3.1.1.dist-info/licenses/LICENSE.txt",
+            "sha256": "d8b24f15d472885f788a2d6e985850f264627b86012a17bb242c83f310d907e5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langchain-core",
+        "version": "1.5.5",
+        "wheel": "langchain_core-1.5.5-py3-none-any.whl",
+        "sha256": "537037fd44ead7c1ffb9621011029ad2e347e051519d17f112d7bf7be12f4365",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "langchain_core-1.5.5.dist-info/licenses/LICENSE",
+            "sha256": "4ec67e4ca6e6721dba849b2ca82261597c86a61ee214bbf21416006b7b2d0478"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langchain-protocol",
+        "version": "0.0.18",
+        "wheel": "langchain_protocol-0.0.18-py3-none-any.whl",
+        "sha256": "70b53a86fbf9cedc863555effe44da192ab02d556ddbf2cf95b8873adcf41b5a",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "langchain_protocol-0.0.18.dist-info/licenses/LICENSE",
+            "sha256": "893e6e30275896912c21c77f9f7c112aba85fd985d05b26a29424cf7e511d177"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph",
+        "version": "1.2.11",
+        "wheel": "langgraph-1.2.11-py3-none-any.whl",
+        "sha256": "8bab70de7b2d00b5300fb289bcf38d8b241400f3184c1e95e8ce706fb0e8686b",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph-1.2.11.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-checkpoint",
+        "version": "4.2.0",
+        "wheel": "langgraph_checkpoint-4.2.0-py3-none-any.whl",
+        "sha256": "0547fd228935a0b758865de3a3d6d7a2537c308895d0f9ab092ce9151b5da942",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_checkpoint-4.2.0.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-prebuilt",
+        "version": "1.1.0",
+        "wheel": "langgraph_prebuilt-1.1.0-py3-none-any.whl",
+        "sha256": "51e311747d755b751d5c6b39b0c1446124d3a7643d2515017e6714b323508fc9",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_prebuilt-1.1.0.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-sdk",
+        "version": "0.4.2",
+        "wheel": "langgraph_sdk-0.4.2-py3-none-any.whl",
+        "sha256": "75fa5096c1177ce39c847096a8fe3745ffd480ddb412995f836e9f5f884c43dd",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_sdk-0.4.2.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langsmith",
+        "version": "0.11.0",
+        "wheel": "langsmith-0.11.0-py3-none-any.whl",
+        "sha256": "e87a3929915936c066b3fa3283ec3f3f0013e2ef7f98a443a7fbe3fab8e784a3",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "openai",
+        "version": "2.54.0",
+        "wheel": "openai-2.54.0-py3-none-any.whl",
+        "sha256": "89089789197ccdb87f173a03145ed1598d00795220c93e96cf712b1cbf5e5f2b",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "openai-2.54.0.dist-info/licenses/LICENSE",
+            "sha256": "636eb7d79da9bb6d515a4b3fd417aa26679eb3cf16396ddab4bc55fa74e616e4"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "orjson",
+        "version": "3.12.0",
+        "wheel": "orjson-3.12.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "9caf3d09f47c3c70c4451ada20ef9bc4a4cdffa26f49862cf0a253b329aae2d5",
+        "license_expression": "MPL-2.0 AND (Apache-2.0 OR MIT)",
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License",
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+        ],
+        "notices": [
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+          },
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-MIT",
+            "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+          },
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-MPL-2.0",
+            "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "orjson/orjson.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "6670e814be603f49859e58f43526320c3fff8c58ca412ec1cafb88ed7844986c",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "orjson-3.12.0.dist-info/sboms/orjson.cyclonedx.json",
+            "component_count": 22,
+            "supplier_components": [],
+            "sha256": "63eaf64fcc85d7397f537c14058d1f1773140ccf99dcf50bf109f8a07ca8e99c"
+          }
+        ]
+      },
+      {
+        "name": "ormsgpack",
+        "version": "1.12.2",
+        "wheel": "ormsgpack-1.12.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "43013a3f3e2e902e1d05e72c0f1aeb5bedbb8e09240b51e26792a3c89267e181",
+        "license_expression": "Apache-2.0 OR MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "ormsgpack-1.12.2.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+          },
+          {
+            "path": "ormsgpack-1.12.2.dist-info/licenses/LICENSE-MIT",
+            "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "ormsgpack/ormsgpack.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "5eb6c9c7e3ada3b2d56f5b08fc67f99808cec4030eb69001881c3c3c92c677fa",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "wheel": "packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "license_expression": "Apache-2.0 OR BSD-2-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE",
+            "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+          },
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+            "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+          },
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+            "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "pglast",
+        "version": "7.18",
+        "wheel": "pglast-7.18-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "fd612d6441e7139440881a1916bf6831e0d32f3c58a58d0daaf94c39a99ed102",
+        "license_expression": "GPL-3.0-or-later",
+        "license_classifiers": [],
+        "notices": [],
+        "native_members": [
+          {
+            "path": "pglast/parser.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "47cfdbddf943d5fc01fdf0e84f3ad2f9e1634575cf7ceaff3dc20dda89e43cb0",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "psycopg",
+        "version": "3.3.5",
+        "wheel": "psycopg-3.3.5-py3-none-any.whl",
+        "sha256": "ce5aa5cdb4f9379f00f487590e5890bfa7df9a164648c969ffa628505e21af4e",
+        "license_expression": "LGPL-3.0-only",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "psycopg-3.3.5.dist-info/licenses/LICENSE.txt",
+            "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "psycopg-binary",
+        "version": "3.3.5",
+        "wheel": "psycopg_binary-3.3.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "d8b66353b20e79bf7ac0a80f03ae97f522ccbbf909d687eec62f112e56c0276d",
+        "license_expression": "LGPL-3.0-only",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "psycopg_binary-3.3.5.dist-info/licenses/LICENSE.txt",
+            "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "psycopg_binary.libs/libcom_err-2abe824b.so.2.1",
+            "sha256": "5426dcb54dd01c9eedda05e2179f0e47114e8b48a534ffe9e94916e79471b257",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libcrypt-bc2db45e.so.1",
+            "sha256": "e2a6f6ff300e287a60dfc0c6fdb76ee01e333068df7c60b4e87453d942ccda65",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libcrypto-d2905bf5.so.3",
+            "sha256": "7a8efbd82926925ac29888804343c1e823eb0eac26785fcc43d78f4a73808567",
+            "version_strings": [
+              "OpenSSL 3.5.8 25 Aug 2026"
+            ]
+          },
+          {
+            "path": "psycopg_binary.libs/libgssapi_krb5-497db0c6.so.2.2",
+            "sha256": "ef73998b86c24e54667a843be6d589442dd082e1b9fc605aa15bcc2293858806",
+            "version_strings": [
+              "krb5-497db0c6.so.2.2"
+            ]
+          },
+          {
+            "path": "psycopg_binary.libs/libk5crypto-b1f99d5c.so.3.1",
+            "sha256": "bf04d7ebe3937aba3855c15acbd991482286a484aeea38bb9ced85e772ea2fb0",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libkeyutils-dfe70bd6.so.1.5",
+            "sha256": "c29e41b03cf4b2dffbfb4960946e2b42f82c0ca5d53d231d3f0fc597ba274488",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libkrb5-fcafa220.so.3.3",
+            "sha256": "94dc6413050486a6c8de4b6f3bfdd288390892b72bc68580c6c53929721fa07b",
+            "version_strings": [
+              "krb5-1.15.1-final 1.15.1 20170302"
+            ]
+          },
+          {
+            "path": "psycopg_binary.libs/libkrb5support-d0bcff84.so.0.1",
+            "sha256": "0eb5322b05ac46e4db7ddb779ee0269006dd01801aaa67b84f8e7f753bfdddf2",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/liblber-0e410f4d.so.2.0.200",
+            "sha256": "99d3fb01f0a791392d375dbf37b5da5bfccd6d9b0db886de721b033f6a590f41",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libldap-0b2a3054.so.2.0.200",
+            "sha256": "20ac52c579899c0b9512de4ee64844498c292f862bd9ceb686978502f21ffc87",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libpcre-9513aab5.so.1.2.0",
+            "sha256": "02eda850e04931656d8af81f5171bff74d8bec1553d3d85c3d32d7fc5efe8864",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libpq-e9b5c9ac.so.5.18",
+            "sha256": "7a7d2a7d44c9f8a37f20441d8c3f257c861f6de4ef7400112642ecc3eadf2129",
+            "version_strings": [
+              "krb5-497db0c6.so.2.2"
+            ]
+          },
+          {
+            "path": "psycopg_binary.libs/libsasl2-84219a89.so.3.0.0",
+            "sha256": "e84be55110f16f7ca930af373e9f41fa7f4ec60733c013d933d1443ae5056a98",
+            "version_strings": [
+              "krb5-497db0c6.so.2.2"
+            ]
+          },
+          {
+            "path": "psycopg_binary.libs/libselinux-0922c95c.so.1",
+            "sha256": "99e60178aed625f6d2e2af58bccf605b13619b1544058e9f985a2772affb4a88",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libssl-8bd944e8.so.3",
+            "sha256": "7bfef4cd56297edc6f636bf49f809c53ce970367bd8b4a0cdb3f543c37ec76c8",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/_psycopg.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "d34da53a362c42bfe235349034b3c20902a1bf543e4609413bf10675d7b1972f",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/pq.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "d84a2bce61de1e88a71f6fd1b2f35fe386b22337d5b4c9edb5f36f59aab2a247",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "psycopg_binary-3.3.5.dist-info/sboms/auditwheel.cdx.json",
+            "component_count": 10,
+            "supplier_components": [
+              {
+                "name": "keyutils-libs",
+                "version": "1.5.8-3.el7",
+                "purl": "pkg:rpm/centos/keyutils-libs@1.5.8-3.el7"
+              },
+              {
+                "name": "pcre",
+                "version": "8.32-17.el7",
+                "purl": "pkg:rpm/centos/pcre@8.32-17.el7"
+              },
+              {
+                "name": "krb5-libs",
+                "version": "1.15.1-55.el7_9",
+                "purl": "pkg:rpm/centos/krb5-libs@1.15.1-55.el7_9"
+              },
+              {
+                "name": "cyrus-sasl-lib",
+                "version": "2.1.26-24.el7_9",
+                "purl": "pkg:rpm/centos/cyrus-sasl-lib@2.1.26-24.el7_9"
+              },
+              {
+                "name": "krb5-libs",
+                "version": "1.15.1-55.el7_9",
+                "purl": "pkg:rpm/centos/krb5-libs@1.15.1-55.el7_9"
+              },
+              {
+                "name": "krb5-libs",
+                "version": "1.15.1-55.el7_9",
+                "purl": "pkg:rpm/centos/krb5-libs@1.15.1-55.el7_9"
+              },
+              {
+                "name": "libselinux",
+                "version": "2.5-15.el7",
+                "purl": "pkg:rpm/centos/libselinux@2.5-15.el7"
+              },
+              {
+                "name": "krb5-libs",
+                "version": "1.15.1-55.el7_9",
+                "purl": "pkg:rpm/centos/krb5-libs@1.15.1-55.el7_9"
+              },
+              {
+                "name": "libcom_err",
+                "version": "1.42.9-19.el7",
+                "purl": "pkg:rpm/centos/libcom_err@1.42.9-19.el7"
+              }
+            ],
+            "sha256": "e2f6bce605769eb604f89bf00284abb603844b35f13a79e82eccfe0f701e0626"
+          }
+        ]
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.4",
+        "wheel": "pydantic-2.13.4-py3-none-any.whl",
+        "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "pydantic-2.13.4.dist-info/licenses/LICENSE",
+            "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.46.4",
+        "wheel": "pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "f9fa868638bf362d3d138ea55829cefb3d5f4b0d7f142234382a15e2485dbec4",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "pydantic_core-2.46.4.dist-info/licenses/LICENSE",
+            "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "pydantic_core/_pydantic_core.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "ef0d254127cfb913243618c754e69cf1c9dedee10a3ddeae47f9fc20e71086e3",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "pydantic_core-2.46.4.dist-info/sboms/pydantic-core.cyclonedx.json",
+            "component_count": 103,
+            "supplier_components": [],
+            "sha256": "c962516a11a74e4e45a54f9a11eb732437474d8a3285c99cd2766281b2cd917c"
+          }
+        ]
+      },
+      {
+        "name": "pydantic-settings",
+        "version": "2.15.0",
+        "wheel": "pydantic_settings-2.15.0-py3-none-any.whl",
+        "sha256": "0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42",
+        "license_expression": "MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "pydantic_settings-2.15.0.dist-info/licenses/LICENSE",
+            "sha256": "eb355a753e020346d33d83bf9769135b89fc610568ac531a01c295bcee7fd998"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "python-dotenv",
+        "version": "1.2.2",
+        "wheel": "python_dotenv-1.2.2-py3-none-any.whl",
+        "sha256": "1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "python_dotenv-1.2.2.dist-info/licenses/LICENSE",
+            "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "PyYAML",
+        "version": "6.0.3",
+        "wheel": "pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "pyyaml-6.0.3.dist-info/licenses/LICENSE",
+            "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "yaml/_yaml.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "aa9bb0d7b261b8266ababd9e19f5bf2f505d9a84ba360ce16502297e8a033765",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "requests",
+        "version": "2.34.2",
+        "wheel": "requests-2.34.2-py3-none-any.whl",
+        "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "requests-2.34.2.dist-info/licenses/LICENSE",
+            "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+          },
+          {
+            "path": "requests-2.34.2.dist-info/licenses/NOTICE",
+            "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "requests-toolbelt",
+        "version": "1.0.0",
+        "wheel": "requests_toolbelt-1.0.0-py2.py3-none-any.whl",
+        "sha256": "cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "requests_toolbelt-1.0.0.dist-info/AUTHORS.rst",
+            "sha256": "57df198f62c9098aac95c9b8ec1f0b8efc024080f61d5a0ed89ef4c5da3cf031"
+          },
+          {
+            "path": "requests_toolbelt-1.0.0.dist-info/LICENSE",
+            "sha256": "1f8cf8bdacd98ed6d36d0fec0c07f7765acebd6e81205962ab5146023b3c858d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "sniffio",
+        "version": "1.3.1",
+        "wheel": "sniffio-1.3.1-py3-none-any.whl",
+        "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License",
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE",
+            "sha256": "652c878488d1456361e08c3f8607fd7ba59892a14103d15cce4ff93c85b5cc8b"
+          },
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE.APACHE2",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+          },
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE.MIT",
+            "sha256": "3e6dae555eb92787fc82d1d48355677f454c7f65aeb38d3f9e72bf9a3daf034b"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "starlette",
+        "version": "1.6.0",
+        "wheel": "starlette-1.6.0-py3-none-any.whl",
+        "sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "starlette-1.6.0.dist-info/licenses/LICENSE.md",
+            "sha256": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "tenacity",
+        "version": "9.1.4",
+        "wheel": "tenacity-9.1.4-py3-none-any.whl",
+        "sha256": "6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "tenacity-9.1.4.dist-info/licenses/LICENSE",
+            "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "tqdm",
+        "version": "4.70.0",
+        "wheel": "tqdm-4.70.0-py3-none-any.whl",
+        "sha256": "7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "tqdm-4.70.0.dist-info/licenses/LICENCE",
+            "sha256": "fcff87c3a47ce8028a8512aa182d4fcf0ad1c90544ee75cf9b343684cac194de"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "wheel": "typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+        "license_expression": "PSF-2.0",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+            "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.4",
+        "wheel": "typing_inspection-0.4.4-py3-none-any.whl",
+        "sha256": "65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "typing_inspection-0.4.4.dist-info/licenses/LICENSE",
+            "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "urllib3",
+        "version": "2.7.0",
+        "wheel": "urllib3-2.7.0-py3-none-any.whl",
+        "sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "urllib3-2.7.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "uuid_utils",
+        "version": "0.17.0",
+        "wheel": "uuid_utils-0.17.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "622cdde768300591ac79bfcd7bb3468e4b191b1105d5dbfe8d87c39d8f63dd46",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "uuid_utils-0.17.0.dist-info/licenses/LICENSE.md",
+            "sha256": "0c47f52b4c484bd04c78e7c969542eea31afe644f587f3b8a8ccce86352c6046"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "uuid_utils/_uuid_utils.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "3ab8d9bdb8628b11400a8ed507b3ba7d009eb80a7374cc725ff88441dfb5e2f6",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "uuid_utils-0.17.0.dist-info/sboms/uuid-utils.cyclonedx.json",
+            "component_count": 36,
+            "supplier_components": [],
+            "sha256": "549efaf723fb912f555afc41382678847610c9db2735d8474faeccb4f680fe3a"
+          }
+        ]
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.52.3",
+        "wheel": "uvicorn-0.52.3-py3-none-any.whl",
+        "sha256": "116af2710dbf47c80f463cd20ee4884b6662f4c9f227d797ddc7279d2fcc2c7c",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "uvicorn-0.52.3.dist-info/licenses/LICENSE.md",
+            "sha256": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "uvloop",
+        "version": "0.22.1",
+        "wheel": "uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "56a2d1fae65fd82197cb8c53c367310b3eabe1bbb9fb5a04d28e3e3520e4f702",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "uvloop-0.22.1.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "377025287798f9dcd819e1f826fa5fc5e2f382528691ab0528c5cf8c8c282c27"
+          },
+          {
+            "path": "uvloop-0.22.1.dist-info/licenses/LICENSE-MIT",
+            "sha256": "6dd4c399f26de043d77a2ad7e31db4cb5bf08ea8368b0a42d6e158635cc8ab62"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "uvloop/loop.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "ec5a09ee5d14455c3feeaec5281567684ed385303ecb51795707fc771b5c85c4",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "watchfiles",
+        "version": "1.2.0",
+        "wheel": "watchfiles-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "a711b51aec4370d0dcda5b6c09463206f133a5759341d7744b953a7b62e1100e",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "watchfiles-1.2.0.dist-info/licenses/LICENSE",
+            "sha256": "4fd78355b67ce2677ede9fb6f63a250f377bb7e22088136a5f4699adb4bc069f"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "watchfiles/_rust_notify.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "2a43b47e4f59cfb9306f2e7b9ebc6e815cc29f1e70a64dae032235fb8742706f",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "watchfiles-1.2.0.dist-info/sboms/watchfiles_rust_notify.cyclonedx.json",
+            "component_count": 27,
+            "supplier_components": [],
+            "sha256": "52bfa6b61dfcab345c934e98c74c5850528db123d69846c6a5161a9498f40db7"
+          }
+        ]
+      },
+      {
+        "name": "websockets",
+        "version": "15.0.1",
+        "wheel": "websockets-15.0.1-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "8dd8327c795b3e3f219760fa603dcae1dcc148172290a8ab15158cf85a953413",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "websockets-15.0.1.dist-info/LICENSE",
+            "sha256": "3d6a0c050d8bec52fabad502e45fb25bd02bcadbd70dea34d447b6a0ff4e6da8"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "websockets/speedups.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "2b5a74da523db6fba1aa20c5b7db72285d28b8d12d975c41cb5ba1eac40738eb",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "xxhash",
+        "version": "4.0.0",
+        "wheel": "xxhash-4.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "baa9828055ebaa00b95523aabef7504c3d1685bfab48b7c2ed15d0ba56269708",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "xxhash-4.0.0.dist-info/licenses/LICENSE",
+            "sha256": "b76e99529f3e47372029e11914a8f4b95d6313463ed5a1a5c9afe96c3e015114"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "xxhash/_xxhash.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "0b274971be0ca842fef5a20ae891d01c84b927413bd128d61cf80c574b856d56",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "zstandard",
+        "version": "0.25.0",
+        "wheel": "zstandard-0.25.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "9300d02ea7c6506f00e627e287e0492a5eb0371ec1670ae852fefffa6164b072",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "zstandard-0.25.0.dist-info/licenses/LICENSE",
+            "sha256": "788fe85e53724a40b299051c4abc9cf74d42b27e7968325b80891c25f79adb4b"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "zstandard/_cffi.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "0cd90a4eeedf490a3207a8ca0eca69b73b887b464509407ebc058007d9f94e55",
+            "version_strings": []
+          },
+          {
+            "path": "zstandard/backend_c.cpython-311-x86_64-linux-gnu.so",
+            "sha256": "532a86d3bc0f420a4f7038bf6039c93b55e6f149d7a314b17dbb27750788964d",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      }
+    ],
+    "windows-x64-cp311": [
+      {
+        "name": "annotated-doc",
+        "version": "0.0.5",
+        "wheel": "annotated_doc-0.0.5-py3-none-any.whl",
+        "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "annotated_doc-0.0.5.dist-info/licenses/LICENSE",
+            "sha256": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "wheel": "annotated_types-0.8.0-py3-none-any.whl",
+        "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+        "license_expression": "MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "annotated_types-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "anthropic",
+        "version": "0.122.0",
+        "wheel": "anthropic-0.122.0-py3-none-any.whl",
+        "sha256": "45ec906452ffae6b5f7f0c53d01f50bfb7e4ce878d7ae8e4309d13171e557e67",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "anthropic-0.122.0.dist-info/licenses/LICENSE",
+            "sha256": "8bf96984ff8bcfae7e48cae76a529e8a25317ba9e02abf7fd3cc64fdf95657a6"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "anyio",
+        "version": "4.14.2",
+        "wheel": "anyio-4.14.2-py3-none-any.whl",
+        "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "anyio-4.14.2.dist-info/licenses/LICENSE",
+            "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "certifi",
+        "version": "2026.7.22",
+        "wheel": "certifi-2026.7.22-py3-none-any.whl",
+        "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+        ],
+        "notices": [
+          {
+            "path": "certifi-2026.7.22.dist-info/licenses/LICENSE",
+            "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "charset-normalizer",
+        "version": "3.5.1",
+        "wheel": "charset_normalizer-3.5.1-cp311-cp311-win_amd64.whl",
+        "sha256": "f9b1e28d0e8dbfa858abdba91d6b547beaf2df1a59bec6da6faae7b96a4991a9",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "charset_normalizer-3.5.1.dist-info/licenses/LICENSE",
+            "sha256": "18577485d3704f1a479ded8e573c0976cfed315fd2fd17983fa988da4c2f70d1"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "charset_normalizer/cd.cp311-win_amd64.pyd",
+            "sha256": "ac9465bbf4a1698015cf306bed26a101677010d89acdd10f7f63dedbaf271798",
+            "version_strings": []
+          },
+          {
+            "path": "charset_normalizer/md.cp311-win_amd64.pyd",
+            "sha256": "f398758fbce16b001e0799c1698d2a623751b8dd4e9ff0d6f4845ea6270f672f",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "click",
+        "version": "8.4.2",
+        "wheel": "click-8.4.2-py3-none-any.whl",
+        "sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "click-8.4.2.dist-info/licenses/LICENSE.txt",
+            "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "colorama",
+        "version": "0.4.6",
+        "wheel": "colorama-0.4.6-py2.py3-none-any.whl",
+        "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "colorama-0.4.6.dist-info/licenses/LICENSE.txt",
+            "sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "distro",
+        "version": "1.9.0",
+        "wheel": "distro-1.9.0-py3-none-any.whl",
+        "sha256": "7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "distro-1.9.0.dist-info/LICENSE",
+            "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "docstring_parser",
+        "version": "0.18.0",
+        "wheel": "docstring_parser-0.18.0-py3-none-any.whl",
+        "sha256": "b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "docstring_parser-0.18.0.dist-info/licenses/LICENSE.md",
+            "sha256": "dfe514a337ae8417abd31a8af707bbd6172b03e5430bb083e145899ea97a3eea"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "fastapi",
+        "version": "0.141.1",
+        "wheel": "fastapi-0.141.1-py3-none-any.whl",
+        "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "fastapi-0.141.1.dist-info/licenses/LICENSE",
+            "sha256": "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "wheel": "h11-0.16.0-py3-none-any.whl",
+        "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "h11-0.16.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "wheel": "httpcore-1.0.9-py3-none-any.whl",
+        "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "httpcore-1.0.9.dist-info/licenses/LICENSE.md",
+            "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "httptools",
+        "version": "0.8.0",
+        "wheel": "httptools-0.8.0-cp311-cp311-win_amd64.whl",
+        "sha256": "a1b4c8e7a489a0d750d91894e9a8cdc295838f1924c0ca903ae993456fddec07",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/LICENSE",
+            "sha256": "1c028b059d7a58e14ccda38cabced698c591fe614ffbe4f721430446e86c8d69"
+          },
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/vendor/http-parser/LICENSE-MIT",
+            "sha256": "5cd1b682c0ccbac0cb31b86a9a1104c3e2e7b1377a282b8169d2694b400db7c2"
+          },
+          {
+            "path": "httptools-0.8.0.dist-info/licenses/vendor/llhttp/LICENSE",
+            "sha256": "279012e02a10acfd59a3f2d8f13a497332535d871c2b27c89988985b06a3a438"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "httptools/parser/parser.cp311-win_amd64.pyd",
+            "sha256": "4a4be0aae53bc5914ff3e955b85e9aace5e34933182f2c7e262ba6ed2a2962f7",
+            "version_strings": []
+          },
+          {
+            "path": "httptools/parser/url_parser.cp311-win_amd64.pyd",
+            "sha256": "ace214885b5a044e2100baac6523438cc75989a6359cc13b9f8b5f6f1e180709",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "wheel": "httpx-0.28.1-py3-none-any.whl",
+        "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "httpx-0.28.1.dist-info/licenses/LICENSE.md",
+            "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "idna",
+        "version": "3.18",
+        "wheel": "idna-3.18-py3-none-any.whl",
+        "sha256": "7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "idna-3.18.dist-info/licenses/LICENSE.md",
+            "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "jiter",
+        "version": "0.16.0",
+        "wheel": "jiter-0.16.0-cp311-cp311-win_amd64.whl",
+        "sha256": "e431cfc9caf44c1d5459ff77d4e64cbf85fddb6a35dad836a15c6a9ec23087c1",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "jiter-0.16.0.dist-info/licenses/LICENSE",
+            "sha256": "e65c152aa65deaaa52019855bf1bbce4a0d592a048cb523b6ca691965741241e"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "jiter/jiter.cp311-win_amd64.pyd",
+            "sha256": "e5913c6bd6c3c9c9b6bfa61744c9425e76ebfd0cb4c0d0ebec66fd555d840217",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "jiter-0.16.0.dist-info/sboms/jiter-python.cyclonedx.json",
+            "component_count": 37,
+            "supplier_components": [],
+            "sha256": "00288dc9a289f099e8b90a212a23d580f510efb85bbd97380b7be686409a756a"
+          }
+        ]
+      },
+      {
+        "name": "jsonpatch",
+        "version": "1.33",
+        "wheel": "jsonpatch-1.33-py2.py3-none-any.whl",
+        "sha256": "0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "jsonpatch-1.33.dist-info/AUTHORS",
+            "sha256": "84eb449c119b7c37a02a3ccc0c4979bee549c9ccdb2363e5604da1a382e318d4"
+          },
+          {
+            "path": "jsonpatch-1.33.dist-info/LICENSE",
+            "sha256": "4393eb6733fa1e367f41769b382f4f1be7bf0daeb1e243ed92b3f5d8bafd236f"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "jsonpointer",
+        "version": "3.1.1",
+        "wheel": "jsonpointer-3.1.1-py3-none-any.whl",
+        "sha256": "8ff8b95779d071ba472cf5bc913028df06031797532f08a7d5b602d8b2a488ca",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "jsonpointer-3.1.1.dist-info/licenses/AUTHORS",
+            "sha256": "4d58319d0f59c87bef5b07b3fe4db0f19c2d7d5545b034c6bf7b57c89bbef57f"
+          },
+          {
+            "path": "jsonpointer-3.1.1.dist-info/licenses/LICENSE.txt",
+            "sha256": "d8b24f15d472885f788a2d6e985850f264627b86012a17bb242c83f310d907e5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langchain-core",
+        "version": "1.5.5",
+        "wheel": "langchain_core-1.5.5-py3-none-any.whl",
+        "sha256": "537037fd44ead7c1ffb9621011029ad2e347e051519d17f112d7bf7be12f4365",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "langchain_core-1.5.5.dist-info/licenses/LICENSE",
+            "sha256": "4ec67e4ca6e6721dba849b2ca82261597c86a61ee214bbf21416006b7b2d0478"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langchain-protocol",
+        "version": "0.0.18",
+        "wheel": "langchain_protocol-0.0.18-py3-none-any.whl",
+        "sha256": "70b53a86fbf9cedc863555effe44da192ab02d556ddbf2cf95b8873adcf41b5a",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "langchain_protocol-0.0.18.dist-info/licenses/LICENSE",
+            "sha256": "893e6e30275896912c21c77f9f7c112aba85fd985d05b26a29424cf7e511d177"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph",
+        "version": "1.2.11",
+        "wheel": "langgraph-1.2.11-py3-none-any.whl",
+        "sha256": "8bab70de7b2d00b5300fb289bcf38d8b241400f3184c1e95e8ce706fb0e8686b",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph-1.2.11.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-checkpoint",
+        "version": "4.2.0",
+        "wheel": "langgraph_checkpoint-4.2.0-py3-none-any.whl",
+        "sha256": "0547fd228935a0b758865de3a3d6d7a2537c308895d0f9ab092ce9151b5da942",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_checkpoint-4.2.0.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-prebuilt",
+        "version": "1.1.0",
+        "wheel": "langgraph_prebuilt-1.1.0-py3-none-any.whl",
+        "sha256": "51e311747d755b751d5c6b39b0c1446124d3a7643d2515017e6714b323508fc9",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_prebuilt-1.1.0.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langgraph-sdk",
+        "version": "0.4.2",
+        "wheel": "langgraph_sdk-0.4.2-py3-none-any.whl",
+        "sha256": "75fa5096c1177ce39c847096a8fe3745ffd480ddb412995f836e9f5f884c43dd",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "langgraph_sdk-0.4.2.dist-info/licenses/LICENSE",
+            "sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "langsmith",
+        "version": "0.11.0",
+        "wheel": "langsmith-0.11.0-py3-none-any.whl",
+        "sha256": "e87a3929915936c066b3fa3283ec3f3f0013e2ef7f98a443a7fbe3fab8e784a3",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "openai",
+        "version": "2.54.0",
+        "wheel": "openai-2.54.0-py3-none-any.whl",
+        "sha256": "89089789197ccdb87f173a03145ed1598d00795220c93e96cf712b1cbf5e5f2b",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "openai-2.54.0.dist-info/licenses/LICENSE",
+            "sha256": "636eb7d79da9bb6d515a4b3fd417aa26679eb3cf16396ddab4bc55fa74e616e4"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "orjson",
+        "version": "3.12.0",
+        "wheel": "orjson-3.12.0-cp311-cp311-win_amd64.whl",
+        "sha256": "fb2539159dfe8d371914f354360fa50e4a577cc89222a3828b9650a5e5040252",
+        "license_expression": "MPL-2.0 AND (Apache-2.0 OR MIT)",
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License",
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+        ],
+        "notices": [
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "7cfd738c53d61c79f07e348f622bf7707c9084237054d37fbe07788a75f5881c"
+          },
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-MIT",
+            "sha256": "36516aefdc84c5d5a1e7485425913a22dbda69eb1930c5e84d6ae4972b5194b9"
+          },
+          {
+            "path": "orjson-3.12.0.dist-info/licenses/LICENSE-MPL-2.0",
+            "sha256": "9303ea1cfbf049945652668089d753fb1a7e1f2e52c680615c3d2cea7515c118"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "orjson/orjson.cp311-win_amd64.pyd",
+            "sha256": "066bc56c6c8e7b63402a24a7999a20c3629d46e8ea41109ac5759d4978c28f7e",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "orjson-3.12.0.dist-info/sboms/orjson.cyclonedx.json",
+            "component_count": 22,
+            "supplier_components": [],
+            "sha256": "5a6a519f67d729d0ec2847d8d48bbc87cb790135eeec98d2a86647eec0f1f3b5"
+          }
+        ]
+      },
+      {
+        "name": "ormsgpack",
+        "version": "1.12.2",
+        "wheel": "ormsgpack-1.12.2-cp311-cp311-win_amd64.whl",
+        "sha256": "73670ed0375ecc303858e3613f407628dd1fca18fe6ac57b7b7ce66cc7bb006c",
+        "license_expression": "Apache-2.0 OR MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "ormsgpack-1.12.2.dist-info/licenses/LICENSE-APACHE",
+            "sha256": "7cfd738c53d61c79f07e348f622bf7707c9084237054d37fbe07788a75f5881c"
+          },
+          {
+            "path": "ormsgpack-1.12.2.dist-info/licenses/LICENSE-MIT",
+            "sha256": "36516aefdc84c5d5a1e7485425913a22dbda69eb1930c5e84d6ae4972b5194b9"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "ormsgpack/ormsgpack.cp311-win_amd64.pyd",
+            "sha256": "3099b724d783c777d29a901c43a6b2a1558f0ceca64115cbced4c1bf15b6604a",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "wheel": "packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "license_expression": "Apache-2.0 OR BSD-2-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE",
+            "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+          },
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+            "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+          },
+          {
+            "path": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+            "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "pglast",
+        "version": "7.18",
+        "wheel": "pglast-7.18-cp311-cp311-win_amd64.whl",
+        "sha256": "9fc1f01febcb50faf02ef7295b2b93b0686c177e54149857504cf53f207914e3",
+        "license_expression": "GPL-3.0-or-later",
+        "license_classifiers": [],
+        "notices": [],
+        "native_members": [
+          {
+            "path": "pglast/parser.cp311-win_amd64.pyd",
+            "sha256": "de76797af9c38f0080ae2bdaf89bcb0ba02ebfe48544b5368405a604cdff5971",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "psycopg",
+        "version": "3.3.5",
+        "wheel": "psycopg-3.3.5-py3-none-any.whl",
+        "sha256": "ce5aa5cdb4f9379f00f487590e5890bfa7df9a164648c969ffa628505e21af4e",
+        "license_expression": "LGPL-3.0-only",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "psycopg-3.3.5.dist-info/licenses/LICENSE.txt",
+            "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "psycopg-binary",
+        "version": "3.3.5",
+        "wheel": "psycopg_binary-3.3.5-cp311-cp311-win_amd64.whl",
+        "sha256": "7b443f943abfe35aa5a776630cea27c9348aa66659286cee0b99084332252080",
+        "license_expression": "LGPL-3.0-only",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "psycopg_binary-3.3.5.dist-info/licenses/LICENSE.txt",
+            "sha256": "7d3a95e5e06978064ed3f8e2b7c8f845e7fd8a405294727cc708f94cb83b8059"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "psycopg_binary.libs/libcrypto-3-x64-f68dc1082768389676d5901a38532935.dll",
+            "sha256": "f68dc1082768389676d5901a38532935c46d8fd893cb580555628e815cd5a92a",
+            "version_strings": [
+              "OpenSSL 3.6.3 9 Jun 2026"
+            ]
+          },
+          {
+            "path": "psycopg_binary.libs/libpq-6313a3ff78f1e8f3f57b69cdef91d822.dll",
+            "sha256": "388a7b0a23ed81e9b3401138102702e66014bee743a117e336a59a6914521840",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary.libs/libssl-3-x64-6439b6cfa7f3ef0146444effd227e690.dll",
+            "sha256": "159da5f155676774c7af1b6305c50204a959fbc5e328397af0e73998a23319b1",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/_psycopg.cp311-win_amd64.pyd",
+            "sha256": "5c9115ef421c52c56e12f0b6105cc7bf783648a8686dac6825ac4b6b252d5f90",
+            "version_strings": []
+          },
+          {
+            "path": "psycopg_binary/pq.cp311-win_amd64.pyd",
+            "sha256": "8e18eafb8fb14bdc63b8638516c4635ba4b76c798211297529bf0b7f080dca4e",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.4",
+        "wheel": "pydantic-2.13.4-py3-none-any.whl",
+        "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "pydantic-2.13.4.dist-info/licenses/LICENSE",
+            "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.46.4",
+        "wheel": "pydantic_core-2.46.4-cp311-cp311-win_amd64.whl",
+        "sha256": "6f2eeda33a839975441c86a4119e1383c50b47faf0cbb5176985565c6bb02c33",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "pydantic_core-2.46.4.dist-info/licenses/LICENSE",
+            "sha256": "fbe7f615f18d135c07000e5a86325db27f42c7729699ef166ac1f7a3f4586bf4"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "pydantic_core/_pydantic_core.cp311-win_amd64.pyd",
+            "sha256": "a0291ce64fc21ad1743626894f97c2e669bcac44226cd54897a661a1e5a147d0",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "pydantic_core-2.46.4.dist-info/sboms/pydantic-core.cyclonedx.json",
+            "component_count": 103,
+            "supplier_components": [],
+            "sha256": "64873c0cff2ce67869ec71837cbaff3917eaa1d0b45d149dbc775229f21b3509"
+          }
+        ]
+      },
+      {
+        "name": "pydantic-settings",
+        "version": "2.15.0",
+        "wheel": "pydantic_settings-2.15.0-py3-none-any.whl",
+        "sha256": "0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42",
+        "license_expression": "MIT",
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "pydantic_settings-2.15.0.dist-info/licenses/LICENSE",
+            "sha256": "eb355a753e020346d33d83bf9769135b89fc610568ac531a01c295bcee7fd998"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "python-dotenv",
+        "version": "1.2.2",
+        "wheel": "python_dotenv-1.2.2-py3-none-any.whl",
+        "sha256": "1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "python_dotenv-1.2.2.dist-info/licenses/LICENSE",
+            "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "PyYAML",
+        "version": "6.0.3",
+        "wheel": "pyyaml-6.0.3-cp311-cp311-win_amd64.whl",
+        "sha256": "9f3bfb4965eb874431221a3ff3fdcddc7e74e3b07799e0e84ca4a0f867d449bf",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "pyyaml-6.0.3.dist-info/licenses/LICENSE",
+            "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "yaml/_yaml.cp311-win_amd64.pyd",
+            "sha256": "ee7df83fa5dca1467bfd841dc08189b10361f31700cf57a6aacddaf0c05706f4",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "requests",
+        "version": "2.34.2",
+        "wheel": "requests-2.34.2-py3-none-any.whl",
+        "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "requests-2.34.2.dist-info/licenses/LICENSE",
+            "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+          },
+          {
+            "path": "requests-2.34.2.dist-info/licenses/NOTICE",
+            "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "requests-toolbelt",
+        "version": "1.0.0",
+        "wheel": "requests_toolbelt-1.0.0-py2.py3-none-any.whl",
+        "sha256": "cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "requests_toolbelt-1.0.0.dist-info/AUTHORS.rst",
+            "sha256": "57df198f62c9098aac95c9b8ec1f0b8efc024080f61d5a0ed89ef4c5da3cf031"
+          },
+          {
+            "path": "requests_toolbelt-1.0.0.dist-info/LICENSE",
+            "sha256": "1f8cf8bdacd98ed6d36d0fec0c07f7765acebd6e81205962ab5146023b3c858d"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "sniffio",
+        "version": "1.3.1",
+        "wheel": "sniffio-1.3.1-py3-none-any.whl",
+        "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License",
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE",
+            "sha256": "652c878488d1456361e08c3f8607fd7ba59892a14103d15cce4ff93c85b5cc8b"
+          },
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE.APACHE2",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+          },
+          {
+            "path": "sniffio-1.3.1.dist-info/LICENSE.MIT",
+            "sha256": "3e6dae555eb92787fc82d1d48355677f454c7f65aeb38d3f9e72bf9a3daf034b"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "starlette",
+        "version": "1.6.0",
+        "wheel": "starlette-1.6.0-py3-none-any.whl",
+        "sha256": "a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "starlette-1.6.0.dist-info/licenses/LICENSE.md",
+            "sha256": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "tenacity",
+        "version": "9.1.4",
+        "wheel": "tenacity-9.1.4-py3-none-any.whl",
+        "sha256": "6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License"
+        ],
+        "notices": [
+          {
+            "path": "tenacity-9.1.4.dist-info/licenses/LICENSE",
+            "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "tqdm",
+        "version": "4.70.0",
+        "wheel": "tqdm-4.70.0-py3-none-any.whl",
+        "sha256": "7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "tqdm-4.70.0.dist-info/licenses/LICENCE",
+            "sha256": "fcff87c3a47ce8028a8512aa182d4fcf0ad1c90544ee75cf9b343684cac194de"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "wheel": "typing_extensions-4.16.0-py3-none-any.whl",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+        "license_expression": "PSF-2.0",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+            "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.4",
+        "wheel": "typing_inspection-0.4.4-py3-none-any.whl",
+        "sha256": "65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "typing_inspection-0.4.4.dist-info/licenses/LICENSE",
+            "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "tzdata",
+        "version": "2026.3",
+        "wheel": "tzdata-2026.3-py2.py3-none-any.whl",
+        "sha256": "dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "tzdata-2026.3.dist-info/licenses/LICENSE",
+            "sha256": "df58f69ea88683035d720b5375bcef0cf5aeaa98a1d098d572e0992c378deb46"
+          },
+          {
+            "path": "tzdata-2026.3.dist-info/licenses/licenses/LICENSE_APACHE",
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "urllib3",
+        "version": "2.7.0",
+        "wheel": "urllib3-2.7.0-py3-none-any.whl",
+        "sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+        "license_expression": "MIT",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "urllib3-2.7.0.dist-info/licenses/LICENSE.txt",
+            "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "uuid_utils",
+        "version": "0.17.0",
+        "wheel": "uuid_utils-0.17.0-cp311-cp311-win_amd64.whl",
+        "sha256": "14dc2f46abb1091260c0d203fcbdf4e045042cc07e49183fd3b255904b95eb70",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "uuid_utils-0.17.0.dist-info/licenses/LICENSE.md",
+            "sha256": "209330e81d3a89860e9ec79e9bf894be705f0755a3869d77aa091fc4a2f91903"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "uuid_utils/_uuid_utils.cp311-win_amd64.pyd",
+            "sha256": "9a2a779d1d7d3cba213838e7a5a31c4880b5b44b812d8b8bded6b0c23012898d",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "uuid_utils-0.17.0.dist-info/sboms/uuid-utils.cyclonedx.json",
+            "component_count": 32,
+            "supplier_components": [],
+            "sha256": "0c0f192ab9c830525b85a2bd1e54f9c012d13b3d44b9b95f73a0db1c9d02656f"
+          }
+        ]
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.52.3",
+        "wheel": "uvicorn-0.52.3-py3-none-any.whl",
+        "sha256": "116af2710dbf47c80f463cd20ee4884b6662f4c9f227d797ddc7279d2fcc2c7c",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "uvicorn-0.52.3.dist-info/licenses/LICENSE.md",
+            "sha256": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
+          }
+        ],
+        "native_members": [],
+        "sboms": []
+      },
+      {
+        "name": "watchfiles",
+        "version": "1.2.0",
+        "wheel": "watchfiles-1.2.0-cp311-cp311-win_amd64.whl",
+        "sha256": "dbd6c97045dad81227c8d040173da044c1de08de64a5ea8b555da4aee1d5fa22",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "notices": [
+          {
+            "path": "watchfiles-1.2.0.dist-info/licenses/LICENSE",
+            "sha256": "2d40a03346bded8daa4bd22d23825a6f2568a0820fbef76ac05bae534421e189"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "watchfiles/_rust_notify.cp311-win_amd64.pyd",
+            "sha256": "35507c3ef547163f24ec19b5a8e15f99ed37e9b4da3c8bcd2338e50dcfa37119",
+            "version_strings": []
+          }
+        ],
+        "sboms": [
+          {
+            "path": "watchfiles-1.2.0.dist-info/sboms/watchfiles_rust_notify.cyclonedx.json",
+            "component_count": 28,
+            "supplier_components": [],
+            "sha256": "7777cbe951837d59e9dd15b3bf7c756ad939a3281f1baf6bbae0b4c21cc4456b"
+          }
+        ]
+      },
+      {
+        "name": "websockets",
+        "version": "15.0.1",
+        "wheel": "websockets-15.0.1-cp311-cp311-win_amd64.whl",
+        "sha256": "27ccee0071a0e75d22cb35849b1db43f2ecd3e161041ac1ee9d2352ddf72f065",
+        "license_expression": null,
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "notices": [
+          {
+            "path": "websockets-15.0.1.dist-info/LICENSE",
+            "sha256": "0f44514998aca209d3482d10204a8adf2aa4296ff157a36a5c0922f2280632d3"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "websockets/speedups.cp311-win_amd64.pyd",
+            "sha256": "cd975e265ec0959189992db097ac6fc452885b34434b53d3561d4ff2e696d66c",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "xxhash",
+        "version": "4.0.0",
+        "wheel": "xxhash-4.0.0-cp311-cp311-win_amd64.whl",
+        "sha256": "50cf753d4d93797c2d32a72c305ab7017af4bae9bb6c999222fb29d9ea9961f7",
+        "license_expression": null,
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "xxhash-4.0.0.dist-info/licenses/LICENSE",
+            "sha256": "b76e99529f3e47372029e11914a8f4b95d6313463ed5a1a5c9afe96c3e015114"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "xxhash/_xxhash.cp311-win_amd64.pyd",
+            "sha256": "96b66c53d7d95ce326210357e40675da78327cafdca7fc704a0a5a176d0d6c7b",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      },
+      {
+        "name": "zstandard",
+        "version": "0.25.0",
+        "wheel": "zstandard-0.25.0-cp311-cp311-win_amd64.whl",
+        "sha256": "daab68faadb847063d0c56f361a289c4f268706b598afbf9ad113cbe5c38b6b2",
+        "license_expression": "BSD-3-Clause",
+        "license_classifiers": [],
+        "notices": [
+          {
+            "path": "zstandard-0.25.0.dist-info/licenses/LICENSE",
+            "sha256": "c15b28f8866500bd3d607c739e87710aa5c47627aa30a0573948414564ff1da2"
+          }
+        ],
+        "native_members": [
+          {
+            "path": "zstandard/_cffi.cp311-win_amd64.pyd",
+            "sha256": "f6b7450a953cc6f0facd89992d1d15b22b94f78342a4cf59f15142f71f8dbe46",
+            "version_strings": []
+          },
+          {
+            "path": "zstandard/backend_c.cp311-win_amd64.pyd",
+            "sha256": "35f7bfe8d1965fc33c090febd216a4ef5c3a8b22ce02a689226a3776cc295317",
+            "version_strings": []
+          }
+        ],
+        "sboms": []
+      }
+    ]
+  }
+}
