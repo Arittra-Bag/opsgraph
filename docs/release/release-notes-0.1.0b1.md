@@ -1,4 +1,7 @@
-# OpsGraph 0.1.0b1 — beta release notes
+# OpsGraph 0.1.0b1 — draft beta release notes
+
+Unreleased. These notes describe the planned first beta; no tag or release is
+published by the documentation update.
 
 OpsGraph is a self-hosted PostgreSQL investigation workspace for one operator.
 Configure a read-only source and model, ask a bounded question, follow actual
@@ -6,7 +9,9 @@ execution, then inspect the cited SQL and captured records. Saved history,
 export, follow-up, fresh retry, cancellation and partial evidence are included.
 Ollama provides a local model path without a paid account.
 
-This beta adds guided installation/setup, actual source/schema inspection and
+This beta adds an investigation workspace with visible execution stages,
+findings, captured evidence and linked follow-ups, plus guided installation/setup,
+actual source/schema inspection and
 structured model probing. It reuses the existing Anthropic and OpenAI-compatible
 adapters. Provider errors are actionable; credentials stay on the backend.
 No simulated investigations or automatic provider fallback.

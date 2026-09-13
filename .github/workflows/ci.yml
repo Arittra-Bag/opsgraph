@@ -168,21 +168,21 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: Build alpha container
-        run: docker build --tag opsgraph-alpha:ci --file deploy/container/Dockerfile .
+      - name: Build beta container
+        run: docker build --tag opsgraph-beta:ci --file deploy/container/Dockerfile .
       - name: Start and verify configuration-only container
         run: |
           docker volume create opsgraph-ci-state >/dev/null
-          docker run --detach --name opsgraph-alpha-ci \
+          docker run --detach --name opsgraph-beta-ci \
             --publish 127.0.0.1:8000:8000 \
             --read-only --cap-drop ALL --security-opt no-new-privileges \
             --tmpfs /tmp:size=64m,mode=1770,uid=10001,gid=10001 \
             --mount type=volume,source=opsgraph-ci-state,target=/data \
             --env OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars \
-            opsgraph-alpha:ci
+            opsgraph-beta:ci
           for attempt in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8000/api/health; then break; fi
-            if [ "$attempt" = 20 ]; then docker logs opsgraph-alpha-ci; exit 1; fi
+            if [ "$attempt" = 20 ]; then docker logs opsgraph-beta-ci; exit 1; fi
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:8000/assets/static/app.js >/dev/null
@@ -193,9 +193,9 @@ jobs:
           docker compose -f deploy/compose.yaml config >/dev/null
       - name: Show container logs on failure
         if: failure()
-        run: docker logs opsgraph-alpha-ci || true
+        run: docker logs opsgraph-beta-ci || true
       - name: Stop configuration-only container
         if: always()
         run: |
-          docker rm --force opsgraph-alpha-ci || true
+          docker rm --force opsgraph-beta-ci || true
           docker volume rm opsgraph-ci-state || true

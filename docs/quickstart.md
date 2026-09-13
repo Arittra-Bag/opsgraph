@@ -30,24 +30,44 @@ configuration. Our local adapter uses [Ollama's OpenAI-compatible endpoint](http
 
 ## Install once, launch whenever needed
 
-1. Check the ZIP against its adjacent `.sha256` file using
-   `shasum -a 256 -c FILE.zip.sha256`.
-   This detects changed bytes; authenticity depends on trusting the source of
-   both files. Beta bundles are unsigned; obtain the archive and checksum from
-   the same trusted release page.
-2. Extract to a permanent folder in your user profile. Open `Install.command`.
-   If macOS blocks an unsigned downloaded launcher, inspect the files and follow
-   your organization's policy; do not disable Gatekeeper globally. The explicit
-   terminal alternative is `python3.11 Install.py install` from the extracted folder.
-3. Open `Launch.command`. On first launch, enter the hidden read-only DSN, approved
-   schema names, and local-model settings. Defaults are displayed. Port occupied?
-   Run `python3.11 Install.py launch --port 8010`; OpsGraph never kills its owner.
+The beta bundle is not published yet. Until it is, use the
+[source checkout instructions](../README.md#linux-macos-and-windows); the browser
+steps below are the same. The following bundle instructions apply once matching
+beta artifacts are available on the [releases page](https://github.com/Arittra-Bag/opsgraph/releases).
+
+1. Download the ZIP for your OS, architecture and CPython 3.11, together with its
+   adjacent `.sha256` file. Check the checksum before extracting:
+
+   | System | Verification command |
+   | --- | --- |
+   | macOS | `shasum -a 256 -c FILE.zip.sha256` |
+   | Linux | `sha256sum -c FILE.zip.sha256` |
+   | Windows PowerShell | `Get-FileHash .\FILE.zip -Algorithm SHA256` and compare the hash with `Get-Content .\FILE.zip.sha256` |
+
+   Replace `FILE.zip` with the downloaded filename. A checksum detects changed
+   bytes; authenticity depends on trusting the source of both files. Beta bundles
+   are unsigned. Do not disable system security globally to run a launcher.
+2. Extract the ZIP to a permanent folder in your user profile. Open a terminal
+   **inside the extracted folder containing `Install.py`**, then install and launch:
+
+   | System | Install once | Launch |
+   | --- | --- | --- |
+   | macOS / Linux | `python3.11 -I Install.py install` | `python3.11 -I Install.py launch` |
+   | Windows PowerShell | `py -3.11 -I Install.py install` | `py -3.11 -I Install.py launch` |
+
+   macOS also provides `Install.command` and `Launch.command`. Follow your
+   organization's policy if an unsigned downloaded launcher is blocked.
+3. On first launch, enter the hidden read-only DSN, approved schemas and model
+   settings. A DSN is your database connection string; request a dedicated
+   read-only login from whoever manages the database. Pressing Enter at an empty
+   DSN skips database setup, so source inspection will not work until configured.
+   Port occupied? Add `--port 8010` to the launch command.
 4. The browser connects through a one-use, short-lived fragment token. Neither
    the DSN nor workspace key appears in the URL. If the browser does not open,
    relaunch or connect manually with the key in your private workspace `.env`.
    Do not paste credentials into issue reports, source labels or questions.
 
-Later, `Launch.command` reuses the same per-user directory:
+Future launches reuse the same per-user directory:
 
 | OS | Default data directory |
 | --- | --- |
@@ -55,13 +75,18 @@ Later, `Launch.command` reuses the same per-user directory:
 | Linux | `$XDG_DATA_HOME/opsgraph`, otherwise `~/.local/share/opsgraph` |
 | Windows | `%LOCALAPPDATA%\OpsGraph` |
 
-The Linux/Windows locations describe implementation, not completed native tests.
-Advanced isolation: `python3.11 Install.py launch --directory /absolute/private/path`.
-Use the same directory for future launches. Stop with Ctrl+C in the launch
-terminal; the browser tab alone does not stop the backend. Never delete the
-workspace to stop it. Reconfigure with `--configure`; confirmation precedes
-replacement of existing settings. Guided reconfiguration selects local inference
-and disables external egress. Existing unknown settings are preserved.
+Installer/lifecycle checks run in CI on macOS, Ubuntu and Windows Server; full
+live workflow coverage differs by platform. See the [support matrix](release/support-matrix.md).
+For an isolated workspace, add `--directory` followed by an absolute private path
+(in quotes if it contains spaces). Use the same directory for future launches.
+Stop with Ctrl+C in the launch terminal; closing the browser does not stop the
+backend. Never delete the workspace to stop it.
+
+Add `--configure` to reconfigure. Answer `y` when asked to change existing
+settings; `N` preserves them. Guided setup asks for a provider and requires
+explicit permission for external model egress. A literal loopback model disables
+external egress. Existing unknown settings are preserved. Model choices saved
+in browser Settings override initial setup; use Settings for later model changes.
 
 ## Select the actual scope
 

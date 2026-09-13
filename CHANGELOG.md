@@ -2,6 +2,9 @@
 
 ## 0.1.0b1 — unreleased beta
 
+- Investigation workspace documentation with a real full-page screenshot,
+  native setup for Linux/macOS/Windows and a step-by-step Docker path.
+
 - Guided local installation and backend-held source/provider configuration,
   explicit PostgreSQL scope inspection and a structured model compatibility probe.
 - Durable investigations with backend progress, cited SQL and records, export,
