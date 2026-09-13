@@ -14,11 +14,12 @@ records. Include the affected version and a sanitized description privately.
 
 | Version | Security maintenance |
 | --- | --- |
-| Current beta development on `main` | Fixes land here while the first beta is being prepared |
-| Latest published `0.1.x` beta, once available | Supported; update to the latest beta for fixes |
+| Development on `main` | Fixes land here before the next release |
+| Latest published `0.1.x` beta | Supported; update to the latest beta for fixes |
 | Earlier beta and `0.1.0-alpha.*` builds | Not maintained; upgrade |
 
-The first beta has not been published yet. This policy does not establish a
+Beta 1 (`v0.1.0b1`) is the first beta release, dated 2026-09-13. See the
+[release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1). This policy does not establish a
 stable-release support window or response-time guarantee.
 
 ## Supported boundary

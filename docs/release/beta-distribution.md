@@ -20,15 +20,19 @@ and build instructions, and `opsgraph-0.1.0b1-third-party-sources.tar.gz`, each
 with SHA-256 checksums. Put a clear source link next to the binary download.
 The source supplement contains:
 
-- Unmodified pglast7.18 source, including its vendored parser/build files;
-  GPLv3, PostgreSQL/libpg_query and other extracted copyright notices.
-- Psycopg3.3.5 and psycopg_c3.3.5 source distributions, plus the exact tagged
-  Psycopg repository and its native-library build and binary-package scripts.
-- orjson3.12.0 source for its declared MPL-covered components; its upstream
-  source and wheels retain Apache/MIT/MPL notices.
-- LGPLv3 and supplemental PostgreSQL18.6, OpenSSL3.5.8, Kerberos1.22.2 and
-  OpenLDAP2.6.14 license/copyright material for the selected macOS wheel.
-- A source/notice provenance record and per-file checksums.
+- Matching source distributions for all locked Python runtime/provider packages;
+  Psycopg's binary implementation is supplied as `psycopg_c` source together with
+  the exact tagged Psycopg repository and binary/native build scripts.
+- Original pglast/parser source and GPL notices, plus source for the declared
+  MPL-covered components in orjson, certifi and tqdm.
+- PostgreSQL18.6/18.4, OpenSSL3.5.8/3.6.3, Kerberos1.22.2, OpenLDAP2.6.14 and
+  libxcrypt4.5.2 sources, with the selected platform build inputs.
+- Source RPMs, including downstream patches, for the Linux wheel's
+  SBOM-identified CentOS libraries: Kerberos, Cyrus SASL, keyutils, e2fsprogs,
+  libselinux and PCRE. These are source archives, not packages to install.
+- Original wheel notices, supplemental notices, a source manifest and per-file
+  checksums. [beta-source-manifest.json](notices/beta-source-manifest.json)
+  records the upstream URLs and hashes; archives are not modified.
 
 The GPLv3 section6(d) network-distribution route is used: equivalent source
 access accompanies object-code access, without a fee. Retain that source access
@@ -55,20 +59,29 @@ libraries remain compatible. Do not overwrite the only copy of investigation
 history. See [LGPLv3](notices/LGPL-3.0.txt) and
 [Psycopg installation options](https://www.psycopg.org/psycopg3/docs/basic/install.html).
 
-## Exact scope and remaining boundaries
+## Exact platform inventory
 
-[beta-native-provenance.json](notices/beta-native-provenance.json) identifies the
-selected macOS arm64 CPython3.11 pglast/Psycopg wheels, sources and new notices.
-The tagged Psycopg3.3.5 build chooses libpq18.6, OpenSSL3.5.8, Kerberos1.22.2 and
-OpenLDAP2.6.14. OpenSSL3.5.8 is additionally visible in the selected macOS binary.
-This is upstream build/source evidence, not an independent rebuild attestation.
-Original license files inside all dependency wheels must remain intact.
+[beta-wheel-inventory.json](notices/beta-wheel-inventory.json) records every
+selected dependency wheel hash, native member hash, original notice and supplier
+SBOM reference for the CPython3.11 bundles. The macOS and Ubuntu bundles each
+contain 53 dependency wheels; Windows contains 54. The difference is platform
+conditional dependencies, not an interchangeable wheelhouse.
 
-Other native wheels retain their supplier license/SBOM material. The existing
-inventory records those actual members; it is not exhaustive transitive-source
-certification. These supplemental sources/notices address the concrete recorded
-macOS omissions without declaring every third-party component security-certified.
-Windows and Linux binary contents require their own final inventory. In
-particular, Linux's secondary libcrypto1.1.1k patch provenance remains unresolved;
-that version string alone does not prove an unpatched vulnerability. Do not
-transfer macOS native evidence to another platform or relabel historical results.
+[beta-native-provenance.json](notices/beta-native-provenance.json) records the
+native review. macOS and Linux use the tagged Psycopg build's libpq18.6 and
+OpenSSL3.5.8. Windows DLL resources identify libpq18.4 and OpenSSL3.6.3; its
+build uses vcpkg, so the Unix build-version variables do not establish its versions.
+Matching Windows notices are included separately.
+
+The previously noted secondary OpenSSL1.1.1k is absent from every native member
+in the selected Linux CPython3.11 wheelhouse. It is not a finding against this
+release artifact. Linux's additional `libcrypt` is libxcrypt4.5.2: the pinned
+manylinux image selects its source hash, the original library hash matches the
+auditwheel filename suffix, and the bundled ELF code and read-only data sections
+match the image library. The source and build scripts are supplied.
+
+This evidence identifies the supplied files and their sources; it is not an
+independent native rebuild or a security certification of every component.
+Original wheel license/SBOM files remain intact. Other Python versions,
+architectures and container images require their own inventory. Historical alpha
+inventory records remain dated evidence and do not describe these release assets.

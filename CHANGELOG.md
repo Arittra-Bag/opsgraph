@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0b1 — unreleased beta
+## 0.1.0b1 — 2026-09-13 (beta prerelease)
 
 - Investigation workspace documentation with a real full-page screenshot,
   native setup for Linux/macOS/Windows and a step-by-step Docker path.

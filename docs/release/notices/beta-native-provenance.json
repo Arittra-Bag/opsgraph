@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "observed_on": "2026-09-12",
-  "scope": "Beta macOS CPython3.11 arm64 pglast/Psycopg source and notice supplement; no execution of upstream build scripts",
+  "observed_on": "2026-09-13",
+  "scope": "Beta 1 native dependency review: macOS arm64, Ubuntu x64 and Windows x64 CPython 3.11 bundles.",
   "sources": [
     {
       "file": "pglast-7.18.tar.gz",
@@ -31,19 +31,19 @@
       "file": "build_libpq.sh",
       "size": 7120,
       "sha256": "2cb45ac4c8bb5e8fc3c738c597817bcb2d224bc66073d10023f15665bee9cb8b",
-      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/build_libpq.sh"
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/build_libpq.sh"
     },
     {
       "file": "packages-bin.yml",
       "size": 9121,
       "sha256": "763c6ab0014cee4c1a1263f2c943dd7683bc6c9a56231b3fc77a41ffcbe168f5",
-      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/.github/workflows/packages-bin.yml"
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/.github/workflows/packages-bin.yml"
     },
     {
       "file": "copy_to_binary.py",
       "size": 1389,
       "sha256": "522dcd9abd006606f8aa12ac8bf4cf3db15841618aa0bdca4b773525d07e9eb3",
-      "source": "https://github.com/psycopg/psycopg/blob/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/copy_to_binary.py"
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/copy_to_binary.py"
     },
     {
       "file": "orjson-3.12.0.tar.gz",
@@ -109,8 +109,43 @@
   },
   "native_version_evidence": "Tagged Psycopg build configuration selects PostgreSQL18.6/OpenSSL3.5.8/Kerberos1.22.2/OpenLDAP2.6.14. OpenSSL3.5.8 string directly verified in selected macOS libcrypto. No independent rebuild or exact-runner attestation claimed.",
   "remaining_scope": [
-    "Windows/Linux native bundled components require separate inventories/notices.",
-    "Linux secondary libcrypto1.1.1k patch applicability remains unverified.",
-    "Other native wheels retain supplier notices/SBOMs; no exhaustive transitive-source certification."
-  ]
+    "This is source, notice, SBOM and binary inventory evidence, not an independent bit-for-bit rebuild or security certification of every embedded component.",
+    "Only the exact dependency wheel hashes in beta-wheel-inventory.json are covered; other Python versions, architectures and container images require their own inventory.",
+    "Historical alpha inventory files remain as dated evidence and do not describe the Beta 1 release artifacts."
+  ],
+  "source_manifest": "beta-source-manifest.json",
+  "wheel_inventory": "beta-wheel-inventory.json",
+  "platform_review": {
+    "macos-arm64-cp311": {
+      "libpq": "18.6 (tagged upstream build)",
+      "openssl": "3.5.8 (binary version string)",
+      "kerberos": "1.22.2 (tagged upstream build)",
+      "openldap": "2.6.14 (tagged upstream build)"
+    },
+    "windows-x64-cp311": {
+      "libpq": "18.4 (DLL version resource)",
+      "openssl": "3.6.3 (DLL resource and binary version string)",
+      "build": "Upstream uses vcpkg rather than the Unix LIBPQ_VERSION/OPENSSL_VERSION settings. Windows notices are included separately."
+    },
+    "ubuntu-x64-cp311": {
+      "libpq": "18.6 (tagged upstream build)",
+      "openssl": "3.5.8 (binary version string)",
+      "secondary_openssl_1_1_1k": "Absent from every selected wheel native member; historical concern does not apply to this exact CPython 3.11 artifact.",
+      "distribution_libraries": "Exact CentOS RPM versions recorded in the wheel supplier SBOM; matching source RPMs include downstream patches.",
+      "libcrypt": {
+        "upstream": "libxcrypt 4.5.2",
+        "image": "quay.io/pypa/manylinux2014_x86_64@sha256:c163a278006f45883c117b4166b93cdc7b574b62e58292ed9e52879579841d77",
+        "image_config_sha256": "0d004dfd19c1765341c5d464e44bf6d4703bd93cf9f204a7de01da8f5e01334d",
+        "original_library_sha256": "bc2db45ec146e845246bd2610dd4d8bf8c9176adda585ba15f51dd30dbf36459",
+        "wheel_member": "psycopg_binary.libs/libcrypt-bc2db45e.so.1",
+        "match": "auditwheel filename hash matches original library hash prefix; ELF .text and .rodata bytes independently compared equal.",
+        "source_sha256": "71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071",
+        "build_evidence": "Image history explicitly selects 4.5.2 and this source hash; source and build scripts accompany the supplement.",
+        "matching_elf_sections_sha256": {
+          ".text": "90724d27cc1b44dfb17c7757119881eb4a9f2c6308e0859de219c0f018b3584a",
+          ".rodata": "643948bf27595874e7859171aea7f3a0f8c9d40897865e3c26322fe76cee0fbf"
+        }
+      }
+    }
+  }
 }
