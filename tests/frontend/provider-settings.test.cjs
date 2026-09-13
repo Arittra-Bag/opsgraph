@@ -102,6 +102,20 @@ test('status refresh failure after a successful probe does not leave green compl
   await f.context.testProvider(); assert.equal(f.state.modelTested, false);
 });
 
+test('model status pill reflects successful and failed connection tests', async () => {
+  const success = fixture(); success.context.fillProviderForm({ ...config, revision: 'same' }); success.state.providerDirty = false;
+  success.context.api = async path => path.endsWith('/test') ? { ok: true, configuration_revision: 'same' } : { ...config, revision: 'same' };
+  await success.context.testProvider();
+  assert.equal(success.$('#trustModel').textContent, 'Model reachable');
+  assert.equal(success.$('#trustModel').className, 'trust-signal good');
+
+  const failure = fixture(); failure.context.fillProviderForm({ ...config, revision: 'same' }); failure.state.providerDirty = false;
+  failure.context.api = async () => { throw new Error('Model offline'); };
+  await failure.context.testProvider();
+  assert.equal(failure.$('#trustModel').textContent, 'Model unreachable');
+  assert.equal(failure.$('#trustModel').className, 'trust-signal failed');
+});
+
 test('disconnect during configuration load or save discards late responses', async () => {
   for (const operation of ['loadProviderConfiguration', 'saveProviderConfiguration']) {
     const f = fixture(); f.context.fillProviderForm(config);

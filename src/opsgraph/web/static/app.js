@@ -218,9 +218,14 @@
       if (!response.ok) throw new Error('Backend configuration could not be read. Check that OpsGraph is running.');
       const bootstrap = await response.json(); const trust = bootstrap.trust || {};
       $('#runtimeDetails').textContent = json(bootstrap);
-      $('#trustAccess').textContent = trust.access ? `${trust.access} · ${trust.deployment || 'backend'}` : 'Access unverified';
-      $('#trustEgress').textContent = trust.egress === false ? 'External egress off' : trust.egress === true ? 'External egress enabled' : 'Egress unverified';
-      $('#trustModel').textContent = trust.model ? `${trust.model} configured · untested` : 'Model unconfigured';
+      $('#trustAccess').textContent = trust.access ? `Runtime ${trust.access}` : 'Runtime unverified';
+      $('#trustAccess').className = `trust-signal ${trust.access === 'read-only' ? 'good' : trust.access ? 'failed' : 'checking'}`;
+      $('#trustAccess').title = trust.access ? `Access: ${trust.access} · Deployment: ${trust.deployment || 'backend'}` : '';
+      $('#trustEgress').textContent = trust.egress === false ? 'Egress off' : trust.egress === true ? 'Egress enabled' : 'Egress unverified';
+      $('#trustEgress').className = `trust-signal ${trust.egress === false ? 'neutral' : trust.egress === true ? '' : 'checking'}`.trim();
+      $('#trustModel').textContent = trust.model ? 'Model untested' : 'Model unconfigured';
+      $('#trustModel').className = 'trust-signal checking';
+      $('#trustModel').title = trust.model ? `Provider: ${trust.model}` : '';
     } catch (error) { notice('#globalError', error.message); $('#runtimeDetails').textContent = error.message; }
   }
   async function loadProvider() {
@@ -242,7 +247,8 @@
     if (state.providerConfiguration?.revision !== configuration.revision) {
       state.modelTested = false;
       $('#providerTestStatus').textContent = 'Configuration changed. Run an actual model connection test.';
-      $('#trustModel').textContent = 'Model configured · untested';
+      $('#trustModel').textContent = 'Model untested';
+      $('#trustModel').className = 'trust-signal checking';
     }
     state.providerConfiguration = configuration;
     $('#modelProvider').value = configuration.provider;
@@ -279,12 +285,13 @@
       if (epoch !== state.authEpoch) return;
       state.modelTested = false; fillProviderForm(saved);
       notice('#providerError'); $('#providerTestStatus').textContent = 'Configuration changed. Run a new actual model connection test.';
-      $('#trustModel').textContent = 'Model configured · untested';
+      $('#trustModel').textContent = 'Model untested';
+      $('#trustModel').className = 'trust-signal checking';
       $('#providerSaveStatus').textContent = 'Saved. Now test the actual model connection. No investigation data was sent.';
       await loadProvider().catch(error => { if (epoch === state.authEpoch) notice('#providerError', `Configuration saved, but its status could not be refreshed. ${error.message}`); });
     } catch (error) {
       if (epoch !== state.authEpoch) return;
-      if (![400, 403, 409, 422].includes(error.status)) { state.modelTested = false; $('#trustModel').textContent = 'Model configuration unverified'; }
+      if (![400, 403, 409, 422].includes(error.status)) { state.modelTested = false; $('#trustModel').textContent = 'Model unverified'; $('#trustModel').className = 'trust-signal checking'; }
       notice('#providerSaveError', error.message);
       $('#providerSaveStatus').textContent = 'Save was not confirmed. Review the error and retry; re-enter a new API key if you supplied one.';
     } finally { request.api_key = ''; if (epoch === state.authEpoch) { state.providerBusy = false; readiness(); restoreFocus(); } }
@@ -307,11 +314,12 @@
       if (token !== state.providerTestToken) return;
       state.modelTested = true;
       $('#providerTestStatus').textContent = `Real connection test passed: ${result.provider || result.health?.provider || 'configured provider'} / ${result.model || result.health?.model || 'configured model'} · ${stamp(result.checked_at)}.`;
-      $('#trustModel').textContent = 'Actual model test passed';
+      $('#trustModel').textContent = 'Model reachable';
+      $('#trustModel').className = 'trust-signal good';
     } catch (error) {
       if (token !== state.providerTestToken) return;
       state.modelTested = false;
-      notice('#providerError', error.message); $('#providerTestStatus').textContent = 'Model unavailable. Source setup and saved investigations remain available.'; $('#trustModel').textContent = 'Model test failed';
+      notice('#providerError', error.message); $('#providerTestStatus').textContent = 'Model unavailable. Source setup and saved investigations remain available.'; $('#trustModel').textContent = 'Model unreachable'; $('#trustModel').className = 'trust-signal failed';
     } finally { if (token === state.providerTestToken) state.providerBusy = false; readiness(); restoreFocus(); }
   }
   async function loadSources() {
@@ -373,6 +381,7 @@
     $('#investigationQuestion').value = ''; $('#sourceCatalog').textContent = 'Connect workspace to load sources.'; $('#skillCatalog').textContent = 'Connect workspace to load playbooks.';
     $('#policyDetails').textContent = 'Connect workspace to load policy.'; $('#auditDetails').textContent = 'Connect workspace to load audit records.'; $('#providerConfig').textContent = 'Connect workspace to read configuration.';
     $('#trustModel').textContent = 'Model unchecked';
+    $('#trustModel').className = 'trust-signal checking';
     ['#previousTurn', '#caseTitle', '#runIdentity', '#runRelation', '#runSource', '#runCreated', '#runSkill', '#runState', '#conclusionTitle', '#limitations', '#evidenceLedger', '#streamState', '#runScope', '#runScopeSummary', '#currentOperation', '#captureStatus', '#inspectedTables'].forEach(id => $(id).replaceChildren());
     $('#providerTestStatus').textContent = 'No connection test performed in this tab.'; $('#sourceSetup').hidden = true; $('#sourceForm').reset();
     ['#globalError', '#composerError', '#credentialError', '#sourceError', '#providerError', '#skillError'].forEach(id => notice(id));
