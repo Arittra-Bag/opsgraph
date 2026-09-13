@@ -3,7 +3,8 @@
 **Ask your PostgreSQL data a question. Inspect the evidence behind the answer.**
 
 [![CI](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/source-Apache--2.0-65d6ce.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-65d6ce.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Arittra-Bag/opsgraph?include_prereleases&sort=date&label=release&color=65d6ce)](https://github.com/Arittra-Bag/opsgraph/releases)
 
 OpsGraph is an open-source, self-hosted investigation workspace for one operator.
 Your model plans bounded, read-only queries; application policy controls their
