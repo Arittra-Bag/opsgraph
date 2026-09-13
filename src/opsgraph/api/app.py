@@ -1,6 +1,6 @@
 import os
+import time
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -17,13 +17,10 @@ from opsgraph.brokers import (
     UnsafeDatabaseRole,
     UnsafeQuery,
 )
+from opsgraph.brokers.query import intersect_obligations
 from opsgraph.domain import EvidenceBinding, Obligation, Principal
-from opsgraph.domain.models import stable_hash
-from opsgraph.orchestration.connected import run_connected
-from opsgraph.orchestration.sample import run_sample
 from opsgraph.persistence import WorkspaceRecord
 from opsgraph.policy import ActionRequest
-from opsgraph.providers import ProviderError
 from opsgraph.runtime import get_runtime
 from opsgraph.schema_service import SchemaParseError, SchemaSnapshot
 from opsgraph.skills import SkillDefinition, SkillValidationError
@@ -31,7 +28,7 @@ from opsgraph.skills import SkillDefinition, SkillValidationError
 runtime = get_runtime()
 WEB = runtime.settings.web_root
 
-app = FastAPI(title="OpsGraph Alpha", version=__version__)
+app = FastAPI(title="OpsGraph Beta", version=__version__)
 if WEB.exists():
     app.mount("/assets", StaticFiles(directory=WEB), name="assets")
 
@@ -140,9 +137,11 @@ def health():
     settings = runtime.settings
     provider_health = runtime.provider.health()
     return {
-        # Sample replay deliberately makes no provider call, so a configured
-        # external provider cannot make the safe sample deployment unhealthy.
-        "ok": settings.mode == "sample" or provider_health.status == "ready",
+        # Liveness is independent of model readiness; provider test performs a real call.
+        "ok": True,
+        "investigation_ready": settings.mode == "connected"
+        and settings.model_provider != "deterministic"
+        and provider_health.status == "ready",
         "version": __version__,
         "mode": settings.mode,
         "model": settings.model_provider,
@@ -155,19 +154,20 @@ def health():
 def bootstrap():
     settings = runtime.settings
     return {
-        "product": "OpsGraph Alpha",
+        "product": "OpsGraph Beta",
         "mode": settings.mode,
         "trust": {
             "deployment": "self-hosted",
             "access": "read-only",
             "model": settings.model_provider,
             "sample_model_calls": 0,
+            "real_execution_only": True,
             "egress": settings.egress_enabled,
             "policy": "strict-read-only@1",
         },
         "authentication": "Set X-OpsGraph-Key for protected API requests.",
         "limitations": [
-            "Sample mode uses synthetic data and performs no database or model call.",
+            "Investigations require real PostgreSQL and a configured model. No sample fallback.",
             "Connected mode requires a separately provisioned read-only PostgreSQL role.",
         ],
     }
@@ -177,18 +177,7 @@ def bootstrap():
 def sources(workspace_id: Annotated[str, Depends(require_workspace)]):
     saved = [record.value for record in runtime.store.list(workspace_id=workspace_id)]
     connected = [value for value in saved if value.get("record_type") == "source"]
-    return [
-        {
-            "id": "sample-saas",
-            "workspace_id": workspace_id,
-            "name": "Fictional SaaS sample",
-            "kind": "synthetic",
-            "status": "ready",
-            "read_only": True,
-            "schema_version": "sha256:sample-v1",
-        },
-        *connected,
-    ]
+    return connected
 
 
 @app.get("/api/playbooks")
@@ -288,14 +277,50 @@ def inspect_source(
     source_id: str,
     principal: Annotated[Principal, Depends(require_principal)],
 ):
-    authorize(principal, "core.schema.inspect", source_id)
+    policy_obligations = authorize(principal, "core.schema.inspect", source_id)
     try:
         stored = runtime.store.get(
             workspace_id=principal.workspace_id, record_id=f"source:{source_id}"
         ).value
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="source not found") from exc
+    if stored.get("status") == "ready":
+        stale = {**stored, "status": "stale"}
+        if not runtime.store.put_if_unchanged(
+            WorkspaceRecord(principal.workspace_id, f"source:{source_id}", stored),
+            (WorkspaceRecord(principal.workspace_id, f"source:{source_id}", stale),),
+        ):
+            raise HTTPException(409, "Source configuration changed. Inspect again.")
+        stored = stale
+    allowed_tables = tuple(stored.get("allowed_tables", ()))
+    if not allowed_tables:
+        raise HTTPException(422, "Select at least one explicit allowed table before inspection.")
+    try:
+        inspection_scope = intersect_obligations(
+            policy_obligations,
+            Obligation(
+                allowed_schemas=tuple(stored["allowed_schemas"]),
+                allowed_tables=allowed_tables,
+            ),
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            403,
+            "Source scope is outside current deployment policy. "
+            "Review the backend schema allowlist and explicit tables.",
+        ) from exc
+    if set(inspection_scope.allowed_tables) != set(allowed_tables):
+        raise HTTPException(
+            403,
+            "Some source tables are outside current deployment policy. "
+            "Review the backend schema allowlist and explicit tables.",
+        )
     secret_ref = str(stored["secret_ref"])
+    approved_refs = set(runtime.settings.allowed_postgres_secret_refs)
+    if runtime.settings.postgres_secret_ref:
+        approved_refs.add(runtime.settings.postgres_secret_ref)
+    if secret_ref not in approved_refs:
+        raise HTTPException(422, "Source credential reference is no longer approved.")
     dsn = os.getenv(secret_ref)
     if not dsn:
         raise HTTPException(
@@ -304,7 +329,9 @@ def inspect_source(
         )
     try:
         snapshot = PsycopgReadOnlyExecutor(dsn).discover_snapshot(
-            allowed_schemas=tuple(stored["allowed_schemas"])
+            allowed_schemas=inspection_scope.allowed_schemas,
+            allowed_tables=allowed_tables,
+            timeout_ms=inspection_scope.timeout_ms,
         )
     except (ConnectorUnavailable, UnsafeDatabaseRole) as exc:
         runtime.audit.append(
@@ -316,13 +343,13 @@ def inspect_source(
             details={"reason": str(exc)},
         )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    allowed_tables = tuple(stored.get("allowed_tables", ()))
     discovered = {f"{table.schema_name}.{table.table_name}" for table in snapshot.tables}
     missing_tables = set(allowed_tables).difference(discovered)
     if missing_tables:
         raise HTTPException(
             status_code=422,
-            detail=f"configured table scope is absent from schema: {sorted(missing_tables)[0]}",
+            detail="Configured table is absent or has no SELECT-visible columns: "
+            f"{sorted(missing_tables)[0]}. Check schema USAGE and column/table SELECT grants.",
         )
     bindings = tuple(
         EvidenceBinding.model_validate(value) for value in stored.get("evidence_bindings", ())
@@ -346,27 +373,64 @@ def inspect_source(
                 f"{sorted(outside_scope)[0]}"
             ),
         )
-    scoped_tables = tuple(
-        table
-        for table in snapshot.tables
-        if not allowed_tables or f"{table.schema_name}.{table.table_name}" in allowed_tables
-    )
-    scoped_snapshot = snapshot.model_copy(
-        update={
-            "tables": scoped_tables,
-            "fingerprint": stable_hash([table.model_dump(mode="json") for table in scoped_tables]),
-        }
-    )
-    updated = {**stored, "status": "ready", "schema_version": scoped_snapshot.fingerprint}
-    runtime.store.put(WorkspaceRecord(principal.workspace_id, f"source:{source_id}", updated))
-    runtime.store.put(
-        WorkspaceRecord(
-            principal.workspace_id,
-            f"schema:{source_id}",
-            {"record_type": "schema", **scoped_snapshot.model_dump(mode="json")},
-        )
-    )
-    return scoped_snapshot.model_dump(mode="json")
+    scoped_snapshot = snapshot.scoped(allowed_tables)
+    if authorize(principal, "core.schema.inspect", source_id) != policy_obligations:
+        raise HTTPException(409, "Deployment policy changed during inspection. Inspect again.")
+    updated = {
+        **stored,
+        "status": "ready",
+        "schema_version": scoped_snapshot.fingerprint,
+        "inspected_at": scoped_snapshot.model_dump(mode="json")["inspected_at"],
+    }
+    if not runtime.store.put_if_unchanged(
+        WorkspaceRecord(principal.workspace_id, f"source:{source_id}", stored),
+        (
+            WorkspaceRecord(principal.workspace_id, f"source:{source_id}", updated),
+            WorkspaceRecord(
+                principal.workspace_id,
+                f"schema:{source_id}",
+                {"record_type": "schema", **scoped_snapshot.model_dump(mode="json")},
+            ),
+        ),
+    ):
+        raise HTTPException(409, "Source configuration changed during inspection. Inspect again.")
+    return scoped_snapshot.inspection_payload(status="ready")
+
+
+@app.get("/api/sources/{source_id}/schema")
+def source_schema(source_id: str, principal: Annotated[Principal, Depends(require_principal)]):
+    """Read the last saved inspection, never claim that cached metadata is live."""
+    policy_obligations = authorize(principal, "core.schema.inspect", source_id)
+    try:
+        source = runtime.store.get(
+            workspace_id=principal.workspace_id, record_id=f"source:{source_id}"
+        ).value
+        record = runtime.store.get(
+            workspace_id=principal.workspace_id, record_id=f"schema:{source_id}"
+        ).value
+    except KeyError as exc:
+        raise HTTPException(
+            404, "No saved schema inspection. Save and inspect this source."
+        ) from exc
+    snapshot = SchemaSnapshot.model_validate(record)
+    # A reconfigured source must not expose columns from its previous wider scope.
+    tables = tuple(source.get("allowed_tables", ()))
+    if tables:
+        try:
+            tables = intersect_obligations(
+                policy_obligations,
+                Obligation(
+                    allowed_schemas=tuple(source["allowed_schemas"]),
+                    allowed_tables=tables,
+                ),
+            ).allowed_tables
+        except PermissionError:
+            tables = ()
+    snapshot = snapshot.scoped(tables)
+    status = source.get("status", "configured")
+    if set(tables) != set(source.get("allowed_tables", ())):
+        status = "stale"
+    return snapshot.inspection_payload(status=status)
 
 
 @app.get("/api/skills")
@@ -423,17 +487,10 @@ def investigate(
     body: InvestigationRequest,
     principal: Annotated[Principal, Depends(require_principal)],
 ):
-    authorize(principal, "core.investigation.sample", "sample-saas")
-    result = run_sample(body.question)
-    runtime.audit.append(
-        workspace_id=principal.workspace_id,
-        actor=principal.subject,
-        action="core.investigation.sample",
-        resource=result.id,
-        outcome="allowed",
-        details={"policy_version": result.policy_version, "evidence_count": len(result.evidence)},
+    raise HTTPException(
+        status_code=410,
+        detail="Sample investigations have been retired. Configure a real source and model.",
     )
-    return result.model_dump(mode="json")
 
 
 @app.post("/api/investigations")
@@ -441,127 +498,17 @@ def investigate_connected(
     body: ConnectedInvestigationRequest,
     principal: Annotated[Principal, Depends(require_principal)],
 ):
-    authorize(principal, "core.investigation.connected", body.source_id)
-    if runtime.provider.config.kind == "deterministic":
-        raise HTTPException(
-            status_code=409,
-            detail="connected investigations require an enabled model provider",
-        )
-    try:
-        source = runtime.store.get(
-            workspace_id=principal.workspace_id,
-            record_id=f"source:{body.source_id}",
-        ).value
-        snapshot_value = runtime.store.get(
-            workspace_id=principal.workspace_id,
-            record_id=f"schema:{body.source_id}",
-        ).value
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail="source must be configured and inspected first",
-        ) from exc
-    secret_ref = str(source["secret_ref"])
-    dsn = os.getenv(secret_ref)
-    if not dsn:
-        raise HTTPException(status_code=409, detail="source secret is not configured")
-    obligations = Obligation(
-        max_rows=100,
-        timeout_ms=5_000,
-        allowed_schemas=tuple(source["allowed_schemas"]),
-        allowed_tables=tuple(source.get("allowed_tables", ())),
-    )
-    if not obligations.allowed_tables:
-        raise HTTPException(
-            status_code=409,
-            detail="connected sources require an explicit table allowlist before investigation",
-        )
-    if runtime.provider.capabilities.external_egress and not source.get(
-        "allow_external_egress", False
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail="source does not permit bounded evidence to leave this host",
-        )
-    snapshot = SchemaSnapshot.model_validate(
-        {key: value for key, value in snapshot_value.items() if key != "record_type"}
-    )
-    evidence_bindings = tuple(
-        EvidenceBinding.model_validate(value) for value in source.get("evidence_bindings", ())
-    )
-    if body.skill_id:
-        try:
-            runtime.skills.get_published(body.skill_id)
-        except KeyError as exc:
-            raise HTTPException(status_code=422, detail="selected skill is not published") from exc
-    try:
-        state = run_connected(
-            question=body.question,
-            provider=runtime.provider,
-            principal=principal,
-            obligations=obligations,
-            skills=runtime.skills,
-            executor=PsycopgReadOnlyExecutor(dsn),
-            snapshot=snapshot,
-            skill_id=body.skill_id,
-            evidence_bindings=evidence_bindings,
-        )
-    except PermissionError as exc:
-        runtime.audit.append(
-            workspace_id=principal.workspace_id,
-            actor=principal.subject,
-            action="core.investigation.connected",
-            resource=body.source_id,
-            outcome="denied",
-            details={"reason": str(exc)},
-        )
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except (
-        ConnectorUnavailable,
-        UnsafeDatabaseRole,
-        UnsafeQuery,
-        ProviderError,
-        ValueError,
-    ) as exc:
-        runtime.audit.append(
-            workspace_id=principal.workspace_id,
-            actor=principal.subject,
-            action="core.investigation.connected",
-            resource=body.source_id,
-            outcome="rejected",
-            details={"reason": str(exc)},
-        )
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    investigation_id = f"inv-{uuid4().hex[:12]}"
-    result = {
-        "id": investigation_id,
-        "source_id": body.source_id,
-        "question": body.question,
-        "skill_id": state["skill_id"],
-        "plan": state["plan"],
-        "evidence": state["evidence"],
-        "answer": state["answer"],
+    run = run_api.submit(RunRequest(**body.model_dump()), principal)
+    while run["status"] not in TERMINAL:
+        time.sleep(0.1)
+        run = run_api.get(principal.workspace_id, run["id"])
+    if run["status"] != "completed":
+        code = (run["error"] or {}).get("http_status", 422)
+        raise HTTPException(code, run["error"]["message"] if run["error"] else run["status"])
+    return {
+        key: run[key]
+        for key in ("id", "source_id", "question", "skill_id", "plan", "evidence", "answer")
     }
-    runtime.store.put(
-        WorkspaceRecord(
-            principal.workspace_id,
-            f"investigation:{investigation_id}",
-            {"record_type": "investigation", **result},
-        )
-    )
-    runtime.audit.append(
-        workspace_id=principal.workspace_id,
-        actor=principal.subject,
-        action="core.investigation.connected",
-        resource=investigation_id,
-        outcome="allowed",
-        details={
-            "source_id": body.source_id,
-            "skill_id": state["skill_id"],
-            "evidence_count": len(state["evidence"]),
-        },
-    )
-    return result
 
 
 @app.post("/api/schema/inspect")
@@ -650,3 +597,15 @@ def audit(workspace_id: Annotated[str, Depends(require_workspace)]):
         },
         "events": [entry.model_dump(mode="json") for entry in entries],
     }
+
+
+from opsgraph.api.runs import RunAPI, RunRequest  # noqa: E402
+from opsgraph.persistence.runs import TERMINAL  # noqa: E402
+
+run_api = RunAPI(runtime, authorize)
+app.include_router(run_api.router)
+app.router.lifespan_context = run_api.lifespan
+
+from opsgraph.api.provider_settings import router_for  # noqa: E402
+
+app.include_router(router_for(runtime, run_api))

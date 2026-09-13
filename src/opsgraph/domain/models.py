@@ -166,6 +166,22 @@ class EvidenceArtifact(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     evidence_hash: str
 
+    def canonical_hash_input(self) -> str:
+        """Exact UTF-8 text hashed for this result, preserving database scalar types.
+
+        Capture time and later provenance are deliberately outside the historical
+        query-result digest. Export this text rather than re-hashing lossy display rows.
+        """
+        payload = {
+            "workspace_id": self.workspace_id,
+            "query_fingerprint": self.query_fingerprint,
+            "referenced_tables": self.referenced_tables,
+            "columns": self.columns,
+            "rows": self.rows,
+            "truncated": self.truncated,
+        }
+        return canonical_json(payload).decode("utf-8")
+
     @classmethod
     def from_result(
         cls,

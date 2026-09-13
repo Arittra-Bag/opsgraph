@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
+from threading import RLock
+from uuid import uuid4
 
 from pydantic import SecretStr
 
@@ -30,6 +32,8 @@ class Runtime:
     tools: ToolRegistry
     skills: SkillRepository
     provider: ModelProvider
+    provider_lock: object = field(default_factory=RLock)
+    provider_revision: str = field(default_factory=lambda: uuid4().hex)
 
 
 def _provider(settings: Settings) -> ModelProvider:
@@ -41,16 +45,24 @@ def _provider(settings: Settings) -> ModelProvider:
             api_key=SecretStr(key) if key else None,
             egress_enabled=settings.egress_enabled,
             max_output_tokens=1_200,
+            timeout_seconds=settings.provider_timeout_seconds,
         )
     elif settings.model_provider == "openai_compatible":
-        key = os.getenv("OPSGRAPH_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        # An explicitly empty dedicated key means this endpoint needs no key.
+        # Do not forward an unrelated ambient OpenAI credential to that endpoint.
+        key = os.getenv("OPSGRAPH_OPENAI_API_KEY")
+        if key is None:
+            key = os.getenv("OPENAI_API_KEY")
         config = ProviderConfig(
             kind="openai_compatible",
             model=settings.local_model,
             api_key=SecretStr(key) if key else None,
             base_url=settings.local_model_url,
+            reasoning_effort=settings.local_reasoning_effort,
+            schema_profile=settings.local_schema_profile,
             egress_enabled=settings.egress_enabled,
             max_output_tokens=1_200,
+            timeout_seconds=settings.provider_timeout_seconds,
         )
     else:
         config = ProviderConfig(
@@ -58,11 +70,18 @@ def _provider(settings: Settings) -> ModelProvider:
             model="opsgraph-replay-v1",
             egress_enabled=False,
         )
+    from opsgraph.provider_settings import load_provider_config
+
+    config = load_provider_config(settings, config)
+    settings.model_provider = config.kind
     return create_provider(config)
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
     settings = settings or get_settings()
+    obligations = ALPHA_OBLIGATIONS.model_copy(
+        update={"allowed_schemas": settings.postgres_allowed_schemas}
+    )
     schema_parser = PostgresSchemaParser()
     tools = ToolRegistry(schema_parser.inspect)
     tools.register(
@@ -73,7 +92,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         )
     )
     store = SQLiteWorkspaceStore(settings.state_path)
-    skills = SkillRepository(tools=tools, policy_ceiling=ALPHA_OBLIGATIONS)
+    skills = SkillRepository(tools=tools, policy_ceiling=obligations)
     loader = SkillpackLoader()
     skill_root = settings.web_root.parent / "skillpacks"
     if skill_root.is_dir():
@@ -94,14 +113,14 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     policy = FailClosedPolicy(
         StaticPolicyEvaluator(
             {
-                ("analyst", "core.investigation.sample"): ALPHA_OBLIGATIONS,
-                ("analyst", "core.investigation.connected"): ALPHA_OBLIGATIONS,
-                ("analyst", "core.schema.inspect"): ALPHA_OBLIGATIONS,
-                ("analyst", "core.query.validate"): ALPHA_OBLIGATIONS,
-                ("analyst", "core.query.read"): ALPHA_OBLIGATIONS,
-                ("analyst", "core.source.manage"): ALPHA_OBLIGATIONS,
-                ("analyst", "core.skill.manage"): ALPHA_OBLIGATIONS,
-                ("analyst", "core.provider.test"): ALPHA_OBLIGATIONS,
+                ("analyst", "core.investigation.sample"): obligations,
+                ("analyst", "core.investigation.connected"): obligations,
+                ("analyst", "core.schema.inspect"): obligations,
+                ("analyst", "core.query.validate"): obligations,
+                ("analyst", "core.query.read"): obligations,
+                ("analyst", "core.source.manage"): obligations,
+                ("analyst", "core.skill.manage"): obligations,
+                ("analyst", "core.provider.test"): obligations,
             }
         )
     )

@@ -25,7 +25,9 @@ class ProviderConfig(BaseModel):
     api_key: SecretStr | None = Field(default=None, repr=False)
     base_url: str | None = Field(default=None, max_length=2_048)
     egress_enabled: bool = False
-    timeout_seconds: float = Field(default=30.0, ge=0.1, le=120.0)
+    timeout_seconds: float = Field(default=30.0, ge=0.1, le=600.0)
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = None
+    schema_profile: Literal["standard", "ollama"] = "standard"
     max_output_tokens: int = Field(default=1_024, ge=1, le=32_768)
 
     @field_validator("allowed_models")
@@ -49,6 +51,10 @@ class ProviderConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_provider_shape(self) -> ProviderConfig:
+        if self.schema_profile != "standard" and self.kind != "openai_compatible":
+            raise ValueError("schema_profile is only supported by OpenAI-compatible adapters")
+        if self.reasoning_effort is not None and self.kind != "openai_compatible":
+            raise ValueError("reasoning_effort is only supported by OpenAI-compatible adapters")
         if self.allowed_models and self.model not in self.allowed_models:
             raise ValueError("configured model is not in the model allowlist")
         if self.kind == "anthropic" and self.base_url is not None:
@@ -111,4 +117,5 @@ class StructuredResponse(BaseModel):
     provider: ProviderKind
     model: str
     output: dict[str, Any]
+    reported_model: str | None = Field(default=None, min_length=1, max_length=256)
     usage: ProviderUsage = Field(default_factory=ProviderUsage)

@@ -33,20 +33,18 @@ def test_product_endpoints_require_workspace_key():
     assert client.get("/api/audit").status_code == 401
 
 
-def test_sample_investigation_is_cited_and_classified():
+def test_sample_endpoint_is_retired_and_sources_contain_no_synthetic_records():
     response = client.post(
         "/api/investigations/sample",
         headers=auth(),
         json={"question": "Investigate webhook failures after the deployment"},
     )
-    assert response.status_code == 200
-    result = response.json()
-    evidence_ids = {item["id"] for item in result["evidence"]}
-    assert {"supported", "possible", "contradictory"} <= {
-        finding["classification"] for finding in result["findings"]
-    }
-    assert all(set(finding["evidence_ids"]) <= evidence_ids for finding in result["findings"])
-    assert result["limitations"]
+    assert response.status_code == 410
+    assert "real source and model" in response.json()["detail"]
+    assert all(
+        source["kind"] != "synthetic"
+        for source in client.get("/api/sources", headers=auth()).json()
+    )
 
 
 def test_schema_inspection_parses_structure_but_rejects_data_statements():

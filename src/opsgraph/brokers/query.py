@@ -12,12 +12,45 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from opsgraph.domain import EvidenceArtifact, Obligation, Principal, QueryPlan
-from opsgraph.domain.models import stable_hash
+from opsgraph.domain.models import canonical_json, stable_hash
 from opsgraph.policy import ActionRequest, FailClosedPolicy
+
+
+class EvidenceTooLargeError(ValueError):
+    """Exact evidence exceeds a published bounded payload limit."""
+
+
+class UnsupportedEvidenceTypeError(ValueError):
+    """Database result cannot be represented exactly; never contains raw values."""
 
 
 class UnsafeQuery(ValueError):
     """Raised when SQL is outside the deliberately small safe subset."""
+
+
+def intersect_obligations(ceiling: Obligation, requested: Obligation) -> Obligation:
+    """Narrow an explicit source scope beneath current deployment authorization."""
+    schemas = tuple(name for name in requested.allowed_schemas if name in ceiling.allowed_schemas)
+    if not schemas:
+        raise PermissionError("source and deployment schema scopes do not overlap")
+    tables = tuple(
+        name
+        for name in requested.allowed_tables
+        if name.split(".")[0] in schemas
+        and (
+            not ceiling.allowed_tables
+            or name in ceiling.allowed_tables
+            or name.rsplit(".", 1)[-1] in ceiling.allowed_tables
+        )
+    )
+    if not requested.allowed_tables or not tables:
+        raise PermissionError("source and deployment table scopes do not overlap")
+    return Obligation(
+        allowed_schemas=schemas,
+        allowed_tables=tables,
+        max_rows=min(ceiling.max_rows, requested.max_rows),
+        timeout_ms=min(ceiling.timeout_ms, requested.timeout_ms),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,6 +424,24 @@ class QueryBroker:
         result = self.executor.execute_readonly(plan.sql, timeout_ms=plan.obligations.timeout_ms)
         limit = plan.obligations.max_rows
         rows = result.rows[:limit]
+        try:
+            canonical_json(rows)
+        except (TypeError, ValueError):
+            raise UnsupportedEvidenceTypeError(
+                "Result contains an unsupported value or a timestamp without timezone. "
+                "Exclude that column or use an explicit reviewed SQL conversion with known "
+                "time semantics; OpsGraph does not assume a timezone."
+            ) from None
+        # Reject oversized cells/artifacts rather than silently altering their content/hash.
+        # Evidence remains exact; partial prior captures survive at the run boundary.
+        if any(len(canonical_json(cell)) > 16_384 for row in rows for cell in row):
+            raise EvidenceTooLargeError(
+                "query result contains a cell exceeding the 16 KiB evidence limit"
+            )
+        if len(canonical_json({"columns": result.columns, "rows": rows})) > 131_072:
+            raise EvidenceTooLargeError(
+                "query result exceeds the 128 KiB evidence limit; narrow the query"
+            )
         return EvidenceArtifact.from_result(
             workspace_id=principal.workspace_id,
             query_fingerprint=plan.fingerprint,

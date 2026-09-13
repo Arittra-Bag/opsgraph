@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from contextlib import suppress
+from datetime import UTC, datetime
 from typing import Any
 
 from opsgraph.domain.models import stable_hash
@@ -14,6 +16,14 @@ from .query import QueryResult
 
 class ConnectorUnavailable(RuntimeError):
     """Raised without driver/DSN details when the connector cannot operate."""
+
+
+class QueryExecutionFailed(ConnectorUnavailable):
+    """PostgreSQL rejected a query's syntax, cardinality or data operation.
+
+    Retains the legacy synchronous connector-error contract. The durable API
+    distinguishes this from connectivity failures without exposing driver text.
+    """
 
 
 class UnsafeDatabaseRole(PermissionError):
@@ -41,16 +51,28 @@ class PsycopgReadOnlyExecutor:
         self._dsn = dsn
         self._connect_timeout_seconds = connect_timeout_seconds
         self._connector = connector
+        self._active = None
+        self._lock = threading.Lock()
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(dsn=<redacted>)"
+
+    def cancel(self) -> None:
+        """Request driver cancellation when supported; statement timeout remains fallback."""
+        with self._lock:
+            connection = self._active
+            if connection is not None and hasattr(connection, "cancel_safe"):
+                connection.cancel_safe(timeout=1.0)
 
     def execute_readonly(self, sql: str, *, timeout_ms: int) -> QueryResult:
         if not 100 <= timeout_ms <= 30_000:
             raise ValueError("statement timeout must be between 100 and 30000 ms")
         connection = None
+        query_started = False
         try:
             connection = self._connect()
+            with self._lock:
+                self._active = connection
             cursor = connection.cursor()
             cursor.execute("BEGIN READ ONLY")
             cursor.execute(
@@ -61,6 +83,7 @@ class PsycopgReadOnlyExecutor:
             # function/operator resolution inside trusted built-in pg_catalog.
             cursor.execute("SELECT set_config('search_path', 'pg_catalog', true)")
             self._verify_read_only_role(cursor)
+            query_started = True
             cursor.execute(sql)
             if cursor.description is None:
                 raise ConnectorUnavailable("database returned no result set")
@@ -69,9 +92,23 @@ class PsycopgReadOnlyExecutor:
             return QueryResult(columns=columns, rows=rows)
         except (UnsafeDatabaseRole, ConnectorUnavailable):
             raise
-        except Exception:
+        except Exception as exc:
+            sqlstate = getattr(exc, "sqlstate", None)
+            if (
+                query_started
+                and isinstance(sqlstate, str)
+                and sqlstate[:2] in {"21", "22", "42"}
+                and sqlstate != "42501"
+            ):
+                raise QueryExecutionFailed(
+                    "PostgreSQL could not execute the proposed query. "
+                    "Inspect the recorded query's joins, columns, grouping and value types. "
+                    "Clarify the question or source definitions before a fresh retry."
+                ) from None
             raise ConnectorUnavailable("read-only database operation failed") from None
         finally:
+            with self._lock:
+                self._active = None
             if connection is not None:
                 with suppress(Exception):
                     connection.rollback()
@@ -84,8 +121,11 @@ class PsycopgReadOnlyExecutor:
         connection = None
         try:
             connection = self._connect()
+            with self._lock:
+                self._active = connection
             cursor = connection.cursor()
             cursor.execute("BEGIN READ ONLY")
+            cursor.execute("SELECT set_config('statement_timeout', '5000ms', true)")
             self._verify_read_only_role(cursor)
             cursor.execute(
                 "SELECT schema_name FROM information_schema.schemata "
@@ -98,17 +138,27 @@ class PsycopgReadOnlyExecutor:
         except Exception:
             raise ConnectorUnavailable("schema discovery failed") from None
         finally:
+            with self._lock:
+                self._active = None
             if connection is not None:
                 with suppress(Exception):
                     connection.rollback()
                 with suppress(Exception):
                     connection.close()
 
-    def discover_snapshot(self, *, allowed_schemas: tuple[str, ...]) -> SchemaSnapshot:
+    def discover_snapshot(
+        self,
+        *,
+        allowed_schemas: tuple[str, ...],
+        allowed_tables: tuple[str, ...] | None = None,
+        timeout_ms: int = 5_000,
+    ) -> SchemaSnapshot:
         """Discover visible tables and columns without reading application rows."""
 
         if not allowed_schemas:
             raise ValueError("at least one allowed schema is required")
+        if not 100 <= timeout_ms <= 30_000:
+            raise ValueError("schema timeout must be between 100 and 30000 ms")
         if len(allowed_schemas) > 100 or any(
             not schema or len(schema) > 128 for schema in allowed_schemas
         ):
@@ -116,17 +166,29 @@ class PsycopgReadOnlyExecutor:
         connection = None
         try:
             connection = self._connect()
+            with self._lock:
+                self._active = connection
             cursor = connection.cursor()
             cursor.execute("BEGIN READ ONLY")
+            cursor.execute("SELECT set_config('statement_timeout', %s, true)", (f"{timeout_ms}ms",))
             self._verify_read_only_role(cursor)
+            table_scope = list(allowed_tables) if allowed_tables is not None else None
             cursor.execute(
                 "SELECT table_schema, table_name, column_name, data_type, is_nullable, "
                 "column_default FROM information_schema.columns "
-                "WHERE table_schema = ANY(%s) ORDER BY table_schema, table_name, ordinal_position",
-                (list(allowed_schemas),),
+                "WHERE table_schema = ANY(%s) "
+                "AND pg_catalog.has_schema_privilege(table_schema, 'USAGE') "
+                "AND pg_catalog.has_column_privilege("
+                "pg_catalog.format('%%I.%%I', table_schema, table_name), column_name, 'SELECT') "
+                "AND (%s::text[] IS NULL OR (table_schema || '.' || table_name) = ANY(%s)) "
+                "ORDER BY table_schema, table_name, ordinal_position LIMIT 10001",
+                (list(allowed_schemas), table_scope, table_scope),
             )
             grouped: dict[tuple[str, str], list[ColumnSchema]] = {}
-            for schema, table, column, data_type, nullable, default in cursor.fetchall():
+            metadata_rows = cursor.fetchall()
+            if len(metadata_rows) > 10_000:
+                raise ConnectorUnavailable("schema metadata is too large; select fewer tables")
+            for schema, table, column, data_type, nullable, default in metadata_rows:
                 grouped.setdefault((str(schema), str(table)), []).append(
                     ColumnSchema(
                         name=str(column),
@@ -140,12 +202,16 @@ class PsycopgReadOnlyExecutor:
                 for (schema, table), columns in sorted(grouped.items())
             )
             payload = [table.model_dump(mode="json") for table in tables]
-            return SchemaSnapshot(tables=tables, fingerprint=stable_hash(payload))
+            return SchemaSnapshot(
+                tables=tables, fingerprint=stable_hash(payload), inspected_at=datetime.now(UTC)
+            )
         except (UnsafeDatabaseRole, ConnectorUnavailable):
             raise
         except Exception:
             raise ConnectorUnavailable("schema discovery failed") from None
         finally:
+            with self._lock:
+                self._active = None
             if connection is not None:
                 with suppress(Exception):
                     connection.rollback()

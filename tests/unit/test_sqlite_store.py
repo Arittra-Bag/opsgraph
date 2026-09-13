@@ -1,3 +1,5 @@
+import pytest
+
 from opsgraph.persistence import SQLiteWorkspaceStore, WorkspaceRecord
 
 
@@ -26,3 +28,48 @@ def test_sqlite_store_upserts_without_crossing_workspace(tmp_path):
 
     store.delete(workspace_id="workspace-a", record_id="skill:one")
     assert store.list(workspace_id="workspace-a") == ()
+
+
+def test_revision_guard_atomically_saves_source_and_schema(tmp_path):
+    store = SQLiteWorkspaceStore(tmp_path / "opsgraph.db")
+    source = WorkspaceRecord("workspace-a", "source:one", {"status": "configured"})
+    store.put(source)
+    records = (
+        WorkspaceRecord("workspace-a", "source:one", {"status": "ready"}),
+        WorkspaceRecord("workspace-a", "schema:one", {"fingerprint": "reviewed"}),
+    )
+    assert store.put_if_unchanged(source, records)
+    assert store.get(workspace_id="workspace-a", record_id="source:one").value == {
+        "status": "ready"
+    }
+    assert store.get(workspace_id="workspace-a", record_id="schema:one").value == {
+        "fingerprint": "reviewed"
+    }
+
+
+def test_revision_guard_preserves_concurrent_edits_and_prevents_partial_schema_write(tmp_path):
+    store = SQLiteWorkspaceStore(tmp_path / "opsgraph.db")
+    previous = WorkspaceRecord("workspace-a", "source:one", {"tables": ["public.old"]})
+    store.put(previous)
+    latest = WorkspaceRecord("workspace-a", "source:one", {"tables": ["public.reviewed"]})
+    store.put(latest)
+    assert not store.put_if_unchanged(
+        previous,
+        (
+            WorkspaceRecord("workspace-a", "source:one", {"status": "ready"}),
+            WorkspaceRecord("workspace-a", "schema:one", {"tables": ["public.old"]}),
+        ),
+    )
+    assert store.get(workspace_id="workspace-a", record_id="source:one") == latest
+    with pytest.raises(KeyError):
+        store.get(workspace_id="workspace-a", record_id="schema:one")
+
+
+def test_revision_guard_rejects_cross_workspace_update_before_writing(tmp_path):
+    store = SQLiteWorkspaceStore(tmp_path / "opsgraph.db")
+    source = WorkspaceRecord("workspace-a", "source:one", {"status": "configured"})
+    store.put(source)
+    with pytest.raises(ValueError, match="one workspace"):
+        store.put_if_unchanged(source, (WorkspaceRecord("workspace-b", "schema:one", {}),))
+    assert store.get(workspace_id="workspace-a", record_id="source:one") == source
+    assert store.list(workspace_id="workspace-b") == ()

@@ -1,0 +1,7 @@
+id: generic-readonly
+version: 0.1.0
+name: General PostgreSQL investigation
+origin: core
+capabilities: [core.schema.inspect, core.sql.select]
+egress: allowlisted
+risk: read_only
