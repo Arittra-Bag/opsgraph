@@ -8,8 +8,9 @@ source whose scope and business meaning you understand.
 
 ## Guided bundle (recommended beta path)
 
-The first beta bundle is not published yet; use the [source quickstart](../README.md#linux-macos-and-windows) for now.
-For future bundle downloads, start with [quick start](quickstart.md). The versioned offline bundle includes
+The first beta bundle is not published yet; use the
+[source quickstart](../README.md#linux-macos-and-windows) for now. For future bundle
+downloads, start with [quick start](quickstart.md). The versioned offline bundle includes
 launch scripts and exact locked dependency wheels; CPython and the model runtime
 remain explicit prerequisites. `opsgraph launch` stores configuration in a stable
 private directory, opens the connected browser and reuses history across launches.
@@ -210,7 +211,9 @@ docker compose --env-file .env -f deploy/compose.yaml start
 ```
 
 After editing `.env`, use `up -d` again to recreate the service with the changed
-configuration. `restart` alone does not apply new environment values. `down`
+configuration. `restart` alone does not apply new environment values. Model
+choices saved in browser Settings override initial environment settings; change
+those choices in Settings. `down`
 removes containers but preserves the named state volume; **do not add `--volumes`
 if you want to keep history**. Stop before backing up the volume and private
 configuration. Keep the same checkout/project name when resuming so Compose uses
