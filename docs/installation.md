@@ -1,14 +1,16 @@
 # Installation and troubleshooting
 
 OpsGraph runs a single-operator backend and a responsive browser UI. Keep one
-backend process per local state database. Native desktop installers, team
+backend process per local state database. Standalone desktop apps, team
 accounts and automatic continuation of crashed queries are outside this version.
 Use Python 3.11–3.13 and a modern browser. Start with an authorized read-only
 source whose scope and business meaning you understand.
 
 ## Guided bundle (recommended beta path)
 
-Start with [quick start](quickstart.md). The versioned offline bundle includes
+The first beta bundle is not published yet; use the
+[source quickstart](../README.md#linux-macos-and-windows) for now. For future bundle
+downloads, start with [quick start](quickstart.md). The versioned offline bundle includes
 launch scripts and exact locked dependency wheels; CPython and the model runtime
 remain explicit prerequisites. `opsgraph launch` stores configuration in a stable
 private directory, opens the connected browser and reuses history across launches.
@@ -115,17 +117,41 @@ variables. `LANGSMITH_TRACING=false` avoids optional tracing by default.
 
 ## Containers
 
-After creating `.env`, explicitly set a container-reachable
-`OPSGRAPH_LOCAL_MODEL_URL`, then use Compose from the repository root:
+Use Docker Engine or Docker Desktop with Compose v2 and Linux containers.
+Start from the source checkout in the [README](../README.md#linux-macos-and-windows).
+These steps run **OpsGraph only**; supply an existing authorized test PostgreSQL
+server and a model runtime separately. Do not apply them to a shared or production
+Compose deployment.
 
-```text
-docker compose --env-file .env -f deploy/compose.yaml up --build
+### 1. Create private configuration
+
+From the repository root, after `uv sync --locked --all-extras`:
+
+```sh
+uv run opsgraph init
 ```
 
-This command runs the local container. Do not use it against an existing shared
-or production Compose deployment. The API listens on host loopback port 8000;
-SQLite state lives in the `opsgraph-state` volume at `/data/state.db`. A relative
-native `OPSGRAPH_STATE_PATH` is deliberately not passed into the container.
+This creates a private `.env` containing a random workspace key. An existing
+`.env` is preserved. Open it privately in your editor and keep the generated
+`OPSGRAPH_API_KEY`; do not copy `.env.example` over it or commit it.
+
+Set these values for your own services:
+
+| Variable | What to enter |
+| --- | --- |
+| `OPSGRAPH_SOURCE_DSN` | Your dedicated read-only PostgreSQL connection string, with host, port, database and user explicit; use an address reachable from the container |
+| `OPSGRAPH_POSTGRES_ALLOWED_SCHEMAS` | Your approved schemas, for example `public` |
+| `OPSGRAPH_LOCAL_MODEL_URL` | The model's container-reachable OpenAI-compatible URL; see the routing notes below |
+| `OPSGRAPH_LOCAL_MODEL` | An installed model identifier, such as `qwen3:8b` |
+| `OPSGRAPH_LOCAL_SCHEMA_PROFILE` | `ollama` for the tested Ollama path; `standard` for other compatible endpoints |
+| `OPSGRAPH_PROVIDER_TIMEOUT_SECONDS` | `300` for the documented slow local-model path; tune within the supported 0.1–600 second range |
+
+Keep the generated source-reference names unchanged. Quote `.env` values that
+contain special characters using Docker Compose's environment-file rules;
+credentials containing URL-reserved characters also need URL encoding in a DSN.
+See [Docker's environment-file syntax](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/#env-file-syntax).
+
+### 2. Check the service addresses and permission
 
 Inside a container, `127.0.0.1` means that container. Set the model URL to
 `http://host.docker.internal:11434/v1` when using a host service; Compose adds
@@ -150,6 +176,48 @@ do not assign an empty string. A working network route or a successful static
 Compose check does not prove that the complete database/model workflow works in
 that environment. Review the [support matrix](release/support-matrix.md) before
 relying on a container path.
+
+### 3. Start and connect
+
+```sh
+docker compose --env-file .env -f deploy/compose.yaml config --quiet
+docker compose --env-file .env -f deploy/compose.yaml up --build -d
+docker compose --env-file .env -f deploy/compose.yaml ps
+```
+
+`config --quiet` checks configuration without printing resolved secrets. The
+build downloads the base image and locked dependencies. Open
+`http://127.0.0.1:8000`, then enter the `OPSGRAPH_API_KEY` from your private `.env`
+in Connect workspace. Unlike the native launcher, Compose does not open an
+authenticated browser automatically. Follow the [source inspection and model
+test steps](quickstart.md#select-the-actual-scope) before starting an investigation.
+For the host-model route above, explicitly approve the source's external-model
+permission after reviewing the endpoint; otherwise investigations remain blocked.
+
+The API binds to host loopback only. History lives in the Compose-managed
+`opsgraph-state` volume at `/data/state.db`; its full name normally includes the
+Compose project prefix. Native workspace history is separate and is not copied
+into the container. A relative native `OPSGRAPH_STATE_PATH` is intentionally ignored.
+
+### 4. Logs, stop and resume
+
+```sh
+# Inspect startup errors locally; review logs before sharing them.
+docker compose --env-file .env -f deploy/compose.yaml logs --tail=100 api
+# Stop while preserving the container and saved history.
+docker compose --env-file .env -f deploy/compose.yaml stop
+# Resume the same container.
+docker compose --env-file .env -f deploy/compose.yaml start
+```
+
+After editing `.env`, use `up -d` again to recreate the service with the changed
+configuration. `restart` alone does not apply new environment values. Model
+choices saved in browser Settings override initial environment settings; change
+those choices in Settings. `down`
+removes containers but preserves the named state volume; **do not add `--volumes`
+if you want to keep history**. Stop before backing up the volume and private
+configuration. Keep the same checkout/project name when resuming so Compose uses
+the same volume.
 
 The image runs without root privileges, with a read-only filesystem, writable
 state volume, bounded temporary directory and dropped capabilities. Database

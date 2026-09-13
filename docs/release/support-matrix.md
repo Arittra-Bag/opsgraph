@@ -13,6 +13,18 @@ itself prove that a PostgreSQL and model workflow works on that platform.
 | Container deployment | Configuration checked | Image configuration and health checks passed. The complete PostgreSQL/model workflow for the current image remains unverified. |
 | Other systems | Unverified | No support claim is made without an exact artifact and complete workflow check. |
 
+## What CI covers
+
+The [CI workflow](../../.github/workflows/ci.yml) runs fixture tests on Linux,
+macOS and Windows Server. Python 3.11 is covered on all three; Python 3.13 is
+also checked on Ubuntu, macOS and Windows Server. Offline bundle lifecycle
+jobs use CPython 3.11 on each of those platforms. These jobs exercise package
+installation and launcher/maintenance behavior without live PostgreSQL or model
+services. Docker has a separate image build and health check.
+
+The live macOS result above is separate acceptance evidence. CI compatibility
+checks should not be described as full native database/model validation.
+
 ## Model providers
 
 - **Ollama 0.34 / `qwen3:8b`**, through the OpenAI-compatible adapter with the

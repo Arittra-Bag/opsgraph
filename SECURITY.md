@@ -7,9 +7,19 @@ upload customer data, or expose it directly to the internet.
 
 Please report suspected vulnerabilities privately through the
 [GitHub security advisory form](https://github.com/Arittra-Bag/opsgraph/security/advisories/new).
-Do not open a public issue with exploit details. Only the latest `0.1.x` beta
-line is supported; security fixes are released on `main` until a stable release
-policy exists.
+Do not open a public issue with exploit details, credentials or captured source
+records. Include the affected version and a sanitized description privately.
+
+## Supported versions
+
+| Version | Security maintenance |
+| --- | --- |
+| Current beta development on `main` | Fixes land here while the first beta is being prepared |
+| Latest published `0.1.x` beta, once available | Supported; update to the latest beta for fixes |
+| Earlier beta and `0.1.0-alpha.*` builds | Not maintained; upgrade |
+
+The first beta has not been published yet. This policy does not establish a
+stable-release support window or response-time guarantee.
 
 ## Supported boundary
 
