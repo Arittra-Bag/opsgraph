@@ -39,11 +39,7 @@ small { line-height: 1.35; }
 .trust-bar { height: 58px; display: flex; align-items: center; gap: 20px; padding: 0 22px; border-bottom: 1px solid var(--line); background: rgba(10, 15, 18, .96); position: relative; z-index: 20; }
 .wordmark { color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 10px; font-weight: 760; letter-spacing: -.02em; white-space: nowrap; }
 .wordmark em { font: 700 10px ui-monospace, monospace; color: var(--teal); padding: 2px 6px; border: 1px solid #315854; border-radius: 999px; text-transform: uppercase; letter-spacing: .08em; }
-.brand-mark { position: relative; width: 26px; height: 26px; border: 1px solid #35645f; background: #112724; border-radius: 8px; display: block; }
-.brand-mark i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
-.brand-mark i:nth-child(1) { left: 5px; top: 10px; }.brand-mark i:nth-child(2) { left: 16px; top: 5px; }.brand-mark i:nth-child(3) { left: 16px; top: 17px; }
-.brand-mark::before, .brand-mark::after { content: ""; position: absolute; height: 1px; width: 12px; background: #67ddd3; transform-origin: left; left: 8px; top: 12px; }
-.brand-mark::before { transform: rotate(-32deg); }.brand-mark::after { transform: rotate(32deg); }
+.brand-mark { width: 28px; height: 28px; display: block; flex: 0 0 28px; }
 .trust-signals { display: flex; align-items: center; gap: 5px; min-width: 0; }
 .trust-signal { border: 1px solid var(--line); border-radius: 999px; background: #10171b; color: var(--text-2); padding: 5px 8px; display: inline-flex; align-items: center; gap: 6px; font: 700 10px ui-monospace, monospace; letter-spacing: .035em; white-space: nowrap; }
 .trust-signal::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px rgba(103, 221, 211, .5); }

@@ -1,5 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="16" fill="#10171b"/>
-  <path d="M18 23 31 15l15 10M18 23v18l14 8 14-10V25M18 23l14 8 14-6M32 31v18" fill="none" stroke="#67ddd3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="18" cy="23" r="4" fill="#b6f26d"/><circle cx="46" cy="25" r="4" fill="#67ddd3"/><circle cx="32" cy="49" r="4" fill="#67ddd3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OpsGraph">
+  <defs>
+    <linearGradient id="frame" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#73fff7"/>
+      <stop offset="1" stop-color="#18cfc9"/>
+    </linearGradient>
+    <radialGradient id="node" cx="0" cy="0" r="1" gradientTransform="translate(27 22) rotate(52) scale(15)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a8fff9"/>
+      <stop offset=".4" stop-color="#35eee7"/>
+      <stop offset="1" stop-color="#14c9c4"/>
+    </radialGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="15" fill="#0b171c"/>
+  <rect x="5" y="5" width="54" height="54" rx="13" fill="none" stroke="#173b42" stroke-width="2"/>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="none" stroke="url(#frame)" stroke-width="2"/>
+  <path d="M32 19 19 36M32 19l13 17M45 36 31 46" fill="none" stroke="#2ce5df" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="url(#node)" stroke="#9afff9" stroke-width="1">
+    <circle cx="32" cy="17" r="7"/>
+    <circle cx="17" cy="38" r="7"/>
+    <circle cx="47" cy="38" r="7"/>
+    <circle cx="29" cy="48" r="7"/>
+  </g>
 </svg>
