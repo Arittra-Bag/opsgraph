@@ -1,4 +1,4 @@
-# Migration from the replay alpha
+# Migration to OpsGraph 1.0
 
 Back up private configuration and state before upgrading. Keep an untouched
 copy and validate the new version against a separate state copy first. No
@@ -21,6 +21,13 @@ installation. Edit an existing file privately after reviewing these changes:
 - Select explicit schema-qualified tables and inspect the source. The general
   read-only playbook needs no specialist evidence bindings; specialist
   playbooks still enforce their source-owned mappings.
+- Remote PostgreSQL now requires `sslmode=verify-full` unless the deployment
+  explicitly sets `OPSGRAPH_ALLOW_INSECURE_REMOTE_POSTGRES=true`. Prefer fixing
+  certificates and hostnames instead of carrying that compatibility override.
+- Provider configuration now separates the protocol preset, adapter, exact model,
+  output profile, reasoning option, timeout, and output-token bound. Open each
+  saved configuration in Settings, verify the endpoint and model, save it, and
+  run the actual structured probe again.
 
 A sample/offline configuration must display setup guidance and block live
 execution until explicitly updated. It must never start querying stored
@@ -46,6 +53,17 @@ retry, follow-up links and export. A reconnect attaches to an existing run;
 a retry creates a separate attempt and collects fresh evidence. Queued work
 can survive restart. Previously active work becomes interrupted, preserving
 completed captures without automatically repeating queries.
+
+Every existing source must be inspected again after upgrading. Then approve the
+new bounded readiness read for an exact table. Old inspection metadata does not
+silently satisfy this gate: the approval binds to the current source revision,
+schema fingerprint, and deployment policy. The readiness query records whether
+the configured route can read; it returns and retains no selected source value.
+
+Run-store schema changes are forward-only. Startup stops with an actionable
+error when the local state schema is unsupported instead of partially upgrading
+or guessing. Back up the complete workspace first and test the upgrade against
+a copy.
 
 Run only one backend coordinator per state file. Prepare rollback by retaining
 the previous wheel and dependency lock together with the pre-upgrade backup.

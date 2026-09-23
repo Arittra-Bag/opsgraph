@@ -1,4 +1,4 @@
-# Beta threat model
+# Threat model
 
 ## Protected assets
 
@@ -33,6 +33,10 @@ authorization result must be correct even when model output is malicious.
 - Schema-only parser rejecting data and executable database constructs
 - Single-statement `SELECT` validation and bounded result obligations
 - PostgreSQL AST validation, verified role restrictions, and read-only transactions
+- Hostname-verifying TLS for remote PostgreSQL unless an operator explicitly
+  accepts the documented compatibility override
+- Exact table-scope and inheritance checks inside repeatable-read transactions
+- Explicit source readiness bound to source inspection and policy revisions
 - Stable evidence digests and append-only hash-chained audit events
 - Backend-held datasource/model credentials and sanitized provider errors
 - Same-origin browser API requests with redirects rejected
@@ -41,6 +45,6 @@ authorization result must be correct even when model output is malicious.
 ## Deferred controls
 
 Team authentication, encrypted credential storage, isolated source workers,
-central policy deployment, signing, an SBOM and external security review are not
-provided by this beta. Operators must keep the service private, restrict source
-roles and protect the workspace filesystem and backups.
+central policy deployment, release signing/attestation, and an external security
+review are not provided by 1.0. Operators must keep the service private, restrict
+source roles and protect the workspace filesystem and backups.

@@ -18,9 +18,11 @@ An engineering support lead, platform engineer, or SRE at a software vendor who
 needs to reconstruct a difficult data-backed incident without granting another
 service production access.
 
-## Beta goals
+## 1.0 goals
 
 - Guided setup needs no manual configuration-file edits when prerequisites exist.
+- A generated, non-executing role guide and explicit bounded readiness check make
+  the first real source connection reviewable.
 - A real investigation leads to inspectable records, SQL and stated uncertainty.
 - A PostgreSQL schema can be reviewed within fifteen minutes.
 - Every factual claim opens its exact evidence.
@@ -30,7 +32,8 @@ service production access.
 ## Explicit exclusions
 
 Generic BI, arbitrary SQL, remediation, executable plug-ins, full dump restore,
-continuous monitoring, hosted multi-tenancy, and a marketplace are not beta
-features.
+continuous monitoring, hosted multi-tenancy, team identity, and a marketplace
+are not 1.0 features.
 
-These are product goals, not claims of measured adoption or production readiness.
+Production readiness applies only to the documented single-operator, private
+deployment boundary in [production readiness](production-readiness.md).

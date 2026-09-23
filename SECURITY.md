@@ -1,7 +1,8 @@
 # Security policy
 
-OpsGraph Beta is a public validation build. Do not connect production systems,
-upload customer data, or expose it directly to the internet.
+OpsGraph 1.0 supports a single trusted operator on a private host. Do not expose
+it directly to the public internet. Connect only sources and data the operator is
+authorized to inspect, through a dedicated least-privilege PostgreSQL role.
 
 ## Reporting a vulnerability
 
@@ -14,13 +15,13 @@ records. Include the affected version and a sanitized description privately.
 
 | Version | Security maintenance |
 | --- | --- |
+| Latest published `1.0.x` | Supported; update to the latest patch for fixes |
 | Development on `main` | Fixes land here before the next release |
-| Latest published `0.1.x` beta | Supported; update to the latest beta for fixes |
-| Earlier beta and `0.1.0-alpha.*` builds | Not maintained; upgrade |
+| `0.1.x` beta and `0.1.0-alpha.*` builds | Not maintained; upgrade |
 
-Beta 1 (`v0.1.0b1`) is the first beta release, dated 2026-09-13. See the
-[release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1). This policy does not establish a
-stable-release support window or response-time guarantee.
+Security maintenance is best effort and does not establish an SLA or response-time
+guarantee. Release-specific support evidence is recorded in the
+[support matrix](docs/release/support-matrix.md).
 
 ## Supported boundary
 
@@ -31,11 +32,11 @@ stable-release support window or response-time guarantee.
 - Read-only query plans passing deterministic policy and PostgreSQL AST brokers
 - Declarative built-in and custom skills only
 
-The beta does not support executable plug-ins, write operations, automatic
+OpsGraph 1.0 does not support executable plug-ins, write operations, automatic
 remediation, full database dumps, archive extraction, or transparent fallback
 to cloud inference.
 
-## Beta limitations
+## 1.0 limitations
 
 - Local API-key authentication is not production identity or SSO.
 - Connector secrets remain environment-variable references; there is no vault.
@@ -52,7 +53,12 @@ to cloud inference.
   Normal API access continues to require the workspace key.
 - Private workspace files and backups contain credentials and evidence. POSIX
   permission checks do not establish equivalent Windows ACL protection.
-- No customer or production data is approved for this release.
+- Remote PostgreSQL requires `sslmode=verify-full` by default. The
+  `OPSGRAPH_ALLOW_INSECURE_REMOTE_POSTGRES` compatibility override weakens that
+  transport requirement and must be an explicit deployment decision.
+- Production use is supported only inside the documented single-operator,
+  private deployment boundary. Team and public-service deployments are outside
+  the security model.
 
 ## Non-negotiable rules
 

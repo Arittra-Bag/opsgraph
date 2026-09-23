@@ -6,11 +6,11 @@ accounts and automatic continuation of crashed queries are outside this version.
 Use Python 3.11–3.13 and a modern browser. Start with an authorized read-only
 source whose scope and business meaning you understand.
 
-## Guided bundle (recommended beta path)
+## Guided bundle (recommended release path)
 
-Download a matching bundle from [Beta 1 release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1),
+Download a matching bundle from the [latest release](https://github.com/Arittra-Bag/opsgraph/releases/latest),
 then follow [quick start](quickstart.md). The
-[Beta 1 source quickstart](../README.md#linux-macos-and-windows) is also available.
+[source quickstart](../README.md#get-started) is also available.
 The versioned offline bundle includes
 launch scripts and exact locked dependency wheels; CPython and the model runtime
 remain explicit prerequisites. `opsgraph launch` stores configuration in a stable
@@ -69,7 +69,11 @@ user profile and verify inherited ACLs; POSIX mode bits are not a Windows ACL.
    inheritance granting write access, or ownership of target objects. Grant
    schema USAGE and SELECT only on the intended tables. Set its backend DSN in
    `OPSGRAPH_SOURCE_DSN`; use TLS and certificate verification for nonlocal
-   database connections. Never enter a DSN in the browser or source name.
+   database connections. Remote TCP connections require
+   `sslmode=verify-full` by default. The compatibility override
+   `OPSGRAPH_ALLOW_INSECURE_REMOTE_POSTGRES=true` deliberately accepts weaker
+   transport and should remain off. Never enter a DSN in the browser or source
+   name.
 2. Leave `OPSGRAPH_POSTGRES_SECRET_REF=OPSGRAPH_SOURCE_DSN` and include that
    reference in `OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS`. Multiple source
    references must use `OPSGRAPH_*_DSN` names and be explicitly allowlisted.
@@ -96,13 +100,28 @@ user profile and verify inherited ACLs; POSIX mode bits are not a Windows ACL.
    model account is needed. Pulling a model does not prove its output is valid.
 4. Start OpsGraph and open [the local UI](http://127.0.0.1:8000). Copy the key
    privately from `.env` into workspace-key configuration. Save a PostgreSQL
-   source with the DSN variable name and explicit schema-qualified tables.
-   Inspect that source to validate credentials, role and schema access.
+   source with the DSN variable name and explicit schema-qualified tables. If a
+   database administrator still needs to create the login, enter the lowercase
+   role, database, and table identifiers in the role guide. It emits exact,
+   reviewable SQL but never executes it, chooses a password, grants broad access,
+   or changes default privileges. Inspect the source to validate credentials,
+   role and schema access.
    Review the returned columns, types, timestamp and warnings. A source marked
    stale needs reinspection and review before a fresh attempt.
-5. Run the model probe. It makes an actual structured inference call without
+5. Approve the source readiness check. It executes one bounded read against an
+   exact inspected table, returns no selected source value, and is invalidated
+   when the source, schema snapshot, or relevant policy changes.
+6. Run the model probe. It makes an actual structured inference call without
    source data. Source setup remains available when the model is unavailable.
    Select the general read-only playbook, then ask a real question.
+
+Browser Settings supports Ollama, LM Studio, vLLM, OpenAI, Anthropic,
+OpenRouter, Groq, Together, Mistral, and a manual OpenAI-compatible endpoint.
+Choose the exact model identifier, structured-output profile, reasoning option,
+timeout, and output-token bound. These presets provide protocol defaults and
+official hosted endpoints where applicable; they do not discover models or
+guarantee compatibility. Saving does not test a provider, and OpsGraph never
+falls back to another provider automatically.
 
 Ollama's [OpenAI compatibility](https://docs.ollama.com/openai) supports a local
 `/v1` endpoint. Configure `OPSGRAPH_PROVIDER_TIMEOUT_SECONDS` between 0.1 and
@@ -119,7 +138,7 @@ variables. `LANGSMITH_TRACING=false` avoids optional tracing by default.
 ## Containers
 
 Use Docker Engine or Docker Desktop with Compose v2 and Linux containers.
-Start from the source checkout in the [README](../README.md#linux-macos-and-windows).
+Start from the source checkout in the [README](../README.md#get-started).
 These steps run **OpsGraph only**; supply an existing authorized test PostgreSQL
 server and a model runtime separately. Do not apply them to a shared or production
 Compose deployment.
