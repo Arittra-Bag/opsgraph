@@ -1,4 +1,4 @@
-# Offline OpsGraph beta bundle
+# Offline OpsGraph 1.0 bundle
 
 This archive installs the application without a source checkout or package-network
 access. It does not include Python, PostgreSQL, Ollama or a model. Install
@@ -10,8 +10,9 @@ channel. Internal hashes detect changed files relative to the manifest; they are
 not a signature or proof of who produced the release. `build-identity.json`
 records the exact source inventory, wheel and dependency files. Platform-specific
 packaging is not platform validation; see `docs/release/support-matrix.md` for
-the tested configurations and remaining gaps. This remains beta software with
-no production/customer-data approval.
+the tested configurations and remaining gaps. The supported production boundary
+is one trusted operator on a private instance; public services, teams, and
+unrestricted customer-data access are outside it.
 
 1. Extract the whole archive into a private, writable folder. Keep all files
    together. Choose its permanent location before installing: Python environments

@@ -1,7 +1,8 @@
 # First real investigation
 
-This is a single-operator, self-hosted beta. Use an authorized, non-sensitive
-PostgreSQL source while evaluating it. The bundle does not create a database,
+OpsGraph 1.0 is a single-operator, self-hosted PostgreSQL investigation
+workspace. Start with an authorized, non-sensitive source while learning the
+workflow. The bundle does not create a database,
 install a model, download an ISO, or transmit your source records during setup.
 
 ## Before installing
@@ -30,8 +31,8 @@ configuration. Our local adapter uses [Ollama's OpenAI-compatible endpoint](http
 
 ## Install once, launch whenever needed
 
-Download the matching bundle from [Beta 1 release assets](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1).
-Alternatively, use the [Beta 1 source checkout instructions](../README.md#linux-macos-and-windows);
+Download the matching bundle from the [latest release](https://github.com/Arittra-Bag/opsgraph/releases/latest).
+Alternatively, use the [source checkout instructions](../README.md#get-started);
 the browser steps below are the same. Read the platform limits in the
 [support matrix](release/support-matrix.md) before installing.
 
@@ -45,7 +46,7 @@ the browser steps below are the same. Read the platform limits in the
    | Windows PowerShell | `Get-FileHash .\FILE.zip -Algorithm SHA256` and compare the hash with `Get-Content .\FILE.zip.sha256` |
 
    Replace `FILE.zip` with the downloaded filename. A checksum detects changed
-   bytes; authenticity depends on trusting the source of both files. Beta bundles
+   bytes; authenticity depends on trusting the source of both files. Release bundles
    are unsigned. Do not disable system security globally to run a launcher.
 2. Extract the ZIP to a permanent folder in your user profile. Open a terminal
    **inside the extracted folder containing `Install.py`**, then install and launch:
@@ -93,9 +94,15 @@ in browser Settings override initial setup; use Settings for later model changes
 In **Sources**, save a source using backend reference `OPSGRAPH_SOURCE_DSN` and
 explicit schema-qualified tables, such as `reporting.jobs`. The schema ceiling
 from setup can only be narrowed. Leave specialist bindings empty for the general
-read-only playbook. Select **Inspect** to check the real connection, role,
+read-only playbook. Select **Save and inspect source** to check the real connection, role,
 permissions and columns. This does not query another database or infer semantic
 relationships. Unsupported types, permissions and stale schema produce errors.
+
+If you need a database administrator to create the login, use the role guide to
+generate exact SQL for the selected lowercase role, database, and tables. Review
+it with the administrator and set a password through their normal secure process.
+OpsGraph does not execute the guide, create credentials, grant every table, or
+alter default privileges.
 
 The inspected schema includes accessible column names and types. Relationships,
 join cardinality, business units, status definitions and time semantics remain
@@ -103,7 +110,11 @@ unavailable unless the operator supplies them.
 Include needed definitions in your question; request clarification when they
 are missing. A successful inspection does not prove the dataset complete or true.
 
-In **Settings**, choose your provider, model identifier and endpoint, then save.
+In **Settings**, choose the connection preset, model identifier, endpoint,
+structured-output profile, reasoning option, timeout and output-token bound,
+then save. OpsGraph derives the protocol adapter from the preset. Presets supply
+protocol defaults; they do not discover available
+models or promise that a model supports the contract.
 API keys are write-only: leave the field blank to keep an existing key for the
 same provider and endpoint, or explicitly clear it. Changing endpoints does not
 forward the previous key. External processing requires deployment permission
@@ -115,6 +126,15 @@ from initial setup. Use Settings for subsequent model changes. Then run the
 structured model probe. This calls the actual model
 without source records. A failure does not disable source configuration. Check
 runtime, model identifier, URL and timeout; never select fake output to continue.
+
+The vLLM preset uses `http://127.0.0.1:8001/v1` so it does not collide with
+OpsGraph's default port 8000. Start vLLM on port 8001 or enter its exact address
+through the custom OpenAI-compatible preset.
+
+Return to **Sources** and approve the bounded readiness check for one exact
+table. It executes a one-row read to prove the configured route and permissions,
+while returning and retaining no selected source value. Changing the source,
+schema snapshot, or relevant policy invalidates that approval.
 
 ## Ask, inspect, challenge
 

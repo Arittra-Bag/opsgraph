@@ -1,4 +1,4 @@
-"""Workspace-scoped public-alpha persistence protocols."""
+"""Workspace-scoped persistence protocols."""
 
 from .sqlite import SQLiteWorkspaceStore
 from .workspace import InMemoryWorkspaceStore, WorkspaceRecord

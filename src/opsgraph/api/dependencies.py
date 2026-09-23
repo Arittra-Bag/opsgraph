@@ -11,7 +11,7 @@ def require_workspace(
     settings: Annotated[Settings, Depends(get_settings)],
     x_opsgraph_key: Annotated[str | None, Header()] = None,
 ) -> str:
-    """Alpha API-key boundary; production identity remains a documented P0 gate."""
+    """Authenticate the one trusted operator for this private workspace."""
 
     if not x_opsgraph_key or not secrets.compare_digest(x_opsgraph_key, settings.api_key):
         raise HTTPException(status_code=401, detail="Valid workspace API key required")

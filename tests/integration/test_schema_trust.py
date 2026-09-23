@@ -8,7 +8,9 @@ from fastapi.testclient import TestClient
 
 from opsgraph.config import get_settings
 from opsgraph.domain import Obligation
+from opsgraph.domain.models import stable_hash
 from opsgraph.persistence import WorkspaceRecord
+from opsgraph.readiness import source_readiness_basis
 from opsgraph.runtime import build_runtime
 from opsgraph.schema_service import ColumnSchema, SchemaSnapshot, TableSchema
 
@@ -51,12 +53,20 @@ def schema_api(tmp_path, monkeypatch):
     class Executor:
         calls = []
 
-        def __init__(self, dsn):
+        def __init__(self, dsn, **kwargs):
             assert dsn == "isolated-contract-secret"
+            assert kwargs["allow_insecure_remote"] is False
 
         def discover_snapshot(self, **kwargs):
             self.calls.append(kwargs)
             return snapshot
+
+        def execute_readonly(self, sql, *, timeout_ms):
+            from opsgraph.brokers import QueryResult
+
+            self.calls.append({"sql": sql, "timeout_ms": timeout_ms})
+            # The API must reduce this result to a boolean and retain no returned value.
+            return QueryResult(columns=("opsgraph_readiness",), rows=(("must-not-be-retained",),))
 
     monkeypatch.setattr(module, "PsycopgReadOnlyExecutor", Executor)
     return (
@@ -188,3 +198,100 @@ def test_policy_change_during_inspection_prevents_ready_state(schema_api, monkey
         workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
     )
     assert source.value["status"] == "stale"
+
+
+def inspect_ready_source(client, headers):
+    response = client.post("/api/sources/schema-data/inspect", headers=headers)
+    assert response.status_code == 200, response.text
+
+
+def test_readiness_requires_authentication_and_explicit_confirmation(schema_api):
+    client, _, executor, _, headers = schema_api
+    inspect_ready_source(client, headers)
+    executor.calls.clear()
+    request = {"table": "public.records", "confirm_bounded_read": True}
+    assert client.post("/api/sources/schema-data/readiness", json=request).status_code == 401
+    response = client.post(
+        "/api/sources/schema-data/readiness",
+        headers=headers,
+        json={"table": "public.records", "confirm_bounded_read": False},
+    )
+    assert response.status_code == 422
+    assert executor.calls == []
+
+
+def test_readiness_rejects_table_outside_explicit_scope(schema_api):
+    client, _, executor, _, headers = schema_api
+    inspect_ready_source(client, headers)
+    executor.calls.clear()
+    response = client.post(
+        "/api/sources/schema-data/readiness",
+        headers=headers,
+        json={"table": "public.other", "confirm_bounded_read": True},
+    )
+    assert response.status_code == 422
+    assert "explicit table scope" in response.json()["detail"]
+    assert executor.calls == []
+
+
+def test_readiness_persists_revisions_without_source_values(schema_api):
+    client, runtime, executor, _, headers = schema_api
+    inspect_ready_source(client, headers)
+    executor.calls.clear()
+    response = client.post(
+        "/api/sources/schema-data/readiness",
+        headers=headers,
+        json={"table": "public.records", "confirm_bounded_read": True},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["source_values_returned"] == 0
+    assert "must-not-be-retained" not in response.text
+    assert len(executor.calls) == 1
+    assert executor.calls[0]["timeout_ms"] <= 1000
+    assert "SELECT 1 AS opsgraph_readiness" in executor.calls[0]["sql"]
+
+    source = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    ).value
+    assert source["readiness"] == payload
+    assert payload["source_revision"] == source_readiness_basis(source)
+    assert payload["policy_revision"] == stable_hash(Obligation().model_dump(mode="json"))
+    serialized_source = str(source)
+    assert "must-not-be-retained" not in serialized_source
+
+    events = client.get("/api/audit", headers=headers).json()["events"]
+    event = next(
+        item
+        for item in reversed(events)
+        if item["action"] == "core.source.readiness" and item["outcome"] == "allowed"
+    )
+    assert event["details"] == {
+        "table": "public.records",
+        "source_values_returned": 0,
+        "timeout_ms": 1000,
+        "max_rows": 1,
+    }
+    assert "must-not-be-retained" not in str(event)
+
+
+def test_reinspection_invalidates_prior_readiness(schema_api):
+    client, runtime, _, _, headers = schema_api
+    inspect_ready_source(client, headers)
+    ready = client.post(
+        "/api/sources/schema-data/readiness",
+        headers=headers,
+        json={"table": "public.records", "confirm_bounded_read": True},
+    )
+    assert ready.status_code == 200, ready.text
+
+    inspect_ready_source(client, headers)
+    source = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    ).value
+    assert source["status"] == "ready"
+    assert source["readiness"] == {
+        "status": "pending",
+        "reason": "Run the bounded readiness check after reviewing this inspection.",
+    }

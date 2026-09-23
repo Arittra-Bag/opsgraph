@@ -1,0 +1,721 @@
+{
+  "schema_version": 2,
+  "release_version": "1.0.0",
+  "recorded_on": "2026-09-22",
+  "scope": "Stable 1.0.0 third-party source supplement for the unchanged requirements.lock dependency set. Source identities derive from the verified Beta 1 manifest and are revalidated by exact size and SHA-256 during assembly. OpsGraph application source is distributed separately as the tag-matching sdist.",
+  "dependency_lock": {
+    "file": "requirements.lock",
+    "sha256": "76121485e8a5d362fa1907bc49ee08b3493510c3e7c6c57c5b42f0b64981ee90",
+    "package_count": 55
+  },
+  "historical_source_manifest": {
+    "file": "beta-source-manifest.json",
+    "sha256": "ea3653d750b690041ebc3216afe969f483fcfdd04d894711af0e1ca6db9579e6",
+    "relationship": "Historical Beta 1 evidence supplied the source identities. The dependency lock is byte-identical; this 1.0.0 manifest does not promote Beta application artifacts or their source revision as final-tag evidence."
+  },
+  "package_source_mappings": {
+    "orjson": {
+      "version": "3.12.0",
+      "files": [
+        "orjson-3.12.0.tar.gz"
+      ],
+      "rationale": "The verified source archive was an unnamed support record in the historical manifest."
+    },
+    "pglast": {
+      "version": "7.18",
+      "files": [
+        "pglast-7.18.tar.gz"
+      ],
+      "rationale": "The verified parser source archive was an unnamed support record in the historical manifest."
+    },
+    "psycopg": {
+      "version": "3.3.5",
+      "files": [
+        "psycopg-3.3.5.tar.gz"
+      ],
+      "rationale": "The pure-Python distribution maps to its exact verified source distribution."
+    },
+    "psycopg-binary": {
+      "version": "3.3.5",
+      "files": [
+        "build_libpq.sh",
+        "cibuildwheel-4.2.0-pinned-docker-images.cfg",
+        "copy_to_binary.py",
+        "cyrus-sasl-2.1.26-24.el7_9.src.rpm",
+        "e2fsprogs-1.42.9-19.el7.src.rpm",
+        "keyutils-1.5.8-3.el7.src.rpm",
+        "krb5-1.15.1-55.el7_9.src.rpm",
+        "krb5-1.22.2.tar.gz",
+        "libselinux-2.5-15.el7.src.rpm",
+        "libxcrypt-4.5.2.tar.xz",
+        "manylinux-56f2155efd8e-source.tar.gz",
+        "openldap-2.6.14.tgz",
+        "openssl-3.5.8-tagged-source.tar.gz",
+        "openssl-3.6.3-tagged-source.tar.gz",
+        "packages-bin.yml",
+        "pcre-8.32-17.el7.src.rpm",
+        "postgresql-18.4-tagged-source.tar.gz",
+        "postgresql-18.6-tagged-source.tar.gz",
+        "psycopg-source-ea542c9534cc.tar.gz",
+        "psycopg_c-3.3.5.tar.gz"
+      ],
+      "rationale": "The binary distribution maps to psycopg_c, the pinned upstream tree and build inputs, plus the exact native-library and downstream source inputs recorded for the three CPython 3.11 wheelhouses."
+    }
+  },
+  "sources": [
+    {
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "file": "annotated_doc-0.0.5.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz",
+      "sha256": "c7e58ce09192557605d8bbd92836d7e1d520ac9580096042c0bfd197efacf1bb",
+      "size": 10758
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "file": "annotated_types-0.8.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz",
+      "sha256": "13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7",
+      "size": 15893
+    },
+    {
+      "name": "anthropic",
+      "version": "0.122.0",
+      "file": "anthropic-0.122.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/fa/23/9987d70b74e3481d5bc5d2021d3e10fd5f60c1f7b54088ea86506d9b7f2b/anthropic-0.122.0.tar.gz",
+      "sha256": "ffec56ae96657c8d19fa575ec96f140f380c353a07ab7d61b92eb18ee6536601",
+      "size": 1021535
+    },
+    {
+      "name": "anyio",
+      "version": "4.14.2",
+      "file": "anyio-4.14.2.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz",
+      "sha256": "cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f",
+      "size": 260176
+    },
+    {
+      "file": "build_libpq.sh",
+      "size": 7120,
+      "sha256": "2cb45ac4c8bb5e8fc3c738c597817bcb2d224bc66073d10023f15665bee9cb8b",
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/build_libpq.sh"
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "file": "certifi-2026.7.22.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz",
+      "sha256": "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55",
+      "size": 138112
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.1",
+      "file": "charset_normalizer-3.5.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/e5/3f/143b048436775b0f76ac3eec145c019e8173ccc2885c8f20319b996d5e83/charset_normalizer-3.5.1.tar.gz",
+      "sha256": "6117b84ea48435e5356dc737f5121485c30920ba43375fa7b434fd753df0eac3",
+      "size": 171764
+    },
+    {
+      "file": "cibuildwheel-4.2.0-pinned-docker-images.cfg",
+      "source": "https://raw.githubusercontent.com/pypa/cibuildwheel/v4.2.0/cibuildwheel/resources/pinned_docker_images.cfg",
+      "size": 4839,
+      "sha256": "26e626d5aa6057ef282a992db1bd9635a9d7779a1dcbc60b016dfa77331b7920"
+    },
+    {
+      "name": "click",
+      "version": "8.4.2",
+      "file": "click-8.4.2.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz",
+      "sha256": "9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6",
+      "size": 338000
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "file": "colorama-0.4.6.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz",
+      "sha256": "08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44",
+      "size": 27697
+    },
+    {
+      "file": "copy_to_binary.py",
+      "size": 1389,
+      "sha256": "522dcd9abd006606f8aa12ac8bf4cf3db15841618aa0bdca4b773525d07e9eb3",
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/tools/ci/copy_to_binary.py"
+    },
+    {
+      "file": "cyrus-sasl-2.1.26-24.el7_9.src.rpm",
+      "source": "https://vault.centos.org/7.9.2009/updates/Source/SPackages/cyrus-sasl-2.1.26-24.el7_9.src.rpm",
+      "size": 1782723,
+      "sha256": "c49472bd08c6060f53a9dace005b81cf466836790d2dcb407a536820f6319e77"
+    },
+    {
+      "name": "distro",
+      "version": "1.9.0",
+      "file": "distro-1.9.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz",
+      "sha256": "2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed",
+      "size": 60722
+    },
+    {
+      "name": "docstring_parser",
+      "version": "0.18.0",
+      "file": "docstring_parser-0.18.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/e0/4d/f332313098c1de1b2d2ff91cf2674415cc7cddab2ca1b01ae29774bd5fdf/docstring_parser-0.18.0.tar.gz",
+      "sha256": "292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015",
+      "size": 29341
+    },
+    {
+      "file": "e2fsprogs-1.42.9-19.el7.src.rpm",
+      "source": "https://vault.centos.org/7.9.2009/os/Source/SPackages/e2fsprogs-1.42.9-19.el7.src.rpm",
+      "size": 4765994,
+      "sha256": "718f64bd465d1770eaf6490157a861d3dba2846b4a636a67d27bd4d38e6b86cf"
+    },
+    {
+      "name": "fastapi",
+      "version": "0.141.1",
+      "file": "fastapi-0.141.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz",
+      "sha256": "e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1",
+      "size": 425799
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "file": "h11-0.16.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz",
+      "sha256": "4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1",
+      "size": 101250
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "file": "httpcore-1.0.9.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz",
+      "sha256": "6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8",
+      "size": 85484
+    },
+    {
+      "name": "httptools",
+      "version": "0.8.0",
+      "file": "httptools-0.8.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/43/e5/d471fcb0e14523fe1c3f4ba58ca52480e7bd70ad7109a3846bc75892f7fb/httptools-0.8.0.tar.gz",
+      "sha256": "6b2a32f18d97e16e90827d7a819ffa8dbd8cc245fc4e1fa9d1095b54ef4bd999",
+      "size": 271342
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "file": "httpx-0.28.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz",
+      "sha256": "75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc",
+      "size": 141406
+    },
+    {
+      "name": "idna",
+      "version": "3.18",
+      "file": "idna-3.18.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/cd/63/9496c57188a2ee585e0f1db071d75089a11e98aa86eb99d9d7618fc1edce/idna-3.18.tar.gz",
+      "sha256": "ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848",
+      "size": 196711
+    },
+    {
+      "name": "jiter",
+      "version": "0.16.0",
+      "file": "jiter-0.16.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/1d/1f/10936e16d8860c70698a1aa939a46aa0224813b782bce4e000e637da0b2d/jiter-0.16.0.tar.gz",
+      "sha256": "7b24c3492c5f4f84a37946ad9cf504910cf6a782d6a4e0689b6673c5894b4a1c",
+      "size": 176431
+    },
+    {
+      "name": "jsonpatch",
+      "version": "1.33",
+      "file": "jsonpatch-1.33.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/42/78/18813351fe5d63acad16aec57f94ec2b70a09e53ca98145589e185423873/jsonpatch-1.33.tar.gz",
+      "sha256": "9fcd4009c41e6d12348b4a0ff2563ba56a2923a7dfee731d004e212e1ee5030c",
+      "size": 21699
+    },
+    {
+      "name": "jsonpointer",
+      "version": "3.1.1",
+      "file": "jsonpointer-3.1.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/18/c7/af399a2e7a67fd18d63c40c5e62d3af4e67b836a2107468b6a5ea24c4304/jsonpointer-3.1.1.tar.gz",
+      "sha256": "0b801c7db33a904024f6004d526dcc53bbb8a4a0f4e32bfd10beadf60adf1900",
+      "size": 9068
+    },
+    {
+      "file": "keyutils-1.5.8-3.el7.src.rpm",
+      "source": "https://vault.centos.org/7.9.2009/os/Source/SPackages/keyutils-1.5.8-3.el7.src.rpm",
+      "size": 77575,
+      "sha256": "eff16e16f707fd28436afe4cf7b7c2e34b9f827e7f6beacf3c6eecbf74e9f850"
+    },
+    {
+      "file": "krb5-1.15.1-55.el7_9.src.rpm",
+      "source": "https://vault.centos.org/7.9.2009/updates/Source/SPackages/krb5-1.15.1-55.el7_9.src.rpm",
+      "size": 11554886,
+      "sha256": "d154824d46dff5aece0cdb8e4c9df299058bacadbaf7fb16be8d9163ca2814bb"
+    },
+    {
+      "file": "krb5-1.22.2.tar.gz",
+      "source": "https://kerberos.org/dist/krb5/1.22/krb5-1.22.2.tar.gz",
+      "size": 8747729,
+      "sha256": "3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13"
+    },
+    {
+      "name": "langchain-core",
+      "version": "1.5.5",
+      "file": "langchain_core-1.5.5.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/e5/c1/c226367fdf92a173c8b520d0b3583a0aaf4c3fe4952010f680e49d88589d/langchain_core-1.5.5.tar.gz",
+      "sha256": "c08d78176113867e9a76acc1007d641cd68fa5682e9e0018980d062b4ae0777e",
+      "size": 983166
+    },
+    {
+      "name": "langchain-protocol",
+      "version": "0.0.18",
+      "file": "langchain_protocol-0.0.18.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/d2/59/b5959aea96faa9146e2e49a7a22882b3528c62efafe9a6a95beab30c2305/langchain_protocol-0.0.18.tar.gz",
+      "sha256": "ec3e11782f1ed0c9db38e5a9ed01b0e7a0d3fba406faa8aef6594b73c56a63e6",
+      "size": 6150
+    },
+    {
+      "name": "langgraph",
+      "version": "1.2.11",
+      "file": "langgraph-1.2.11.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/56/0d/c8e7ee98896659e1b6555db0ab115a9ca899844744645d5d894032bab1d7/langgraph-1.2.11.tar.gz",
+      "sha256": "9ecfe11e50d338b34b15cf4d8a442642de103e8ae6971320efba84e4542eb363",
+      "size": 725753
+    },
+    {
+      "name": "langgraph-checkpoint",
+      "version": "4.2.0",
+      "file": "langgraph_checkpoint-4.2.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/dc/e1/089c4c9e0a2fec7f883f82ae8e6a727138d50074cfeb6644bc2d13b1019b/langgraph_checkpoint-4.2.0.tar.gz",
+      "sha256": "51a593b6bee684b0818e5d6e58e28ab340c6db7794575056ce7bd1b746a84ed7",
+      "size": 180239
+    },
+    {
+      "name": "langgraph-prebuilt",
+      "version": "1.1.0",
+      "file": "langgraph_prebuilt-1.1.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/29/66/ed9b93f56bc17ef22d551892f0ac2b225a97fe0fcf23a511b857f70d590b/langgraph_prebuilt-1.1.0.tar.gz",
+      "sha256": "3c579cf6eed2d17f9c157c2d0fcaddcd8688524e7022d3b22b37a3bf4589d528",
+      "size": 178833
+    },
+    {
+      "name": "langgraph-sdk",
+      "version": "0.4.2",
+      "file": "langgraph_sdk-0.4.2.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/b4/2b/bd8ac26d4e97f6df88ef05ce5b6a38945a3903e1025d926f4752aa88aa97/langgraph_sdk-0.4.2.tar.gz",
+      "sha256": "b88f0f5f6328ac0680d6790614a905b2bcfa257f2276dba4e38f0e86db0aa738",
+      "size": 348327
+    },
+    {
+      "name": "langsmith",
+      "version": "0.11.0",
+      "file": "langsmith-0.11.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/5b/62/a917e87073767db8ca335c3f5a42fb4c5336509b8d5b03e165e46da47e70/langsmith-0.11.0.tar.gz",
+      "sha256": "7339f90e6fd9a1a009445b5084a7a0e56a8b6f17305ee5d7e8c5e7582217854f",
+      "size": 4805612
+    },
+    {
+      "file": "libselinux-2.5-15.el7.src.rpm",
+      "source": "https://vault.centos.org/7.9.2009/os/Source/SPackages/libselinux-2.5-15.el7.src.rpm",
+      "size": 311489,
+      "sha256": "978ed00b9c7ca78a51e0aff48070c69ebe4fbfca0e64f618627ebdbe8786a089"
+    },
+    {
+      "file": "libxcrypt-4.5.2.tar.xz",
+      "source": "https://github.com/besser82/libxcrypt/releases/download/v4.5.2/libxcrypt-4.5.2.tar.xz",
+      "size": 669820,
+      "sha256": "71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071"
+    },
+    {
+      "file": "manylinux-56f2155efd8e-source.tar.gz",
+      "source": "https://codeload.github.com/pypa/manylinux/tar.gz/56f2155efd8e4d20239acc8d31b6ad0249125403",
+      "size": 143043,
+      "sha256": "0397762e6b76e7d086c9883aa2b9a462bf78de7c51dd1e798727121a36ef3356"
+    },
+    {
+      "name": "openai",
+      "version": "2.54.0",
+      "file": "openai-2.54.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/50/9a/8c75e8c8a5b407a0586faeb2afac91674ff955c191ecc1d6d3b6669f6788/openai-2.54.0.tar.gz",
+      "sha256": "e3e6f8bc1ba30ddf381ace1a14340eed381cb984a1a59bd0f34b5be3b5d49cfa",
+      "size": 1100285
+    },
+    {
+      "file": "openldap-2.6.14.tgz",
+      "source": "https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.6.14.tgz",
+      "size": 6524817,
+      "sha256": "806dcd21d366428187fba3278da773d5930f774852c9e92517f950d585f19107"
+    },
+    {
+      "file": "openssl-3.5.8-tagged-source.tar.gz",
+      "source": "https://codeload.github.com/openssl/openssl/tar.gz/refs/tags/openssl-3.5.8",
+      "size": 53396153,
+      "sha256": "59f86483992995df5a213df38d93f31eeafe3b34599309b3e088ba67ca0aad9c"
+    },
+    {
+      "file": "openssl-3.6.3-tagged-source.tar.gz",
+      "source": "https://codeload.github.com/openssl/openssl/tar.gz/refs/tags/openssl-3.6.3",
+      "size": 55132237,
+      "sha256": "c5524dd6bfaa8e8ff0f1be885c390d14f3ff0bd2de62a7311b65fcbb75cb7546"
+    },
+    {
+      "file": "orjson-3.12.0.tar.gz",
+      "size": 4142915,
+      "sha256": "d14203fb1aae2ad9b3d52f8a0e82aeb10197ef1c9bc61da7f358bd70b00123d5",
+      "source": "https://files.pythonhosted.org/packages/0f/f3/742fb1f62b825f2c010697eaf4e828004bc2a81e7e806666989c132c7c42/orjson-3.12.0.tar.gz",
+      "purpose": "Source for declared MPL-covered components; upstream archive retains license texts"
+    },
+    {
+      "name": "ormsgpack",
+      "version": "1.12.2",
+      "file": "ormsgpack-1.12.2.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/12/0c/f1761e21486942ab9bb6feaebc610fa074f7c5e496e6962dea5873348077/ormsgpack-1.12.2.tar.gz",
+      "sha256": "944a2233640273bee67521795a73cf1e959538e0dfb7ac635505010455e53b33",
+      "size": 39031
+    },
+    {
+      "file": "packages-bin.yml",
+      "size": 9121,
+      "sha256": "763c6ab0014cee4c1a1263f2c943dd7683bc6c9a56231b3fc77a41ffcbe168f5",
+      "source": "https://raw.githubusercontent.com/psycopg/psycopg/ea542c9534cc9841d50450e0c156b549cc6c805a/.github/workflows/packages-bin.yml"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "file": "packaging-26.3.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz",
+      "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+      "size": 313412
+    },
+    {
+      "file": "pcre-8.32-17.el7.src.rpm",
+      "source": "https://vault.centos.org/7.9.2009/os/Source/SPackages/pcre-8.32-17.el7.src.rpm",
+      "size": 1428012,
+      "sha256": "b96493d8ea6def2e9a40dade4feedcea2b4bbfe8ce4c13a3465e99f21ef2c43d"
+    },
+    {
+      "file": "pglast-7.18.tar.gz",
+      "size": 3414276,
+      "sha256": "18b52362cea47c87025d031015232da555c70e34762a351633ae040db1ec3c01",
+      "source": "https://files.pythonhosted.org/packages/e6/67/fdd5a7f256704a457039423f16bba3bfc14d52672e607217816738230125/pglast-7.18.tar.gz"
+    },
+    {
+      "file": "postgresql-18.4-tagged-source.tar.gz",
+      "source": "https://codeload.github.com/postgres/postgres/tar.gz/refs/tags/REL_18_4",
+      "size": 29869644,
+      "sha256": "9b4f86dd2ac00b914582e9893d1bad1f54bc9be7108fa794318b8184f921ec08"
+    },
+    {
+      "file": "postgresql-18.6-tagged-source.tar.gz",
+      "source": "https://codeload.github.com/postgres/postgres/tar.gz/refs/tags/REL_18_6",
+      "size": 29996378,
+      "sha256": "ff9b1187e3ab120282b9f3e09a5efba2425838b3a843150c5cb2f019f47ac400"
+    },
+    {
+      "file": "psycopg-3.3.5.tar.gz",
+      "size": 166508,
+      "sha256": "d0a3d9ccf5788af054cbd745278cb02401b5c312aeaafbf2c6144460aec47da4",
+      "source": "https://files.pythonhosted.org/packages/72/73/8fb739d0f6bba247b9b93c9840c402a4f88545be5f1d4b02b23366371c00/psycopg-3.3.5.tar.gz"
+    },
+    {
+      "file": "psycopg-source-ea542c9534cc.tar.gz",
+      "size": 759772,
+      "sha256": "a604bf855778b317c196f1daf8de912ee23c28b9ec4d64eca875cce977bbf66f",
+      "source": "https://codeload.github.com/psycopg/psycopg/tar.gz/ea542c9534cc9841d50450e0c156b549cc6c805a"
+    },
+    {
+      "file": "psycopg_c-3.3.5.tar.gz",
+      "size": 694569,
+      "sha256": "5e11edaa0040a64d0af351a8fd3e276a824cd92fe34abc350cd67aa07ad36c55",
+      "source": "https://files.pythonhosted.org/packages/21/7b/5da2274bdbfed6b02aea463e2b803b8d4406bbc9d6c6f6bfd7122492254f/psycopg_c-3.3.5.tar.gz"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.4",
+      "file": "pydantic-2.13.4.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/18/a5/b60d21ac674192f8ab0ba4e9fd860690f9b4a6e51ca5df118733b487d8d6/pydantic-2.13.4.tar.gz",
+      "sha256": "c40756b57adaa8b1efeeced5c196f3f3b7c435f90e84ea7f443901bec8099ef6",
+      "size": 844775
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.46.4",
+      "file": "pydantic_core-2.46.4.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/9d/56/921726b776ace8d8f5db44c4ef961006580d91dc52b803c489fafd1aa249/pydantic_core-2.46.4.tar.gz",
+      "sha256": "62f875393d7f270851f20523dd2e29f082bcc82292d66db2b64ea71f64b6e1c1",
+      "size": 471464
+    },
+    {
+      "name": "pydantic-settings",
+      "version": "2.15.0",
+      "file": "pydantic_settings-2.15.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz",
+      "sha256": "694b793e84f766ba76a90ebdefc01d0a9a045dab0382bee70393da93712ad117",
+      "size": 261253
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.2",
+      "file": "python_dotenv-1.2.2.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz",
+      "sha256": "2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3",
+      "size": 50135
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "file": "pyyaml-6.0.3.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz",
+      "sha256": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f",
+      "size": 130960
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "file": "requests-2.34.2.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz",
+      "sha256": "f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed",
+      "size": 142856
+    },
+    {
+      "name": "requests-toolbelt",
+      "version": "1.0.0",
+      "file": "requests-toolbelt-1.0.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/f3/61/d7545dafb7ac2230c70d38d31cbfe4cc64f7144dc41f6e4e4b78ecd9f5bb/requests-toolbelt-1.0.0.tar.gz",
+      "sha256": "7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6",
+      "size": 206888
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1",
+      "file": "sniffio-1.3.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz",
+      "sha256": "f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc",
+      "size": 20372
+    },
+    {
+      "name": "starlette",
+      "version": "1.6.0",
+      "file": "starlette-1.6.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/b5/b4/205b0d5241d934e8add0c38aa924c4f9fb7330834ff11e5444db964ec3f9/starlette-1.6.0.tar.gz",
+      "sha256": "d4e3ac5e546444960c710297a3c9fc3f7ebae1b7e963f3d36173b49da535be9b",
+      "size": 2716969
+    },
+    {
+      "name": "tenacity",
+      "version": "9.1.4",
+      "file": "tenacity-9.1.4.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz",
+      "sha256": "adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a",
+      "size": 49413
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.0",
+      "file": "tqdm-4.70.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/21/3b/6c24bec5be5e743ffd99576daa5cc077722fc7d5bbc00bd133fa0c698dc6/tqdm-4.70.0.tar.gz",
+      "sha256": "55b0b0dbd97462d06ebee91e4dac24ed4d4702be82b24f07e6c1d27e08cea220",
+      "size": 795438
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "file": "typing_extensions-4.16.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz",
+      "sha256": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5",
+      "size": 113555
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "file": "typing_inspection-0.4.4.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz",
+      "sha256": "547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47",
+      "size": 76928
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.3",
+      "file": "tzdata-2026.3.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/92/ff/5a28bdfd8c3ebec42564ac7d0e54ca3db65044a9314a97f9564fa7a1e926/tzdata-2026.3.tar.gz",
+      "sha256": "4a1518b8993086a7982523e071643f3c0e5f213e75b21318e78bcabfff9d1415",
+      "size": 198674
+    },
+    {
+      "name": "urllib3",
+      "version": "2.7.0",
+      "file": "urllib3-2.7.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz",
+      "sha256": "231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c",
+      "size": 433602
+    },
+    {
+      "name": "uuid_utils",
+      "version": "0.17.0",
+      "file": "uuid_utils-0.17.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/e7/91/63938e0e7e7876658e5e40178e7c0735b53527886fe11797a11699c55edd/uuid_utils-0.17.0.tar.gz",
+      "sha256": "abb5667a36119019b3fa320c4d10c21ebccfcc87c8a739e6a0056cee7f48dde2",
+      "size": 43220
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.52.3",
+      "file": "uvicorn-0.52.3.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/2e/28/64ca011edf31c715b4fad359c587ea52391aaffa125065695590241ff617/uvicorn-0.52.3.tar.gz",
+      "sha256": "18857b9e6579300be55c91c0a1cfd37d9a2cf0cabea33b88275f199eb73b8b58",
+      "size": 100621
+    },
+    {
+      "name": "uvloop",
+      "version": "0.22.1",
+      "file": "uvloop-0.22.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/06/f0/18d39dbd1971d6d62c4629cc7fa67f74821b0dc1f5a77af43719de7936a7/uvloop-0.22.1.tar.gz",
+      "sha256": "6c84bae345b9147082b17371e3dd5d42775bddce91f885499017f4607fdaf39f",
+      "size": 2443250
+    },
+    {
+      "name": "watchfiles",
+      "version": "1.2.0",
+      "file": "watchfiles-1.2.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/cd/41/5e1a4bb12aac5f1493fa1bdc11154eca3b258ca4eba65d39c473fe19d8e9/watchfiles-1.2.0.tar.gz",
+      "sha256": "c995fba777f1ea992f090f9236e9284cf7a5d1a0130dd5a3d82c598cacd76838",
+      "size": 108252
+    },
+    {
+      "name": "websockets",
+      "version": "15.0.1",
+      "file": "websockets-15.0.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/21/e6/26d09fab466b7ca9c7737474c52be4f76a40301b08362eb2dbc19dcc16c1/websockets-15.0.1.tar.gz",
+      "sha256": "82544de02076bafba038ce055ee6412d68da13ab47f0c60cab827346de828dee",
+      "size": 177016
+    },
+    {
+      "name": "xxhash",
+      "version": "4.0.0",
+      "file": "xxhash-4.0.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/58/6f/4d42b20b0dc688552f568e356e7d55b8ea18092eb79c78e40a96f59e7e12/xxhash-4.0.0.tar.gz",
+      "sha256": "6b4040b26c73c75e6c12273b0ae237f9235f39cce5fabb683a64e9f20d09df8b",
+      "size": 100993
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0",
+      "file": "zstandard-0.25.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/fd/aa/3e0508d5a5dd96529cdc5a97011299056e14c6505b678fd58938792794b1/zstandard-0.25.0.tar.gz",
+      "sha256": "7713e1179d162cf5c7906da876ec2ccb9c3a9dcbdffef0cc7f70c3667a205f0b",
+      "size": 711513
+    }
+  ],
+  "notices": [
+    {
+      "file": "GPL-3.0.txt",
+      "size": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "file": "Kerberos-1.22.2-NOTICE.txt",
+      "size": 63690,
+      "sha256": "d37fcb886de2ad1c602f61c99c6893bcbd9a1949f54d9a6bb40d191204eb605e"
+    },
+    {
+      "file": "LGPL-3.0.txt",
+      "size": 7652,
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+    },
+    {
+      "file": "OpenLDAP-2.6.14-COPYRIGHT.txt",
+      "size": 2345,
+      "sha256": "5b4dfc20608c4d5d75573e899569b8ee0e06658ebcf14fa14566e309bcbab14c"
+    },
+    {
+      "file": "OpenLDAP-2.6.14-LICENSE.txt",
+      "size": 2214,
+      "sha256": "310fe25c858a9515fc8c8d7d1f24a67c9496f84a91e0a0e41ea9975b1371e569"
+    },
+    {
+      "file": "OpenSSL-3.5.8-ACKNOWLEDGEMENTS.md",
+      "size": 159,
+      "sha256": "58dee45791f007ced048114717f86672778fe75c551827c57e760861446ce3c3"
+    },
+    {
+      "file": "OpenSSL-3.5.8-AUTHORS.md",
+      "size": 1022,
+      "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e"
+    },
+    {
+      "file": "OpenSSL-3.5.8-LICENSE.txt",
+      "size": 10175,
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+    },
+    {
+      "file": "OpenSSL-3.6.3-ACKNOWLEDGEMENTS.md",
+      "size": 159,
+      "sha256": "58dee45791f007ced048114717f86672778fe75c551827c57e760861446ce3c3"
+    },
+    {
+      "file": "OpenSSL-3.6.3-AUTHORS.md",
+      "size": 1022,
+      "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e"
+    },
+    {
+      "file": "OpenSSL-3.6.3-LICENSE.txt",
+      "size": 10175,
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+    },
+    {
+      "file": "PostgreSQL-17.7-COPYRIGHT.txt",
+      "size": 1198,
+      "sha256": "5ed3ce5c9373dff7f98b1fae7a6c7ccd98df7d734d46d24c1bcebf1240be8307"
+    },
+    {
+      "file": "PostgreSQL-18.4-COPYRIGHT.txt",
+      "size": 1198,
+      "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd"
+    },
+    {
+      "file": "PostgreSQL-18.6-COPYRIGHT.txt",
+      "size": 1198,
+      "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd"
+    },
+    {
+      "file": "langsmith-0.11.0-LICENSE.txt",
+      "size": 1066,
+      "sha256": "34e0b9842c7a31d34e53bc7eb224e81e07a34996106e029bbc72dea2d449f496"
+    },
+    {
+      "file": "libpg_query-Bison-NOTICE.txt",
+      "size": 1746,
+      "sha256": "d365a921f09d5b9c7091387a9dc775b306934795fbee8417f957a4be005fd45f"
+    },
+    {
+      "file": "libpg_query-LICENSE.txt",
+      "size": 1561,
+      "sha256": "f9352c20940619a380a5e9f23cebe34d8f797cfbd747fc236a7a3e5fc8ef9b41"
+    },
+    {
+      "file": "libpg_query-protobuf-c-NOTICE.txt",
+      "size": 1409,
+      "sha256": "e8185daf5bcd355692052fbdc990ea2d8acef9b4c3a41a32f189f272667e9d6b"
+    },
+    {
+      "file": "libpg_query-xxhash-NOTICE.txt",
+      "size": 1661,
+      "sha256": "20bf2c9b132fe78c4256abb204159403d987af7a45345f1bdde07ecc094bed7f"
+    },
+    {
+      "file": "pglast-7.18-project-header.txt",
+      "size": 299,
+      "sha256": "a0d0331bd41e8e169f80e4767300cbcac30e350a171167b59a044e90c68f2e79"
+    },
+    {
+      "file": "pglast-extracted-notices.json",
+      "size": 1657,
+      "sha256": "72e57e207b7c294084838ce03108fa07646c726a8a9236bbc3e71248c102ea03"
+    }
+  ]
+}

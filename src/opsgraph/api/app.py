@@ -1,26 +1,32 @@
 import os
+import sqlite3
 import time
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from opsgraph import __version__
 from opsgraph.api.dependencies import require_principal, require_workspace
-from opsgraph.audit import AuditChain
+from opsgraph.audit import AuditChain, AuditIntegrityError, SQLiteAuditChain
 from opsgraph.brokers import (
     ConnectorUnavailable,
     PsycopgReadOnlyExecutor,
     SelectOnlyValidator,
+    SourceSchemaChanged,
     UnsafeDatabaseRole,
     UnsafeQuery,
 )
 from opsgraph.brokers.query import intersect_obligations
 from opsgraph.domain import EvidenceBinding, Obligation, Principal
+from opsgraph.domain.models import stable_hash
 from opsgraph.persistence import WorkspaceRecord
+from opsgraph.persistence.runs import RUN_SCHEMA_VERSION, timestamp
 from opsgraph.policy import ActionRequest
+from opsgraph.postgres_guidance import build_postgres_role_guide, intersect_policy_tables
+from opsgraph.readiness import source_readiness_basis
 from opsgraph.runtime import get_runtime
 from opsgraph.schema_service import SchemaParseError, SchemaSnapshot
 from opsgraph.skills import SkillDefinition, SkillValidationError
@@ -28,7 +34,20 @@ from opsgraph.skills import SkillDefinition, SkillValidationError
 runtime = get_runtime()
 WEB = runtime.settings.web_root
 
-app = FastAPI(title="OpsGraph Beta", version=__version__)
+app = FastAPI(title="OpsGraph", version=__version__)
+
+
+@app.middleware("http")
+async def prevent_api_response_caching(request: Request, call_next):
+    """Keep workspace data out of browser and intermediary response caches."""
+
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 if WEB.exists():
     app.mount("/assets", StaticFiles(directory=WEB), name="assets")
 
@@ -69,6 +88,7 @@ class SourceRequest(BaseModel):
         if any(
             not value
             or len(value) > 63
+            or value != value.lower()
             or not value.replace("_", "a").isalnum()
             or not (value[0].isalpha() or value[0] == "_")
             for value in values
@@ -87,6 +107,7 @@ class SourceRequest(BaseModel):
             if len(parts) != 2 or any(
                 not part
                 or len(part) > 63
+                or part != part.lower()
                 or not part.replace("_", "a").isalnum()
                 or not (part[0].isalpha() or part[0] == "_")
                 for part in parts
@@ -103,6 +124,41 @@ class SourceRequest(BaseModel):
         if len(evidence_types) != len(set(evidence_types)):
             raise ValueError("each evidence type may be bound only once per source")
         return values
+
+
+class SourceReadinessRequest(BaseModel):
+    """An explicit, bounded approval to test one already-approved table."""
+
+    table: str = Field(pattern=r"^[a-z_][a-z0-9_]{0,62}\.[a-z_][a-z0-9_]{0,62}$")
+    confirm_bounded_read: Literal[True]
+
+
+class PostgresRoleGuideRequest(BaseModel):
+    """An exact, policy-bounded scope for a DBA-reviewed role script."""
+
+    role_name: str = Field(pattern=r"^[a-z_][a-z0-9_]{0,62}$")
+    tables: tuple[str, ...] = Field(min_length=1, max_length=100)
+    database: str | None = Field(
+        default=None,
+        pattern=r"^[a-z_][a-z0-9_]{0,62}$",
+    )
+
+    @field_validator("tables")
+    @classmethod
+    def validate_tables(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = tuple(dict.fromkeys(values))
+        for value in normalized:
+            parts = value.split(".")
+            if len(parts) != 2 or any(
+                not part
+                or len(part) > 63
+                or part != part.lower()
+                or not part.replace("_", "a").isalnum()
+                or not (part[0].isalpha() or part[0] == "_")
+                for part in parts
+            ):
+                raise ValueError("tables must be schema-qualified lowercase PostgreSQL identifiers")
+        return normalized
 
 
 def authorize(principal: Principal, action: str, resource: str) -> Obligation:
@@ -125,6 +181,18 @@ def authorize(principal: Principal, action: str, resource: str) -> Obligation:
         )
         raise HTTPException(status_code=403, detail=decision.reason)
     return decision.obligations
+
+
+def append_required_audit(**entry) -> None:
+    """Fail a security-sensitive state transition when its audit cannot persist."""
+
+    try:
+        runtime.audit.append(**entry)
+    except Exception:
+        raise HTTPException(
+            503,
+            "The operation was not saved because local audit storage is unavailable.",
+        ) from None
 
 
 @app.get("/")
@@ -150,11 +218,147 @@ def health():
     }
 
 
+_STATE_SCHEMA = {
+    "run_schema_version": (("version", "INTEGER", 0, 1),),
+    "runs": (
+        ("workspace_id", "TEXT", 1, 1),
+        ("id", "TEXT", 1, 2),
+        ("request_id", "TEXT", 0, 0),
+        ("status", "TEXT", 1, 0),
+        ("value", "TEXT", 1, 0),
+    ),
+    "run_events": (
+        ("workspace_id", "TEXT", 1, 1),
+        ("run_id", "TEXT", 1, 2),
+        ("sequence", "INTEGER", 1, 3),
+        ("value", "TEXT", 1, 0),
+    ),
+    "workspace_records": (
+        ("workspace_id", "TEXT", 1, 1),
+        ("record_id", "TEXT", 1, 2),
+        ("value_json", "TEXT", 1, 0),
+        ("updated_at", "TEXT", 1, 0),
+    ),
+    "audit_entries": (
+        ("sequence", "INTEGER", 0, 1),
+        ("workspace_id", "TEXT", 1, 0),
+        ("actor", "TEXT", 1, 0),
+        ("action", "TEXT", 1, 0),
+        ("resource", "TEXT", 1, 0),
+        ("outcome", "TEXT", 1, 0),
+        ("details_json", "TEXT", 1, 0),
+        ("occurred_at", "TEXT", 1, 0),
+        ("previous_hash", "TEXT", 1, 0),
+        ("entry_hash", "TEXT", 1, 0),
+    ),
+}
+
+
+def _unique_index_columns(db: sqlite3.Connection, table: str) -> set[tuple[str, ...]]:
+    indexes = db.execute('SELECT name, "unique" FROM pragma_index_list(?)', (table,)).fetchall()
+    return {
+        tuple(
+            row[0]
+            for row in db.execute(
+                "SELECT name FROM pragma_index_info(?) ORDER BY seqno", (index_name,)
+            ).fetchall()
+        )
+        for index_name, unique in indexes
+        if unique
+    }
+
+
+def _service_readiness(service) -> tuple[bool, dict[str, dict[str, str]]]:
+    """Check local process state without reaching a source database or model."""
+
+    components = {
+        "state_database": {
+            "status": "unavailable",
+            "detail": "Local state integrity or write availability could not be verified.",
+        },
+        "run_schema": {
+            "status": "unavailable",
+            "detail": "Local state schema could not be verified.",
+        },
+        "audit_chain": {
+            "status": "unavailable",
+            "detail": "Local audit integrity could not be verified.",
+        },
+        "coordinator": service.coordinator.health(),
+    }
+    try:
+        with service.store.connect() as db:
+            db.execute("PRAGMA busy_timeout=500")
+            quick_check = db.execute("PRAGMA quick_check(1)").fetchall()
+            if quick_check != [("ok",)]:
+                return False, components
+            versions = db.execute(
+                "SELECT version FROM run_schema_version ORDER BY version"
+            ).fetchall()
+            schemas = {
+                table: tuple(
+                    db.execute(
+                        'SELECT name, type, "notnull", pk FROM pragma_table_info(?)',
+                        (table,),
+                    ).fetchall()
+                )
+                for table in _STATE_SCHEMA
+            }
+            schema_supported = (
+                versions == [(RUN_SCHEMA_VERSION,)]
+                and schemas == _STATE_SCHEMA
+                and ("workspace_id", "request_id") in _unique_index_columns(db, "runs")
+                and ("entry_hash",) in _unique_index_columns(db, "audit_entries")
+            )
+            components["run_schema"] = {
+                "status": "ready" if schema_supported else "unsupported",
+                "detail": (
+                    "Local state schema is supported."
+                    if schema_supported
+                    else "Local state schema requires operator attention."
+                ),
+            }
+            if schema_supported:
+                verification = SQLiteAuditChain.verify_connection(db)
+                audit_ready = verification is not None and verification.valid
+                components["audit_chain"] = {
+                    "status": "ready" if audit_ready else "corrupt",
+                    "detail": (
+                        "Local audit hash-chain verification passed."
+                        if audit_ready
+                        else "Local audit integrity requires operator attention."
+                    ),
+                }
+            try:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute("UPDATE run_schema_version SET version = version")
+            finally:
+                if db.in_transaction:
+                    db.rollback()
+            components["state_database"] = {
+                "status": "ready",
+                "detail": "Local state integrity and rollback-only write checks passed.",
+            }
+    except (OSError, sqlite3.DatabaseError):
+        pass
+    ready = all(component["status"] == "ready" for component in components.values())
+    return ready, components
+
+
+@app.get("/api/ready")
+def ready():
+    is_ready, components = _service_readiness(run_api)
+    return JSONResponse(
+        status_code=200 if is_ready else 503,
+        content={"ready": is_ready, "version": __version__, "components": components},
+    )
+
+
 @app.get("/api/bootstrap")
 def bootstrap():
     settings = runtime.settings
     return {
-        "product": "OpsGraph Beta",
+        "product": "OpsGraph",
         "mode": settings.mode,
         "trust": {
             "deployment": "self-hosted",
@@ -212,13 +416,76 @@ def current_policy(principal: Annotated[Principal, Depends(require_principal)]):
         "id": "strict-read-only@1",
         "default": "deny",
         "allowed_actions": [
+            "core.source.manage",
+            "core.source.readiness",
             "core.schema.inspect",
             "core.query.read",
-            "core.investigation.sample",
             "core.investigation.connected",
+            "core.provider.manage",
+            "core.provider.test",
+            "core.skill.manage",
         ],
         "obligations": obligations.model_dump(mode="json"),
         "rejected": ["DDL", "DML", "stacked SQL", "unbounded result sets"],
+    }
+
+
+@app.post("/api/postgres/role-guide")
+def postgres_role_guide(
+    body: PostgresRoleGuideRequest,
+    principal: Annotated[Principal, Depends(require_principal)],
+):
+    """Return a policy-bounded DBA script without connecting to PostgreSQL."""
+
+    obligations = authorize(principal, "core.source.manage", "postgres-role-guide")
+    permitted_tables = intersect_policy_tables(
+        body.tables,
+        allowed_schemas=obligations.allowed_schemas,
+        allowed_tables=obligations.allowed_tables,
+    )
+    excluded_tables = tuple(table for table in body.tables if table not in permitted_tables)
+    if not permitted_tables:
+        runtime.audit.append(
+            workspace_id=principal.workspace_id,
+            actor=principal.subject,
+            action="core.source.manage",
+            resource="postgres-role-guide",
+            outcome="rejected",
+            details={
+                "reason": "no_policy_overlap",
+                "executed": False,
+                "requested_table_count": len(body.tables),
+            },
+        )
+        raise HTTPException(403, "Requested tables are outside the current deployment policy.")
+    try:
+        guide = build_postgres_role_guide(
+            role_name=body.role_name,
+            tables=permitted_tables,
+            timeout_ms=obligations.timeout_ms,
+            database=body.database,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    runtime.audit.append(
+        workspace_id=principal.workspace_id,
+        actor=principal.subject,
+        action="core.source.manage",
+        resource="postgres-role-guide",
+        outcome="allowed",
+        details={
+            "executed": False,
+            "requested_table_count": len(body.tables),
+            "granted_table_count": len(permitted_tables),
+            "excluded_table_count": len(excluded_tables),
+            "database_connect_included": body.database is not None,
+            "statement_timeout_ms": obligations.timeout_ms,
+        },
+    )
+    return {
+        **guide.as_dict(),
+        "requested_tables": body.tables,
+        "excluded_tables": excluded_tables,
     }
 
 
@@ -252,8 +519,7 @@ def create_source(
         "status": "configured",
         "read_only": True,
     }
-    runtime.store.put(WorkspaceRecord(principal.workspace_id, f"source:{body.id}", record))
-    runtime.audit.append(
+    append_required_audit(
         workspace_id=principal.workspace_id,
         actor=principal.subject,
         action="core.source.manage",
@@ -269,6 +535,7 @@ def create_source(
             "allow_external_egress": body.allow_external_egress,
         },
     )
+    runtime.store.put(WorkspaceRecord(principal.workspace_id, f"source:{body.id}", record))
     return record
 
 
@@ -328,7 +595,10 @@ def inspect_source(
             detail=f"secret reference is not configured: {secret_ref}",
         )
     try:
-        snapshot = PsycopgReadOnlyExecutor(dsn).discover_snapshot(
+        snapshot = PsycopgReadOnlyExecutor(
+            dsn,
+            allow_insecure_remote=runtime.settings.allow_insecure_remote_postgres,
+        ).discover_snapshot(
             allowed_schemas=inspection_scope.allowed_schemas,
             allowed_tables=allowed_tables,
             timeout_ms=inspection_scope.timeout_ms,
@@ -381,7 +651,23 @@ def inspect_source(
         "status": "ready",
         "schema_version": scoped_snapshot.fingerprint,
         "inspected_at": scoped_snapshot.model_dump(mode="json")["inspected_at"],
+        "readiness": {
+            "status": "pending",
+            "reason": "Run the bounded readiness check after reviewing this inspection.",
+        },
     }
+    append_required_audit(
+        workspace_id=principal.workspace_id,
+        actor=principal.subject,
+        action="core.schema.inspect",
+        resource=source_id,
+        outcome="allowed",
+        details={
+            "schema_fingerprint": scoped_snapshot.fingerprint,
+            "table_count": len(scoped_snapshot.tables),
+            "readiness_status": "pending",
+        },
+    )
     if not runtime.store.put_if_unchanged(
         WorkspaceRecord(principal.workspace_id, f"source:{source_id}", stored),
         (
@@ -395,6 +681,138 @@ def inspect_source(
     ):
         raise HTTPException(409, "Source configuration changed during inspection. Inspect again.")
     return scoped_snapshot.inspection_payload(status="ready")
+
+
+@app.post("/api/sources/{source_id}/readiness")
+def check_source_readiness(
+    source_id: str,
+    body: SourceReadinessRequest,
+    principal: Annotated[Principal, Depends(require_principal)],
+):
+    """Read at most one constant from one approved table and retain no source value."""
+
+    policy_obligations = authorize(principal, "core.source.readiness", source_id)
+    try:
+        stored_record = runtime.store.get(
+            workspace_id=principal.workspace_id, record_id=f"source:{source_id}"
+        )
+        stored = stored_record.value
+        snapshot_record = runtime.store.get(
+            workspace_id=principal.workspace_id, record_id=f"schema:{source_id}"
+        ).value
+    except KeyError as exc:
+        raise HTTPException(404, "Inspect this source before running its readiness check.") from exc
+    if stored.get("status") != "ready":
+        raise HTTPException(409, "Inspect and review this source before running readiness.")
+    allowed_tables = tuple(stored.get("allowed_tables", ()))
+    if body.table not in allowed_tables:
+        raise HTTPException(422, "Readiness table must be in this source's explicit table scope.")
+    snapshot = SchemaSnapshot.model_validate(
+        {key: value for key, value in snapshot_record.items() if key != "record_type"}
+    )
+    discovered = {f"{table.schema_name}.{table.table_name}" for table in snapshot.tables}
+    if body.table not in discovered or snapshot.fingerprint != stored.get("schema_version"):
+        raise HTTPException(409, "Saved inspection is stale. Inspect and review the source again.")
+    try:
+        obligations = intersect_obligations(
+            policy_obligations,
+            Obligation(
+                max_rows=1,
+                timeout_ms=min(1_000, policy_obligations.timeout_ms),
+                allowed_schemas=tuple(stored["allowed_schemas"]),
+                allowed_tables=(body.table,),
+            ),
+        )
+    except PermissionError as exc:
+        raise HTTPException(403, "Source scope is outside the current deployment policy.") from exc
+    approved_refs = set(runtime.settings.allowed_postgres_secret_refs)
+    if runtime.settings.postgres_secret_ref:
+        approved_refs.add(runtime.settings.postgres_secret_ref)
+    secret_ref = str(stored["secret_ref"])
+    if secret_ref not in approved_refs:
+        raise HTTPException(422, "Source credential reference is no longer approved.")
+    dsn = os.getenv(secret_ref)
+    if not dsn:
+        raise HTTPException(409, "Source credential reference is not configured on the server.")
+    sql = f"SELECT 1 AS opsgraph_readiness FROM {body.table} LIMIT 1"  # noqa: S608
+    try:
+        plan = query_validator.validate(
+            workspace_id=principal.workspace_id,
+            sql=sql,
+            obligations=obligations,
+        )
+        executor = PsycopgReadOnlyExecutor(
+            dsn,
+            allow_insecure_remote=runtime.settings.allow_insecure_remote_postgres,
+            allowed_schemas=tuple(stored["allowed_schemas"]),
+            allowed_tables=(body.table,),
+            expected_schema_fingerprint=snapshot.fingerprint,
+        )
+        executor.execute_readonly(plan.sql, timeout_ms=obligations.timeout_ms)
+    except SourceSchemaChanged as exc:
+        stale = {
+            **stored,
+            "status": "stale",
+            "readiness": {
+                "status": "stale",
+                "reason": "Source schema changed. Inspect and review the source again.",
+            },
+        }
+        runtime.store.put_if_unchanged(
+            stored_record,
+            (WorkspaceRecord(principal.workspace_id, f"source:{source_id}", stale),),
+        )
+        runtime.audit.append(
+            workspace_id=principal.workspace_id,
+            actor=principal.subject,
+            action="core.source.readiness",
+            resource=source_id,
+            outcome="rejected",
+            details={"table": body.table, "reason": "source_schema_changed"},
+        )
+        raise HTTPException(409, str(exc)) from exc
+    except (ConnectorUnavailable, UnsafeDatabaseRole, UnsafeQuery) as exc:
+        runtime.audit.append(
+            workspace_id=principal.workspace_id,
+            actor=principal.subject,
+            action="core.source.readiness",
+            resource=source_id,
+            outcome="rejected",
+            details={"table": body.table, "reason": str(exc)},
+        )
+        raise HTTPException(422, str(exc)) from exc
+    current_policy = authorize(principal, "core.source.readiness", source_id)
+    if current_policy != policy_obligations:
+        raise HTTPException(409, "Deployment policy changed during readiness. Run it again.")
+    checked_at = timestamp()
+    readiness = {
+        "status": "ready",
+        "checked_at": checked_at,
+        "table": body.table,
+        "source_values_returned": 0,
+        "source_revision": source_readiness_basis(stored),
+        "policy_revision": stable_hash(policy_obligations.model_dump(mode="json")),
+    }
+    updated = {**stored, "readiness": readiness}
+    append_required_audit(
+        workspace_id=principal.workspace_id,
+        actor=principal.subject,
+        action="core.source.readiness",
+        resource=source_id,
+        outcome="allowed",
+        details={
+            "table": body.table,
+            "source_values_returned": 0,
+            "timeout_ms": obligations.timeout_ms,
+            "max_rows": obligations.max_rows,
+        },
+    )
+    if not runtime.store.put_if_unchanged(
+        stored_record,
+        (WorkspaceRecord(principal.workspace_id, f"source:{source_id}", updated),),
+    ):
+        raise HTTPException(409, "Source configuration changed during readiness. Run it again.")
+    return readiness
 
 
 @app.get("/api/sources/{source_id}/schema")
@@ -444,18 +862,45 @@ def save_skill(
     principal: Annotated[Principal, Depends(require_principal)],
 ):
     authorize(principal, "core.skill.manage", body.id)
-    try:
-        skill = runtime.skills.save_draft(body)
-    except SkillValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    runtime.store.put(
-        WorkspaceRecord(
+    with runtime.skill_lock:
+        try:
+            runtime.skills.validate(body)
+            if body.version in runtime.skills.versions(body.id):
+                raise SkillValidationError("a published skill version is immutable")
+        except SkillValidationError as exc:
+            runtime.audit.append(
+                workspace_id=principal.workspace_id,
+                actor=principal.subject,
+                action="core.skill.manage",
+                resource=body.id,
+                outcome="rejected",
+                details={"operation": "save_draft", "reason": "validation_failed"},
+            )
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        record = WorkspaceRecord(
             principal.workspace_id,
-            f"skill-draft:{skill.id}",
-            {"record_type": "skill_draft", "definition": skill.model_dump(mode="json")},
+            f"skill-draft:{body.id}",
+            {"record_type": "skill_draft", "definition": body.model_dump(mode="json")},
         )
-    )
-    return skill.model_dump(mode="json")
+        try:
+            with runtime.audit.transaction() as connection:
+                runtime.store.put_in_transaction(connection, record)
+                runtime.audit.append_in_transaction(
+                    connection,
+                    workspace_id=principal.workspace_id,
+                    actor=principal.subject,
+                    action="core.skill.manage",
+                    resource=body.id,
+                    outcome="allowed",
+                    details={"operation": "save_draft", "version": body.version},
+                )
+        except (AuditIntegrityError, OSError, sqlite3.Error):
+            raise HTTPException(
+                503,
+                "The draft was not saved because local state or audit storage is unavailable.",
+            ) from None
+        skill = runtime.skills.save_draft(body)
+        return skill.model_dump(mode="json")
 
 
 @app.post("/api/skills/{skill_id}/publish")
@@ -464,22 +909,75 @@ def publish_skill(
     principal: Annotated[Principal, Depends(require_principal)],
 ):
     authorize(principal, "core.skill.manage", skill_id)
-    try:
-        skill = runtime.skills.publish(skill_id)
-    except (KeyError, SkillValidationError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    runtime.store.put(
-        WorkspaceRecord(
+    with runtime.skill_lock:
+        try:
+            skill = runtime.skills.get_draft(skill_id)
+            runtime.skills.validate(skill)
+            if skill.version in runtime.skills.versions(skill.id):
+                raise SkillValidationError("skill version is already published")
+            draft_record_id = f"skill-draft:{skill.id}"
+            stored_draft = runtime.store.get(
+                workspace_id=principal.workspace_id,
+                record_id=draft_record_id,
+            )
+            if stored_draft.value.get("definition") != skill.model_dump(mode="json"):
+                raise SkillValidationError("saved skill draft changed; reload it before publishing")
+        except (OSError, sqlite3.Error):
+            raise HTTPException(
+                503, "The skill draft could not be read because local state storage is unavailable."
+            ) from None
+        except (KeyError, SkillValidationError) as exc:
+            runtime.audit.append(
+                workspace_id=principal.workspace_id,
+                actor=principal.subject,
+                action="core.skill.manage",
+                resource=skill_id,
+                outcome="rejected",
+                details={"operation": "publish", "reason": "validation_failed"},
+            )
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        published_record = WorkspaceRecord(
             principal.workspace_id,
             f"skill-published:{skill.id}:{skill.version}",
             {"record_type": "skill_published", "definition": skill.model_dump(mode="json")},
         )
-    )
-    runtime.store.delete(
-        workspace_id=principal.workspace_id,
-        record_id=f"skill-draft:{skill.id}",
-    )
-    return skill.model_dump(mode="json")
+        current_record = WorkspaceRecord(
+            principal.workspace_id,
+            f"skill-current:{skill.id}",
+            {
+                "record_type": "skill_current",
+                "skill_id": skill.id,
+                "version": skill.version,
+                "published_record_id": published_record.record_id,
+            },
+        )
+        try:
+            with runtime.audit.transaction() as connection:
+                committed = runtime.store.replace_if_unchanged_in_transaction(
+                    connection,
+                    stored_draft,
+                    (published_record, current_record),
+                    delete_record_ids=(draft_record_id,),
+                )
+                if committed:
+                    runtime.audit.append_in_transaction(
+                        connection,
+                        workspace_id=principal.workspace_id,
+                        actor=principal.subject,
+                        action="core.skill.manage",
+                        resource=skill.id,
+                        outcome="allowed",
+                        details={"operation": "publish", "version": skill.version},
+                    )
+        except (AuditIntegrityError, OSError, sqlite3.Error):
+            raise HTTPException(
+                503,
+                "The skill was not published because local state or audit storage is unavailable.",
+            ) from None
+        if not committed:
+            raise HTTPException(409, "The skill draft changed while it was being published.")
+        published = runtime.skills.publish(skill_id)
+        return published.model_dump(mode="json")
 
 
 @app.post("/api/investigations/sample")

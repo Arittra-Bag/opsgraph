@@ -24,6 +24,7 @@ class SkillRepository:
         self._drafts: dict[str, SkillDefinition] = {}
         self._published: dict[tuple[str, str], SkillDefinition] = {}
         self._publication_order: dict[str, list[str]] = {}
+        self._active_versions: dict[str, str] = {}
 
     def save_draft(self, skill: SkillDefinition) -> SkillDefinition:
         self.validate(skill)
@@ -46,15 +47,25 @@ class SkillRepository:
             raise SkillValidationError("skill version is already published")
         self._published[key] = skill
         self._publication_order.setdefault(skill.id, []).append(skill.version)
+        self._active_versions[skill.id] = skill.version
         del self._drafts[skill.id]
+        return skill
+
+    def activate(self, skill_id: str, version: str) -> SkillDefinition:
+        """Select one already-published immutable version as the active version."""
+
+        try:
+            skill = self._published[(skill_id, version)]
+        except KeyError as exc:
+            raise KeyError(f"unknown published skill version: {skill_id}@{version}") from exc
+        self._active_versions[skill_id] = version
         return skill
 
     def get_published(self, skill_id: str, version: str | None = None) -> SkillDefinition:
         if version is None:
-            versions = self._publication_order.get(skill_id, [])
-            if not versions:
+            version = self._active_versions.get(skill_id)
+            if version is None:
                 raise KeyError(f"unknown published skill: {skill_id}")
-            version = versions[-1]
         try:
             return self._published[(skill_id, version)]
         except KeyError as exc:
@@ -65,9 +76,8 @@ class SkillRepository:
 
     def list_published(self) -> tuple[SkillDefinition, ...]:
         return tuple(
-            self._published[(skill_id, versions[-1])]
-            for skill_id, versions in sorted(self._publication_order.items())
-            if versions
+            self._published[(skill_id, version)]
+            for skill_id, version in sorted(self._active_versions.items())
         )
 
     def validate(self, skill: SkillDefinition) -> None:

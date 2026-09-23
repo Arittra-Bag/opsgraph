@@ -1,7 +1,7 @@
 """Small policy protocol with an explicit fail-closed adapter.
 
 The bundled evaluator is intentionally not presented as enterprise IAM. It
-provides deterministic alpha behavior and a seam for OPA or another external
+provides deterministic built-in behavior and a seam for OPA or another external
 policy decision point without changing enforcement call sites.
 """
 
@@ -47,7 +47,7 @@ class FailClosedPolicy:
 
 
 class StaticPolicyEvaluator:
-    """Exact-match alpha policy; unmatched action-role pairs are denied."""
+    """Exact-match built-in policy; unmatched action-role pairs are denied."""
 
     def __init__(self, rules: dict[tuple[str, str], Obligation]) -> None:
         self._rules = dict(rules)
@@ -64,6 +64,6 @@ class StaticPolicyEvaluator:
         return PolicyDecision(
             allowed=True,
             reason=f"allowed by role {role}",
-            policy_id=f"alpha-static:{role}:{request.action}",
+            policy_id=f"strict-read-only:{role}:{request.action}",
             obligations=obligation,
         )

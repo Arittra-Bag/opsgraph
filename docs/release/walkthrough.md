@@ -10,13 +10,16 @@ authorized read-only PostgreSQL source and explicitly selected tables.
    schema names alone do not establish units or status semantics.
 3. In Settings, run the actual structured model probe. Resolve configuration
    errors before starting an investigation.
-4. Ask a bounded question. Progress reflects backend events; a connection
+4. Return to the inspected source and explicitly approve the bounded one-row
+   readiness check. It returns and retains no source value; later source or
+   policy changes invalidate the approval.
+5. Ask a bounded question. Progress reflects backend events; a connection
    heartbeat does not mean a query completed.
-5. Open a finding and its cited capture to inspect source identity, timestamp,
+6. Open a finding and its cited capture to inspect source identity, timestamp,
    SQL, records and collection limits. Check the interpretation against the rows.
-6. Export only records you are authorized to share. Exports may contain sensitive
+7. Export only records you are authorized to share. Exports may contain sensitive
    data even though credentials are excluded.
-7. Use history to reopen original captures. Follow-up and fresh retry create
+8. Use history to reopen original captures. Follow-up and fresh retry create
    linked attempts with newly collected evidence. Cancellation waits for an
    active operation to exit; interrupted work is not silently replayed.
 
