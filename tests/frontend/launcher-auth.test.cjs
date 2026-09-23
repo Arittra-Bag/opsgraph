@@ -8,17 +8,19 @@ const helper = source.match(/  async function startWorkspace\(\) \{[\s\S]*?(?=\n
 assert.ok(helper);
 function fixture() {
   const state = { authEpoch: 0 }, items = new Map(), calls = [];
+  let request;
   let resolveFetch;
   const f = vm.runInNewContext(`(${helper.trim()})`, {
     state, launchToken: 'fixture-token',
+    apiPath: value => `http://testserver${value}`,
     validWorkspaceKey: value => typeof value === 'string' && /^[\x20-\x7e]+$/.test(value) && Boolean(value.trim()),
-    fetch: () => new Promise(resolve => { resolveFetch = resolve; }),
+    fetch: (url, options) => { request = {url, options}; return new Promise(resolve => { resolveFetch = resolve; }); },
     sessionStorage: { setItem: (k,v) => items.set(k,v), getItem: k => items.get(k) },
     key: () => items.get('opsgraph.workspaceKey'),
     loadWorkspace: async () => calls.push('load'), openRun: async () => calls.push('open'),
     notice: () => calls.push('notice'), readiness: () => calls.push('ready'),
   });
-  return { state, items, calls, f, respond: () => resolveFetch({ok:true,json:async()=>({key:'fixture-key'})}) };
+  return { state, items, calls, f, request: () => request, respond: () => resolveFetch({ok:true,json:async()=>({key:'fixture-key'})}) };
 }
 test('disconnect during launcher exchange cannot restore credentials or authenticated history', async () => {
   const f=fixture(); const pending=f.f(); f.state.authEpoch++; f.respond(); await pending;
@@ -27,4 +29,7 @@ test('disconnect during launcher exchange cannot restore credentials or authenti
 test('unchanged launcher exchange connects once and loads the workspace', async () => {
   const f=fixture(); const pending=f.f(); f.respond(); await pending;
   assert.equal(f.items.get('opsgraph.workspaceKey'),'fixture-key'); assert.deepEqual(f.calls,['load']);
+  assert.equal(f.request().url, 'http://testserver/api/launcher/session');
+  assert.equal(f.request().options.redirect, 'error');
+  assert.equal(f.request().options.cache, 'no-store');
 });

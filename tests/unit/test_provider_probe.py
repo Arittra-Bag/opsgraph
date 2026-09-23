@@ -27,6 +27,7 @@ def probe_api(tmp_path):
             kind="openai_compatible", model="probe-double", base_url="http://localhost/v1"
         ),
         invoke_structured=lambda request: calls.append(request),
+        audit=runtime.audit,
     )
     service = RunAPI(runtime, lambda *args: None)
     app = FastAPI()
@@ -77,6 +78,10 @@ def test_probe_calls_model_with_no_source_data_and_preserves_success_contract(pr
     assert len(calls) == 1
     assert "no source data is included" in calls[0].messages[0].content
     assert calls[0].response_schema["additionalProperties"] is False
+    audit = provider.audit.entries[-1]
+    assert audit.action == "core.provider.test" and audit.outcome == "allowed"
+    assert audit.details["reason"] == "structured_probe_succeeded"
+    assert set(audit.details) == {"reason", "adapter", "preset", "duration_ms"}
 
 
 @pytest.mark.parametrize(

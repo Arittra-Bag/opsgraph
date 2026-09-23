@@ -1,4 +1,4 @@
-# Public-alpha example only. Enforcement defaults to deny when no exact rule matches.
+# Bundled example only. Enforcement defaults to deny when no exact rule matches.
 version: 1
 deployment_mode: single_tenant
 rules:

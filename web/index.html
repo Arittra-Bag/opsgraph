@@ -12,7 +12,7 @@
 <body>
   <a class="skip-link" href="#workspace">Skip to investigation</a>
   <header class="trust-bar">
-    <a class="wordmark" href="#investigations" data-view="investigations"><img class="brand-mark" src="/assets/static/favicon.svg" alt="" aria-hidden="true">OpsGraph <em>beta</em></a>
+    <a class="wordmark" href="#investigations" data-view="investigations"><img class="brand-mark" src="/assets/static/favicon.svg" alt="" aria-hidden="true">OpsGraph <em>1.0</em></a>
     <div class="trust-signals" aria-label="Reported runtime status">
       <span class="trust-signal checking" id="trustAccess">Runtime loading…</span>
       <span class="trust-signal checking" id="trustModel">Model unchecked</span>
@@ -52,6 +52,7 @@
                 <li id="workspaceStep"><div><b id="workspaceStepTitle">1. Connect workspace</b><span id="workspaceReadiness">Use the key created by your OpsGraph operator.</span></div><button class="secondary" id="setupCredential">Connect</button></li>
                 <li id="sourceStep"><div><b id="sourceStepTitle">2. Inspect PostgreSQL</b><span id="sourceReadiness">Configure an approved read-only source.</span></div><button class="secondary" id="setupSource" data-view="sources">Configure source</button></li>
                 <li id="modelStep"><div><b id="modelStepTitle">3. Check your model</b><span id="modelReadiness">Configure local inference, then run a real connection test.</span></div><button class="secondary" id="setupModel" data-view="settings">Configure model</button></li>
+                <li id="readinessStep"><div><b id="readinessStepTitle">4. Verify the path</b><span id="readinessReadiness">Approve a one-row, no-value database probe after source inspection.</span></div><button class="secondary" id="setupReadiness">Run readiness check</button></li>
               </ol>
             </section>
             <section id="runWorkspace" hidden>
@@ -93,7 +94,9 @@
         <header class="page-header"><div><p class="eyebrow">Your data</p><h1 id="sourcesTitle">Sources</h1><p>Connect an approved PostgreSQL source with a dedicated read-only role.</p></div><button class="primary" id="addSource">Add source</button></header>
         <div class="source-grid" id="sourceCatalog"><p class="helper">Connect workspace to load sources.</p></div>
         <section class="source-setup" id="sourceSetup" hidden>
-          <div><h2>Configure PostgreSQL</h2><p>The guided launcher stores your connection privately on the <strong>OpsGraph backend host</strong>. Choose the exact tables below, then inspect their actual columns.</p><p>If the connection is missing, stop the launcher and run it again with <code>--configure</code>. Advanced installations may use an approved environment-variable reference. Never paste a connection URL here.</p><p>Use a dedicated read-only role. Source inspection works even when your model is unavailable.</p></div>
+          <div><h2 id="sourceSetupTitle" tabindex="-1">Configure PostgreSQL</h2><p>The guided launcher stores your connection privately on the <strong>OpsGraph backend host</strong>. Choose the exact tables below, then inspect their actual columns.</p><p>If the connection is missing, stop the launcher and run it again with <code>--configure</code>. Advanced installations may use an approved environment-variable reference. Never paste a connection URL here.</p><p>Use a dedicated read-only role. Source inspection works even when your model is unavailable.</p>
+            <details class="role-guide"><summary>Create a least-privilege login</summary><p>Enter the exact tables in the source form, then generate a policy-bounded script for a PostgreSQL administrator to review. OpsGraph does not connect with administrator credentials and never executes this script.</p><div class="role-guide-controls"><label for="roleGuideName">Role name</label><input id="roleGuideName" value="opsgraph_reader" pattern="[a-z_][a-z0-9_]{0,62}" maxlength="63"><label for="roleGuideDatabase">Database name (optional)</label><input id="roleGuideDatabase" pattern="[a-z_][a-z0-9_]{0,62}" maxlength="63" placeholder="operations"><button class="secondary" id="generateRoleGuide" type="button">Generate reviewed scope</button></div><div class="notice error" id="roleGuideError" role="alert" hidden></div><p id="roleGuideStatus" class="helper" role="status">No script generated.</p><pre id="roleGuideOutput" hidden><code></code></pre><button class="secondary" id="copyRoleGuide" type="button" hidden>Copy script</button><ul id="roleGuideNotes" class="helper" hidden></ul><p>Passwords are set interactively with <code>createuser --pwprompt</code> or <code>\password</code>, never placed in generated SQL. Remote connections must verify the database certificate.</p></details>
+          </div>
           <form id="sourceForm" class="credential-form">
             <label for="sourceId">Source ID</label><input id="sourceId" required pattern="[a-z][a-z0-9\-]{1,63}" placeholder="staging-readonly">
             <label for="sourceName">Display name</label><input id="sourceName" required placeholder="Staging PostgreSQL">
@@ -101,6 +104,14 @@
             <label for="sourceSchemas">Allowed schemas</label><input id="sourceSchemas" required value="public">
             <label for="sourceTables">Explicit allowed tables</label><input id="sourceTables" required placeholder="public.jobs, public.queues">
             <div id="inspectedTables" hidden></div>
+            <section class="readiness-panel" id="sourceReadinessPanel" aria-labelledby="sourceReadinessTitle" hidden>
+              <h3 id="sourceReadinessTitle">Bounded readiness check</h3>
+              <p>After reviewing the inspection, approve one real read against one selected table. OpsGraph selects only the constant <code>1</code>, reads at most one row, retains no source value, uses a one-second-or-shorter timeout, and does not contact the model.</p>
+              <label for="sourceReadinessTable">Approved table to probe</label><select id="sourceReadinessTable"></select>
+              <label class="checkbox-label"><input id="confirmSourceReadiness" type="checkbox"><span>I reviewed this source scope and approve the bounded read described above.</span></label>
+              <button class="secondary" id="runSourceReadiness" type="button" disabled>Run bounded readiness check</button>
+              <p id="sourceReadinessStatus" role="status">Not run for this source revision.</p>
+            </section>
             <label for="sourceEvidenceBindings">Playbook evidence mappings (optional)</label><textarea id="sourceEvidenceBindings" rows="3" placeholder="job_status=public.jobs&#10;queue_state=public.queues"></textarea><small>Required only for specialist playbooks that declare these evidence types. Map each to an allowed table. This is an evidence-coverage binding; it does not define column meanings, units, statuses or relationships. General read-only investigations do not require these mappings.</small>
             <label class="checkbox-label"><input id="sourceExternalEgress" type="checkbox"><span>Permit bounded evidence and schema metadata to reach an external model provider. Keep off for local inference.</span></label>
             <div class="notice error" id="sourceError" role="alert" hidden></div><p id="sourceStatus" role="status"></p><button class="primary" id="saveSource" type="submit">Save and inspect source</button>
@@ -112,26 +123,26 @@
       <section class="view catalog-view" data-view-panel="audit" aria-labelledby="auditTitle" hidden><header class="page-header"><div><p class="eyebrow">Recorded decisions</p><h1 id="auditTitle">Audit</h1><p>Backend audit records. Local hash verification does not prove that a conclusion is true.</p></div><button class="secondary" id="exportAudit">Export audit</button></header><pre class="data-block" id="auditDetails">Connect workspace to load audit records.</pre></section>
       <section class="view catalog-view" data-view-panel="settings" aria-labelledby="settingsTitle" hidden>
         <header class="page-header"><div><p class="eyebrow">Backend configuration</p><h1 id="settingsTitle">Settings</h1><p>Choose your model, save its connection, then test it with a real structured request.</p></div></header>
-        <div class="settings-grid"><section><h2>Model connection</h2><dl class="detail-list" id="providerConfig"><div><dt>Status</dt><dd>Connect workspace to read configuration.</dd></div></dl><button class="primary" id="testProvider">Test actual model connection</button><p id="providerTestStatus" role="status">No connection test performed in this tab.</p><div class="notice error" id="providerError" role="alert" hidden></div></section>
-        <section><h2>Provider and model</h2><p>Configuration stays on this backend. Saving does not contact a provider; the connection test sends a small structured probe.</p>
+        <div class="settings-grid"><section><h2>Provider and model</h2><p>Choose a supported connection preset, enter the exact model identifier, save, and then run the bounded connection test. Configuration stays on this backend.</p>
           <form id="providerForm">
             <fieldset id="providerFields" disabled>
-              <label for="modelProvider">Provider</label><select id="modelProvider"><option value="ollama">Ollama (local)</option><option value="openai_compatible">OpenAI-compatible</option><option value="anthropic">Anthropic</option></select>
+              <label for="modelProvider">Connection preset</label><select id="modelProvider"><optgroup label="Local runtimes"><option value="ollama">Ollama</option><option value="lm_studio">LM Studio</option><option value="vllm">vLLM</option></optgroup><optgroup label="Hosted providers"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="openrouter">OpenRouter</option><option value="groq">Groq</option><option value="together">Together AI</option><option value="mistral">Mistral AI</option></optgroup><optgroup label="Manual"><option value="custom_openai">Custom OpenAI-compatible endpoint</option></optgroup></select><p class="helper">Presets select a protocol and safe endpoint defaults. They do not discover models or guarantee account access.</p>
               <label for="modelName">Model identifier</label><input id="modelName" required maxlength="200" placeholder="qwen3:8b" autocomplete="off" spellcheck="false"><p class="helper">Enter a model installed in your runtime or available in your provider account. No model download starts automatically.</p>
-              <div id="modelEndpointField"><label for="modelEndpoint">API endpoint</label><input id="modelEndpoint" type="url" required maxlength="2000" placeholder="http://127.0.0.1:11434/v1" spellcheck="false"><p class="helper">Address reachable from the OpsGraph backend. Inside Docker, localhost means the OpsGraph container.</p></div>
+              <div id="modelEndpointField"><label for="modelEndpoint">API endpoint</label><input id="modelEndpoint" type="url" required maxlength="2000" placeholder="http://127.0.0.1:11434/v1" spellcheck="false"><p id="modelEndpointHelp" class="helper">Address reachable from the OpsGraph backend. Inside Docker, localhost means the OpsGraph container.</p></div>
               <label for="modelApiKey">API key (optional for local models)</label><input id="modelApiKey" type="password" autocomplete="new-password" spellcheck="false" maxlength="4096" aria-describedby="modelKeyStatus"><p id="modelKeyStatus" class="helper">Stored keys are never displayed. Leave blank to retain a key for the same provider and endpoint.</p>
               <label class="checkbox-label"><input id="clearModelKey" type="checkbox"><span>Remove the saved key</span></label>
               <details class="model-advanced"><summary>Advanced connection settings</summary>
-                <label for="modelProfile">Structured response profile</label><select id="modelProfile"><option value="ollama">Ollama</option><option value="standard">Standard</option></select>
+                <label for="modelProfile">Structured response profile</label><select id="modelProfile"><option value="">Preset default</option><option value="ollama">Ollama</option><option value="standard">Standard</option></select>
                 <label for="modelReasoning">Reasoning effort</label><select id="modelReasoning"><option value="">Provider default (omit)</option><option value="none">None</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
                 <label for="modelTimeout">Request timeout (seconds)</label><input id="modelTimeout" type="number" min="0.1" max="600" step="0.1" required value="300">
+                <label for="modelMaxOutput">Maximum output tokens</label><input id="modelMaxOutput" type="number" min="1" max="32768" step="1" required value="1024"><p class="helper">Caps each structured model response. This does not change the SQL row limit.</p>
               </details>
               <label class="checkbox-label"><input id="modelExternalEgress" type="checkbox"><span>I permit this configuration to contact an external model provider. Investigations additionally require approval on each source.</span></label><p id="modelEgressStatus" class="helper"></p>
               <button class="primary" id="saveProvider" type="submit">Save model configuration</button>
             </fieldset>
             <p id="providerSaveStatus" role="status">Connect your workspace to configure a model.</p><div class="notice error" id="providerSaveError" role="alert" hidden></div>
           </form>
-        </section></div>
+        </section><section><h2>Verify connection</h2><p>Saving validates configuration only. This test sends a small structured request to the selected model; it sends no database schema, question, or evidence.</p><dl class="detail-list" id="providerConfig"><div><dt>Status</dt><dd>Connect workspace to read configuration.</dd></div></dl><button class="primary" id="testProvider">Test actual model connection</button><p id="providerTestStatus" role="status">No connection test performed in this tab.</p><div class="notice error" id="providerError" role="alert" hidden></div></section></div>
         <details class="runtime-details"><summary>Advanced: reported runtime</summary><pre class="data-block" id="runtimeDetails">Reading runtime…</pre></details>
       </section>
     </main>

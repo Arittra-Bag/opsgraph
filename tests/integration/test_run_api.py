@@ -9,12 +9,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from opsgraph.api.runs import RunAPI
-from opsgraph.brokers import QueryExecutionFailed, QueryResult
+from opsgraph.brokers import QueryExecutionFailed, QueryResult, SourceSchemaChanged
 from opsgraph.config import get_settings
 from opsgraph.domain import Obligation
+from opsgraph.domain.models import stable_hash
 from opsgraph.orchestration.connected import ModelPlanInconsistentError
 from opsgraph.persistence import WorkspaceRecord
 from opsgraph.providers import ProviderCapabilities, ProviderConfig, StructuredResponse
+from opsgraph.readiness import source_readiness_basis
 from opsgraph.runtime import build_runtime
 from opsgraph.schema_service import ColumnSchema, SchemaSnapshot, TableSchema
 
@@ -53,8 +55,14 @@ class ContractProvider:
 
 
 class ContractExecutor:
-    def __init__(self, dsn):
+    def __init__(self, dsn, **kwargs):
         assert dsn == "local-contract-only"
+        assert kwargs["allowed_tables"] == ("public.records",)
+        assert kwargs["allowed_schemas"] == ("public",)
+        assert kwargs["expected_schema_fingerprint"] == contract_snapshot().fingerprint
+        self.allowed_schemas = kwargs["allowed_schemas"]
+        self.allowed_tables = kwargs["allowed_tables"]
+        self.expected_schema_fingerprint = kwargs["expected_schema_fingerprint"]
 
     def cancel(self):
         return None
@@ -97,6 +105,17 @@ def api(tmp_path, monkeypatch):
         "allow_external_egress": False,
     }
     snapshot = contract_snapshot()
+    source.update(
+        {
+            "schema_version": snapshot.fingerprint,
+            "inspected_at": snapshot.model_dump(mode="json")["inspected_at"],
+        }
+    )
+    source["readiness"] = {
+        "status": "ready",
+        "source_revision": source_readiness_basis(source),
+        "policy_revision": stable_hash(Obligation().model_dump(mode="json")),
+    }
     runtime.store.put(WorkspaceRecord(workspace, "source:local-data", source))
     runtime.store.put(
         WorkspaceRecord(workspace, "schema:local-data", snapshot.model_dump(mode="json"))
@@ -124,6 +143,21 @@ def wait(api, run_id):
     pytest.fail("contract investigation did not complete")
 
 
+def wait_for_terminal_audit(api, run_id):
+    """Allow the worker to finish its audit callback after exposing terminal state."""
+
+    for _ in range(200):
+        entries = [
+            entry
+            for entry in api.runtime.audit.entries
+            if entry.action == "core.investigation.connected" and entry.resource == run_id
+        ]
+        if entries:
+            return entries
+        time.sleep(0.01)
+    pytest.fail("terminal investigation audit was not recorded")
+
+
 def test_database_query_failure_is_distinct_from_connectivity(api, monkeypatch):
     def fail_query(self, sql, *, timeout_ms):
         raise QueryExecutionFailed("private driver detail must not enter events")
@@ -139,6 +173,15 @@ def test_database_query_failure_is_distinct_from_connectivity(api, monkeypatch):
     assert run["error"]["code"] == "query_failed"
     assert "recorded query" in run["error"]["message"]
     assert run["evidence"] == [] and run["answer"] is None
+    terminal_audit = wait_for_terminal_audit(api, run["id"])
+    assert len(terminal_audit) == 1
+    assert terminal_audit[0].outcome == "rejected"
+    assert terminal_audit[0].details == {
+        "status": "failed",
+        "code": "query_failed",
+        "source_id": "local-data",
+        "evidence_count": 0,
+    }
     exported = api.client.get(f"/api/runs/{run['id']}/export", headers=api.headers)
     assert exported.status_code == 200
     assert "private driver detail" not in exported.text
@@ -154,6 +197,9 @@ def test_real_only_run_contract_replay_export_followup(api):
     assert response.status_code == 202
     run = wait(api, response.json()["id"])
     assert run["status"] == "completed", run
+    completion_audit = wait_for_terminal_audit(api, run["id"])
+    assert len(completion_audit) == 1
+    assert completion_audit[0].outcome == "allowed"
     assert run["evidence"][0]["rows"] == [[1]]
     provenance = run["evidence"][0]["provenance"]
     assert provenance["source_id"] == "local-data"
@@ -189,6 +235,37 @@ def test_real_only_run_contract_replay_export_followup(api):
         },
     )
     assert wrong.status_code == 409
+
+
+def test_queued_cancellation_records_one_terminal_audit(api):
+    # Keep the run queued so this endpoint, rather than the worker, creates the
+    # terminal transition.
+    api.service.coordinator.close()
+    run = api.service.store.create(
+        api.runtime.settings.workspace_id,
+        {"question": "Cancel this queued investigation?", "source_id": "local-data"},
+    )
+
+    first = api.client.post(f"/api/runs/{run['id']}/cancel", headers=api.headers)
+    second = api.client.post(f"/api/runs/{run['id']}/cancel", headers=api.headers)
+
+    assert first.status_code == second.status_code == 200
+    assert first.json()["status"] == second.json()["status"] == "cancelled"
+    assert first.json()["terminal_audited"] is True
+    audits = [
+        entry
+        for entry in api.runtime.audit.entries
+        if entry.action == "core.investigation.connected" and entry.resource == run["id"]
+    ]
+    assert len(audits) == 1
+    assert audits[0].outcome == "rejected"
+    assert audits[0].details == {
+        "status": "cancelled",
+        "code": "cancelled",
+        "source_id": "local-data",
+        "evidence_count": 0,
+    }
+    assert api.service.store.get(api.runtime.settings.workspace_id, run["id"])["terminal_audited"]
 
 
 def test_failures_preserve_captures_and_retry_new_attempt(api):
@@ -657,6 +734,13 @@ def test_live_schema_drift_blocks_before_planning_or_next_query(api, monkeypatch
         return response
 
     def read(self, sql, *, timeout_ms):
+        live = self.discover_snapshot(
+            allowed_schemas=self.allowed_schemas,
+            allowed_tables=self.allowed_tables,
+            timeout_ms=timeout_ms,
+        )
+        if live.fingerprint != self.expected_schema_fingerprint:
+            raise SourceSchemaChanged("source schema changed after review")
         reads.append(True)
         return QueryResult(columns=("id",), rows=((1,),))
 
@@ -840,7 +924,13 @@ def test_deployment_schema_policy_cannot_be_widened_by_source(api, monkeypatch, 
 
 
 def test_current_policy_limits_are_applied_and_recorded(api, monkeypatch):
-    api.service.authorize = lambda *args: Obligation(max_rows=1, timeout_ms=700)
+    tightened = Obligation(max_rows=1, timeout_ms=700)
+    api.service.authorize = lambda *args: tightened
+    source = api.runtime.store.get(
+        workspace_id=api.runtime.settings.workspace_id, record_id="source:local-data"
+    )
+    source.value["readiness"]["policy_revision"] = stable_hash(tightened.model_dump(mode="json"))
+    api.runtime.store.put(source)
     calls = []
 
     def execute(self, sql, *, timeout_ms):

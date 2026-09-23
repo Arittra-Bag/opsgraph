@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from opsgraph.persistence import SQLiteWorkspaceStore, WorkspaceRecord
@@ -73,3 +75,35 @@ def test_revision_guard_rejects_cross_workspace_update_before_writing(tmp_path):
         store.put_if_unchanged(source, (WorkspaceRecord("workspace-b", "schema:one", {}),))
     assert store.get(workspace_id="workspace-a", record_id="source:one") == source
     assert store.list(workspace_id="workspace-b") == ()
+
+
+@pytest.mark.parametrize("operation", ["write", "delete"])
+def test_atomic_replace_rolls_back_published_record_when_any_statement_fails(tmp_path, operation):
+    store = SQLiteWorkspaceStore(tmp_path / "opsgraph.db")
+    draft = WorkspaceRecord("workspace-a", "skill-draft:one", {"version": "1.0.0"})
+    published = WorkspaceRecord("workspace-a", "skill-published:one:1.0.0", {"version": "1.0.0"})
+    store.put(draft)
+    with sqlite3.connect(store.path) as db:
+        if operation == "write":
+            db.execute(
+                "CREATE TRIGGER fail_atomic_write BEFORE INSERT ON workspace_records "
+                "WHEN NEW.record_id LIKE 'skill-published:%' BEGIN "
+                "SELECT RAISE(ABORT, 'injected write failure'); END"
+            )
+        else:
+            db.execute(
+                "CREATE TRIGGER fail_atomic_delete BEFORE DELETE ON workspace_records "
+                "WHEN OLD.record_id LIKE 'skill-draft:%' BEGIN "
+                "SELECT RAISE(ABORT, 'injected delete failure'); END"
+            )
+
+    with pytest.raises(sqlite3.IntegrityError):
+        store.replace_if_unchanged(
+            draft,
+            (published,),
+            delete_record_ids=(draft.record_id,),
+        )
+
+    assert store.get(workspace_id="workspace-a", record_id=draft.record_id) == draft
+    with pytest.raises(KeyError):
+        store.get(workspace_id="workspace-a", record_id=published.record_id)

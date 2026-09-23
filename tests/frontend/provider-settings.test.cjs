@@ -11,13 +11,20 @@ function fixture() {
     return nodes.get(id);
   };
   const state = { authenticated: true, providerBusy: false, providerDirty: true, providerTestToken: 0, authEpoch: 0, modelTested: true, sources: [], runs: [] };
-  const context = vm.createContext({ $, state, stamp: value => value, notice: (id, value = '') => { $(id).textContent = value; }, readiness() {}, guardAsyncFocus: () => () => {}, loadProvider: async () => {}, api: async () => ({}) });
+  const providerPresets = {
+    ollama: { endpoint: 'http://127.0.0.1:11434/v1', local: true },
+    openai: { endpoint: 'https://api.openai.com/v1', fixed: true },
+    anthropic: { endpoint: '', fixed: true },
+    custom_openai: { endpoint: '' },
+  };
+  const sourceReady = item => item?.status === 'ready';
+  const context = vm.createContext({ $, state, providerPresets, sourceReady, sourceReadinessPassed: item => sourceReady(item) && item.readiness?.status === 'ready', stamp: value => value, notice: (id, value = '') => { $(id).textContent = value; }, readiness() {}, guardAsyncFocus: () => () => {}, loadProvider: async () => {}, api: async () => ({}) });
   const begin = source.indexOf('  function providerFormMode()');
   const end = source.indexOf('  async function loadSources()', begin);
   vm.runInContext(source.slice(begin, end), context);
   return { $, state, context };
 }
-const config = { provider: 'ollama', model: 'qwen3:8b', endpoint: 'http://127.0.0.1:11434/v1', schema_profile: 'ollama', reasoning_effort: 'none', timeout_seconds: 300, api_key_configured: true, deployment_egress_enabled: false, allow_external_egress: false };
+const config = { provider: 'ollama', adapter: 'openai_compatible', model: 'qwen3:8b', endpoint: 'http://127.0.0.1:11434/v1', schema_profile: 'ollama', reasoning_effort: null, timeout_seconds: 300, max_output_tokens: 1024, api_key_configured: true, deployment_egress_enabled: false, allow_external_egress: false };
 
 test('saved provider configuration never fills a credential and respects deployment egress ceiling', () => {
   const f = fixture(); f.$('#modelApiKey').value = 'unsaved secret';
@@ -34,8 +41,19 @@ test('successful save sends a key only to backend configuration endpoint and inv
   f.context.api = async (path, options) => { request = { path, ...JSON.parse(options.body) }; assert.equal(f.$('#modelApiKey').value, ''); return config; };
   await f.context.saveProviderConfiguration({ preventDefault() {} });
   assert.equal(request.path, '/api/providers/configuration'); assert.equal(request.api_key, 'fixture-secret');
+  assert.equal(request.max_output_tokens, 1024);
   assert.equal(request.clear_api_key, false); assert.equal(f.state.modelTested, false); assert.equal(f.state.providerBusy, false);
   assert.match(f.$('#providerSaveStatus').textContent, /^Saved/);
+});
+
+test('hosted presets keep official endpoints while custom endpoints stay editable', () => {
+  const f = fixture();
+  f.$('#modelProvider').value = 'openai'; f.$('#modelEndpoint').value = 'https://api.openai.com/v1';
+  f.context.providerFormMode();
+  assert.equal(f.$('#modelEndpoint').readOnly, true);
+  assert.match(f.$('#modelEndpointHelp').textContent, /official endpoint/);
+  f.$('#modelProvider').value = 'custom_openai'; f.context.providerFormMode();
+  assert.equal(f.$('#modelEndpoint').readOnly, false);
 });
 
 test('failed save preserves prior successful probe and removes entered secret', async () => {
@@ -63,7 +81,7 @@ test('a late probe cannot mark a disconnected or replaced configuration complete
 test('onboarding hides redundant connect action and marks only actual ready sources complete', () => {
   const f = fixture(); f.state.modelTested = false;
   f.context.terminal = () => true; f.context.renderComposerScope = () => {};
-  const code = source.slice(source.indexOf('  function readiness()'), source.indexOf('  function scopeMarkup('));
+  const code = source.slice(source.indexOf('  function selectedInvestigationSource('), source.indexOf('  function scopeMarkup('));
   vm.runInContext(code, f.context);
   f.state.sources = [{ kind: 'postgresql', status: 'configured' }]; f.context.readiness();
   assert.equal(f.$('#setupCredential').hidden, true);
@@ -73,6 +91,105 @@ test('onboarding hides redundant connect action and marks only actual ready sour
   assert.match(f.$('#sourceStepTitle').textContent, /complete/);
   assert.doesNotMatch(f.$('#modelStepTitle').textContent, /complete/);
   f.state.authenticated = false; f.context.readiness(); assert.equal(f.$('#setupCredential').hidden, false);
+});
+
+test('readiness belongs to the selected source instead of any verified source', () => {
+  const f = fixture();
+  f.context.terminal = () => true; f.context.renderComposerScope = () => {};
+  const code = source.slice(source.indexOf('  function selectedInvestigationSource('), source.indexOf('  function scopeMarkup('));
+  vm.runInContext(code, f.context);
+  f.state.providerDirty = false; f.state.modelTested = true;
+  f.state.sources = [
+    { id: 'verified', name: 'Verified', kind: 'postgresql', status: 'ready', readiness: { status: 'ready' } },
+    { id: 'pending', name: 'Pending', kind: 'postgresql', status: 'ready', readiness: { status: 'pending' } },
+  ];
+  f.$('#investigationSource').value = 'pending'; f.context.readiness();
+  assert.doesNotMatch(f.$('#readinessStepTitle').textContent, /complete/);
+  assert.equal(f.$('#submitRun').disabled, true);
+  assert.equal(f.$('#setupReadiness').textContent, 'Run readiness check');
+  f.$('#investigationSource').value = 'verified'; f.context.readiness();
+  assert.match(f.$('#readinessStepTitle').textContent, /complete/);
+  assert.equal(f.$('#submitRun').disabled, false);
+  f.state.sourceDirty = true; f.state.sourceEditingId = 'verified'; f.context.readiness();
+  assert.equal(f.$('#submitRun').disabled, true);
+  assert.match(f.$('#sourceFieldHelp').textContent, /unsaved edits/i);
+});
+
+test('readiness setup prioritizes the selected source, then an unchecked source', () => {
+  const f = fixture();
+  const code = source.slice(source.indexOf('  function selectedInvestigationSource('), source.indexOf('  function readiness()'));
+  vm.runInContext(code, f.context);
+  const verified = { id: 'verified', kind: 'postgresql', status: 'ready', readiness: { status: 'ready' } };
+  const pending = { id: 'pending', kind: 'postgresql', status: 'ready', readiness: { status: 'pending' } };
+  f.state.sources = [verified, pending];
+  f.$('#investigationSource').value = 'verified';
+  assert.equal(f.context.sourceForReadinessSetup().id, 'verified');
+  f.$('#investigationSource').value = '';
+  assert.equal(f.context.sourceForReadinessSetup().id, 'pending');
+});
+
+test('editing provider fields invalidates the tested model and any in-flight probe', () => {
+  const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+  f.state.modelTested = true; const token = f.state.providerTestToken;
+  f.context.markProviderDirty();
+  assert.equal(f.state.providerDirty, true);
+  assert.equal(f.state.modelTested, false);
+  assert.equal(f.state.providerTestToken, token + 1);
+  assert.match(f.$('#providerTestStatus').textContent, /Save and run a new/);
+  assert.equal(f.$('#trustModel').textContent, 'Model untested');
+});
+
+test('workspace loads provider configuration before rendering provider status', async () => {
+  const calls = [];
+  const context = vm.createContext({
+    state: { authenticated: false },
+    notice() {}, readiness() {},
+    loadSources: async () => {}, loadSkills: async () => {}, loadHistory: async () => {}, loadPolicy: async () => {},
+    loadProviderConfiguration: async () => { calls.push('configuration'); },
+    loadProvider: async () => { calls.push('status'); },
+  });
+  const begin = source.indexOf('  async function loadWorkspace()');
+  const end = source.indexOf('  async function connectWorkspace(', begin);
+  vm.runInContext(source.slice(begin, end), context);
+  await context.loadWorkspace();
+  assert.deepEqual(calls, ['configuration', 'status']);
+});
+
+test('submission refuses a stale tested state while provider edits are unsaved', async () => {
+  const f = fixture(); let submitted = false;
+  f.state.providerDirty = true; f.state.modelTested = true; f.state.busy = false;
+  f.$('#submitRun').disabled = false;
+  Object.assign(f.context, {
+    guardAsyncFocus: () => () => {}, readiness() {}, openRun: async () => {},
+    crypto: { randomUUID: () => 'request-id' },
+    api: async () => { submitted = true; return { id: 'run-id' }; },
+  });
+  const begin = source.indexOf('  async function submitRun(');
+  const end = source.indexOf('  async function cancelRun(', begin);
+  vm.runInContext(source.slice(begin, end), f.context);
+  await f.context.submitRun({ preventDefault() {} });
+  assert.equal(submitted, false);
+});
+
+test('submission refuses a readiness-approved source while its edits are unsaved', async () => {
+  const f = fixture(); let submitted = false;
+  f.state.providerDirty = false; f.state.modelTested = true; f.state.busy = false;
+  f.state.sourceDirty = true; f.state.sourceEditingId = 'source-a';
+  f.$('#investigationSource').value = 'source-a'; f.$('#submitRun').disabled = false;
+  Object.assign(f.context, {
+    guardAsyncFocus: () => () => {}, readiness() {}, openRun: async () => {},
+    crypto: { randomUUID: () => 'request-id' },
+    api: async () => { submitted = true; return { id: 'run-id' }; },
+  });
+  const begin = source.indexOf('  async function submitRun(');
+  const end = source.indexOf('  async function cancelRun(', begin);
+  vm.runInContext(source.slice(begin, end), f.context);
+  await f.context.submitRun({ preventDefault() {} });
+  assert.equal(submitted, false);
+});
+
+test('vLLM preset does not collide with the default OpsGraph launch port', () => {
+  assert.match(source, /vllm: \{ endpoint: 'http:\/\/127\.0\.0\.1:8001\/v1'/);
 });
 
 

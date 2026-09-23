@@ -1,6 +1,6 @@
 """Deterministic SELECT-only validation and broker protocol.
 
-The alpha broker is defense in depth, not a substitute for a database account
+The query broker is defense in depth, not a substitute for a database account
 whose server-side permissions are SELECT-only. Production connectors must also
 set read-only transactions, statement timeouts, and network isolation.
 """
@@ -217,7 +217,7 @@ class _ScopeVisitor(_PgVisitor):
         ]
         # PostgreSQL normalizes some built-in aliases (for example integer) to
         # pg_catalog names. Any other explicit namespace may invoke a custom
-        # cast function and is outside the alpha's auditable SQL subset.
+        # cast function and is outside the auditable SQL subset.
         if len(parts) > 1 and parts[0].lower() != "pg_catalog":
             self.namespaced_type = ".".join(parts)
 

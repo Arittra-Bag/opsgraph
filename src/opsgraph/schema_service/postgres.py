@@ -1,4 +1,4 @@
-"""Strict, schema-only PostgreSQL DDL parsing for the public alpha.
+"""Strict, schema-only PostgreSQL DDL parsing.
 
 Input is treated as untrusted text and is never passed to a database. The
 parser deliberately supports a small CREATE TABLE subset and rejects every
@@ -31,6 +31,7 @@ class TableSchema(BaseModel):
     schema_name: str
     table_name: str
     columns: tuple[ColumnSchema, ...]
+    relation_fingerprint: str | None = None
 
 
 class SchemaSnapshot(BaseModel):
@@ -104,6 +105,8 @@ class SchemaSnapshot(BaseModel):
                 "New inspections discover columns with SELECT privilege in schemas with USAGE. "
                 "Application scope is table-level; "
                 "restrict columns using database grants or views.",
+                "Relation fingerprints bind relation kind, view definitions and foreign-table "
+                "routing without returning those definitions to the browser or model.",
                 "Relationships, join cardinality, business meanings, units, status definitions "
                 "and time semantics are unavailable unless explicitly supplied by the operator.",
                 "Metadata is compared before planning and each query, not locked for the run. "
@@ -170,7 +173,7 @@ class PostgresSchemaParser:
     @staticmethod
     def _strip_comments(text: str) -> str:
         if "/*" in text or "*/" in text:
-            # Avoid accepting malformed/nested block comments in the alpha grammar.
+            # Avoid accepting malformed or nested block comments in the bounded grammar.
             raise SchemaParseError("block comments are not supported")
         return "\n".join(line.split("--", 1)[0] for line in text.splitlines())
 

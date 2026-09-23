@@ -1,3 +1,3 @@
-"""OpsGraph public-validation alpha."""
+"""OpsGraph public package."""
 
-__version__ = "0.1.0b1"
+__version__ = "1.0.0"

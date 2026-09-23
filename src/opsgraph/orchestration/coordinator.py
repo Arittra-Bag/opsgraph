@@ -46,21 +46,86 @@ class RunCoordinator:
         on_complete: Callable | None = None,
         *,
         workspace_id: str,
+        on_terminal: Callable[[str, str, str, str | None], None] | None = None,
     ):
         self.store = store
         self.workspace_id = workspace_id
         self.execute = execute
         self.on_complete = on_complete
+        self.on_terminal = on_terminal
         self._guard = None
         self._thread = None
-        self._mutex = threading.Lock()
+        self._mutex = threading.RLock()
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._active_cancel = None
         self._failure = None
 
+    def health(self) -> dict[str, str]:
+        """Report process-local worker and ownership state without external I/O."""
+
+        with self._mutex:
+            thread = self._thread
+            guard = self._guard
+            failure = self._failure
+            stopping = self._stop.is_set()
+            try:
+                guard_owned = guard is not None and guard.in_transaction
+            except sqlite3.Error:
+                guard_owned = False
+            healthy = (
+                thread is not None
+                and thread.is_alive()
+                and guard_owned
+                and failure is None
+                and not stopping
+            )
+        return {
+            "status": "ready" if healthy else "unavailable",
+            "detail": (
+                "Investigation worker and state ownership are active."
+                if healthy
+                else "Investigation worker or state ownership is unavailable."
+            ),
+        }
+
+    def _notify_terminal(
+        self, workspace: str, run_id: str, status: str, code: str | None = None
+    ) -> bool:
+        try:
+            if self.on_terminal:
+                self.on_terminal(workspace, run_id, status, code)
+            self.store.mark_terminal_audited(workspace, run_id)
+        except Exception:
+            with self._mutex:
+                self._failure = (
+                    "Investigation worker stopped after an audit error. "
+                    "Restart OpsGraph after restoring local audit storage."
+                )
+                self._stop.set()
+            return False
+        return True
+
+    def notify_terminal(
+        self, workspace: str, run_id: str, status: str, code: str | None = None
+    ) -> None:
+        """Record a terminal transition created outside the worker loop."""
+
+        if not self._notify_terminal(workspace, run_id, status, code):
+            raise RuntimeError(self._failure) from None
+
+    def _stop_after_storage_error(self) -> None:
+        with self._mutex:
+            self._failure = (
+                "Investigation worker stopped after a storage error. "
+                "Restart OpsGraph after restoring local state storage."
+            )
+            self._stop.set()
+
     def start(self):
         with self._mutex:
+            if self._failure:
+                raise RuntimeError(self._failure)
             if self._thread is not None:
                 if self._failure or not self._thread.is_alive():
                     raise RuntimeError(
@@ -83,9 +148,21 @@ class RunCoordinator:
                     "Another OpsGraph coordinator owns this state database."
                 ) from None
             self._guard = guard
-            self.store.recover(self.workspace_id)
             self._stop.clear()
             self._failure = None
+            self.store.recover(self.workspace_id)
+            for run in self.store.pending_terminal_audits(self.workspace_id):
+                error = run.get("error") or {}
+                if not self._notify_terminal(
+                    self.workspace_id,
+                    run["id"],
+                    run["status"],
+                    error.get("code"),
+                ):
+                    guard.rollback()
+                    guard.close()
+                    self._guard = None
+                    raise RuntimeError(self._failure) from None
             self._thread = threading.Thread(target=self._work, name="opsgraph-worker", daemon=True)
             self._thread.start()
 
@@ -136,6 +213,7 @@ class RunCoordinator:
                 continue
             workspace, run = claimed
             run_id = run["id"]
+            terminal_notified = False
 
             def check(workspace=workspace, run_id=run_id):
                 if self._stop.is_set():
@@ -169,10 +247,23 @@ class RunCoordinator:
                 )
                 if completed["status"] == "cancelling":
                     raise RunCancelled()
+                terminal_notified = self._notify_terminal(workspace, run_id, "completed")
+                if not terminal_notified:
+                    continue
                 if self.on_complete:
-                    self.on_complete(workspace, completed)
+                    try:
+                        self.on_complete(workspace, completed)
+                    except Exception:
+                        self._stop_after_storage_error()
+                        continue
             except Exception as exc:
-                current = self.store.get(workspace, run_id)
+                try:
+                    current = self.store.get(workspace, run_id)
+                except Exception:
+                    # Keep the durable running state untouched. Startup recovery will
+                    # convert it to an interrupted terminal record once storage works.
+                    self._stop_after_storage_error()
+                    continue
                 if self._stop.is_set():
                     # Recovery will accurately mark this run interrupted at next startup.
                     continue
@@ -305,7 +396,7 @@ class RunCoordinator:
                             "Proposed query was rejected by read-only policy. "
                             "Narrow the question or review allowed tables."
                         )
-                self.store.update(
+                terminal = self.store.update(
                     workspace,
                     run_id,
                     status,
@@ -319,6 +410,13 @@ class RunCoordinator:
                         else (403 if isinstance(exc, PermissionError) else 422),
                     },
                 )
+                if not terminal_notified:
+                    terminal_notified = self._notify_terminal(
+                        workspace,
+                        run_id,
+                        terminal["status"],
+                        terminal.get("error", {}).get("code") if terminal.get("error") else None,
+                    )
             finally:
                 with self._mutex:
                     if self._active_cancel and self._active_cancel[:2] == (workspace, run_id):

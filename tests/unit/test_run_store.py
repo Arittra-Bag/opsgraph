@@ -1,12 +1,68 @@
+import sqlite3
 import threading
 import time
 
 import pytest
 
 from opsgraph.orchestration.coordinator import RunCoordinator
-from opsgraph.persistence.runs import RunStore
+from opsgraph.persistence.runs import RunSchemaMigrationError, RunStore
 
 BODY = {"question": "What happened to the records?", "source_id": "local-data"}
+
+
+def test_run_schema_version_is_initialized_once_and_reopened(tmp_path):
+    path = tmp_path / "state.db"
+    RunStore(path)
+    RunStore(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT version FROM run_schema_version").fetchall() == [(1,)]
+
+
+@pytest.mark.parametrize("versions", [(2,), (0,), (1, 2)])
+def test_unknown_run_schema_versions_are_refused_without_mutation(tmp_path, versions):
+    path = tmp_path / "private-state.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE run_schema_version (version INTEGER PRIMARY KEY)")
+        db.executemany(
+            "INSERT INTO run_schema_version(version) VALUES (?)",
+            [(version,) for version in versions],
+        )
+        db.execute("CREATE TABLE preserved (value TEXT)")
+        db.execute("INSERT INTO preserved VALUES ('unchanged')")
+
+    with pytest.raises(RunSchemaMigrationError) as caught:
+        RunStore(path)
+
+    message = str(caught.value)
+    assert "private-state" not in message
+    assert not any(str(version) in message for version in versions)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT version FROM run_schema_version ORDER BY version").fetchall() == [
+            (version,) for version in versions
+        ]
+        assert db.execute("SELECT value FROM preserved").fetchone() == ("unchanged",)
+        tables = {
+            row[0]
+            for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+        assert "runs" not in tables and "run_events" not in tables
+
+
+def test_run_schema_initialization_rolls_back_as_one_transaction(tmp_path):
+    path = tmp_path / "state.db"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE preserved (value TEXT)")
+        db.execute("CREATE INDEX runs ON preserved(value)")
+
+    with pytest.raises(RunSchemaMigrationError, match="could not be initialized safely"):
+        RunStore(path)
+
+    with sqlite3.connect(path) as db:
+        objects = db.execute(
+            "SELECT type, name FROM sqlite_master "
+            "WHERE name IN ('runs', 'run_events', 'run_schema_version') ORDER BY name"
+        ).fetchall()
+        assert objects == [("index", "runs")]
 
 
 def test_runs_persist_events_isolate_workspaces_and_deduplicate(tmp_path):
@@ -206,3 +262,41 @@ def test_storage_failure_stops_admission_and_retains_owner_lock(tmp_path):
             competing.start()
     finally:
         coordinator.close()
+
+
+def test_exception_handler_storage_failure_defers_running_run_to_restart_recovery(tmp_path):
+    path = tmp_path / "state.db"
+    fail_reads = threading.Event()
+
+    class FailingReadStore(RunStore):
+        def get(self, workspace, run_id):
+            if fail_reads.is_set():
+                raise sqlite3.OperationalError("private-diagnostic-must-not-leak")
+            return super().get(workspace, run_id)
+
+    def execute(*_):
+        fail_reads.set()
+        raise RuntimeError("execution failed")
+
+    store = FailingReadStore(path)
+    run = store.create("alpha", BODY)
+    coordinator = RunCoordinator(store, execute, workspace_id="alpha")
+    coordinator.start()
+    coordinator.notify()
+    try:
+        coordinator._thread.join(timeout=5)
+        assert not coordinator._thread.is_alive()
+        with pytest.raises(RuntimeError, match="Restart OpsGraph") as error:
+            coordinator.start()
+        assert "private-diagnostic" not in str(error.value)
+        assert RunStore(path).get("alpha", run["id"])["status"] == "running"
+    finally:
+        coordinator.close()
+
+    recovered_store = RunStore(path)
+    recovered = RunCoordinator(recovered_store, lambda *_: None, workspace_id="alpha")
+    recovered.start()
+    try:
+        assert recovered_store.get("alpha", run["id"])["status"] == "interrupted"
+    finally:
+        recovered.close()
