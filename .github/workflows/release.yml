@@ -1,0 +1,771 @@
+name: stable release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+env:
+  OPSGRAPH_ACCEPTANCE: "0"
+  OPSGRAPH_ACCEPTANCE_SCENARIOS: "0"
+  OPSGRAPH_ACCEPTANCE_SCHEMA_CHANGE: "0"
+
+jobs:
+  validate-tag:
+    name: Validate exact annotated tag
+    if: github.event.deleted == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      source_commit: ${{ steps.release.outputs.source_commit }}
+      source_epoch: ${{ steps.release.outputs.source_epoch }}
+      created: ${{ steps.release.outputs.created }}
+      version: ${{ steps.release.outputs.version }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - id: release
+        name: Bind the release to the reviewed main commit and project version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Stable release tags must match vMAJOR.MINOR.PATCH." >&2
+            exit 1
+          fi
+          if [[ "$(git cat-file -t "refs/tags/${tag}")" != "tag" ]]; then
+            echo "Stable releases require an annotated tag." >&2
+            exit 1
+          fi
+          source_commit="$(git rev-parse "refs/tags/${tag}^{}")"
+          if [[ "$(git rev-parse HEAD)" != "${source_commit}" ]]; then
+            echo "The checked-out revision does not match the tag target." >&2
+            exit 1
+          fi
+          git fetch --force --no-tags origin \
+            refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "${source_commit}" refs/remotes/origin/main; then
+            echo "The tagged commit is not contained in origin/main." >&2
+            exit 1
+          fi
+          if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+            echo "The exact tag checkout is not clean." >&2
+            exit 1
+          fi
+          version="$(
+          python3 - <<'PY'
+          import re
+          import tomllib
+          from pathlib import Path
+
+          project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          package_version = project["project"]["version"]
+          init_source = Path("src/opsgraph/__init__.py").read_text(encoding="utf-8")
+          match = re.search(r'^__version__ = "([0-9]+\.[0-9]+\.[0-9]+)"$', init_source, re.M)
+          if match is None or match.group(1) != package_version:
+              raise SystemExit("project and package versions do not match")
+          print(package_version)
+          PY
+          )"
+          if [[ "${tag}" != "v${version}" ]]; then
+            echo "Tag ${tag} does not match project version ${version}." >&2
+            exit 1
+          fi
+          if [[ ! -s "docs/release/release-notes-${version}.md" ]]; then
+            echo "The matching stable release notes are missing." >&2
+            exit 1
+          fi
+          if [[ ! -s "docs/release/notices/source-manifest-${version}.json" ]]; then
+            echo "The matching third-party source manifest is missing." >&2
+            exit 1
+          fi
+          IFS=. read -r major minor patch <<<"${version}"
+          if [[ -z "${major}" || -z "${minor}" || -z "${patch}" ]]; then
+            echo "Could not split the stable version." >&2
+            exit 1
+          fi
+          {
+            echo "source_commit=${source_commit}"
+            echo "source_epoch=$(git show -s --format=%ct "${source_commit}")"
+            echo "created=$(git show -s --format=%cI "${source_commit}")"
+            echo "version=${version}"
+            echo "major=${major}"
+            echo "minor=${minor}"
+            echo "tag=${tag}"
+          } >>"${GITHUB_OUTPUT}"
+
+  quality-package:
+    name: Test and build source artifacts
+    needs: validate-tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SOURCE_DATE_EPOCH: ${{ needs.validate-tag.outputs.source_epoch }}
+      RELEASE_COMMIT: ${{ needs.validate-tag.outputs.source_commit }}
+      RELEASE_TAG: ${{ needs.validate-tag.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.validate-tag.outputs.source_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.9.26"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv lock --check
+      - run: uv sync --locked --all-extras --no-build --no-install-project
+      - run: uv run --locked --no-sync --no-build ruff check src tests scripts
+      - run: uv run --locked --no-sync --no-build ruff format --check src tests scripts
+      - run: uv run --locked --no-sync --no-build python -m pytest -q -ra
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.23.2"
+      - name: Run dependency-free frontend tests
+        run: node --test tests/frontend/*.cjs
+      - name: Build wheel and source distribution
+        run: uv build --build-constraints requirements-build.lock --require-hashes
+      - name: Install the wheel in a clean environment
+        run: uv run --locked --no-sync --no-build python scripts/wheel_smoke.py
+      - name: Build the verified third-party source supplement
+        run: |
+          mkdir release-source
+          uv run --locked --no-sync --no-build python scripts/build_source_supplement.py \
+            --manifest "docs/release/notices/source-manifest-${RELEASE_VERSION}.json" \
+            --release-version "${RELEASE_VERSION}" \
+            --output "release-source/opsgraph-${RELEASE_VERSION}-third-party-sources.tar.gz"
+      - name: Record exact source artifacts
+        run: |
+          cp "dist/opsgraph-${RELEASE_VERSION}-py3-none-any.whl" release-source/
+          cp "dist/opsgraph-${RELEASE_VERSION}.tar.gz" release-source/
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("release-source")
+          version = os.environ["RELEASE_VERSION"]
+          names = (
+              f"opsgraph-{version}-py3-none-any.whl",
+              f"opsgraph-{version}.tar.gz",
+              f"opsgraph-{version}-third-party-sources.tar.gz",
+          )
+          def sha256(path):
+              value = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                      value.update(chunk)
+              return value.hexdigest()
+
+          records = []
+          for name in names:
+              path = root / name
+              records.append({"name": name, "sha256": sha256(path)})
+          receipt = {
+              "schema_version": 1,
+              "result": "pass",
+              "source_commit": os.environ["RELEASE_COMMIT"],
+              "tag": os.environ["RELEASE_TAG"],
+              "version": version,
+              "artifacts": records,
+          }
+          (root / "source-build-receipt.json").write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-source-${{ needs.validate-tag.outputs.source_commit }}
+          path: release-source/*
+          if-no-files-found: error
+          retention-days: 7
+
+  connected-control-path:
+    name: Test the connected PostgreSQL control path
+    needs: validate-tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RELEASE_COMMIT: ${{ needs.validate-tag.outputs.source_commit }}
+      RELEASE_TAG: ${{ needs.validate-tag.outputs.tag }}
+    services:
+      postgres:
+        image: postgres:17.7-bookworm
+        env:
+          POSTGRES_DB: opsgraph_release
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ github.run_id }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=postgres --dbname=opsgraph_release"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.validate-tag.outputs.source_commit }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.9.26"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv lock --check
+      - run: uv sync --locked --all-extras --no-build --no-install-project
+      - name: Exercise the real read-only control path
+        env:
+          OPSGRAPH_CI_POSTGRES_OWNER_DSN: >-
+            postgresql://postgres:${{ github.run_id }}@127.0.0.1:5432/opsgraph_release
+        run: >-
+          uv run --locked --no-sync --no-build python scripts/ci_connected_smoke.py
+          > connected-smoke.json
+      - name: Record the connected acceptance receipt
+        run: |
+          mkdir release-connected
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          checks = json.loads(Path("connected-smoke.json").read_text(encoding="utf-8"))
+          if checks.get("ok") is not True:
+              raise SystemExit("connected smoke did not report success")
+          receipt = {
+              "schema_version": 1,
+              "result": "pass",
+              "source_commit": os.environ["RELEASE_COMMIT"],
+              "tag": os.environ["RELEASE_TAG"],
+              "checks": checks,
+          }
+          output = Path("release-connected/connected-smoke-receipt.json")
+          output.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(checks, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-connected-${{ needs.validate-tag.outputs.source_commit }}
+          path: release-connected/connected-smoke-receipt.json
+          if-no-files-found: error
+          retention-days: 7
+
+  native-bundle:
+    name: Native bundle — ${{ matrix.label }}
+    needs:
+      - validate-tag
+      - quality-package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: ubuntu-x64-cp311
+            label: Ubuntu 24.04 x64
+          - os: windows-2025
+            target: windows-x64-cp311
+            label: Windows Server 2025 x64
+          - os: macos-26
+            target: macos-arm64-cp311
+            label: macOS 26 arm64
+    env:
+      SOURCE_DATE_EPOCH: ${{ needs.validate-tag.outputs.source_epoch }}
+      RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.validate-tag.outputs.source_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+      - name: Download the exact tested application wheel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-source-${{ needs.validate-tag.outputs.source_commit }}
+          path: quality-source
+      - name: Download host-selected locked runtime wheels
+        run: >-
+          python -m pip download
+          --disable-pip-version-check
+          --only-binary=:all:
+          --require-hashes
+          --dest ci-wheelhouse
+          -r requirements.lock
+      - name: Build, install, launch, maintain and uninstall the bundle
+        run: >-
+          python scripts/ci_bundle_acceptance.py
+          --platform ${{ matrix.target }}
+          --wheel quality-source/opsgraph-${{ needs.validate-tag.outputs.version }}-py3-none-any.whl
+          --wheelhouse ci-wheelhouse
+          --output ci-artifacts/opsgraph-${{ needs.validate-tag.outputs.version }}-${{ matrix.target }}.zip
+          --receipt ci-artifacts/acceptance-${{ matrix.target }}.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-native-${{ matrix.target }}-${{ needs.validate-tag.outputs.source_commit }}
+          path: |
+            ci-artifacts/opsgraph-${{ needs.validate-tag.outputs.version }}-${{ matrix.target }}.zip
+            ci-artifacts/opsgraph-${{ needs.validate-tag.outputs.version }}-${{ matrix.target }}.zip.sha256
+            ci-artifacts/acceptance-${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  container-smoke:
+    name: Container smoke — ${{ matrix.platform }}${{ matrix.emulated && ' (QEMU)' || '' }}
+    needs:
+      - validate-tag
+      - quality-package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: linux-amd64
+            platform: linux/amd64
+            architecture: amd64
+            emulated: false
+          - slug: linux-arm64
+            platform: linux/arm64
+            architecture: arm64
+            emulated: true
+    env:
+      RELEASE_COMMIT: ${{ needs.validate-tag.outputs.source_commit }}
+      RELEASE_CREATED: ${{ needs.validate-tag.outputs.created }}
+      RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
+      TARGET_ARCHITECTURE: ${{ matrix.architecture }}
+      TARGET_EMULATED: ${{ matrix.emulated }}
+      TARGET_PLATFORM: ${{ matrix.platform }}
+      TARGET_SLUG: ${{ matrix.slug }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.validate-tag.outputs.source_commit }}
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.6.0
+        if: matrix.emulated
+        with:
+          platforms: ${{ matrix.architecture }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build one runtime platform without attestations
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: deploy/container/Dockerfile
+          platforms: ${{ matrix.platform }}
+          load: true
+          push: false
+          tags: opsgraph-release-smoke:${{ matrix.slug }}
+          build-args: |
+            OPSGRAPH_VERSION=${{ needs.validate-tag.outputs.version }}
+            OPSGRAPH_REVISION=${{ needs.validate-tag.outputs.source_commit }}
+            OPSGRAPH_CREATED=${{ needs.validate-tag.outputs.created }}
+          provenance: false
+          sbom: false
+      - name: Start the hardened runtime and wait for readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker volume create "opsgraph-release-${TARGET_SLUG}" >/dev/null
+          docker run --detach --name opsgraph-release-smoke \
+            --platform "${TARGET_PLATFORM}" \
+            --publish 127.0.0.1:8000:8000 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:size=64m,mode=1770,uid=10001,gid=10001 \
+            --mount "type=volume,source=opsgraph-release-${TARGET_SLUG},target=/data" \
+            --env OPSGRAPH_API_KEY=release-smoke-key-with-at-least-24-chars \
+            "opsgraph-release-smoke:${TARGET_SLUG}"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8000/api/ready >/dev/null; then
+              exit 0
+            fi
+            if [[ "${attempt}" == "60" ]]; then
+              docker logs opsgraph-release-smoke
+              exit 1
+            fi
+            sleep 1
+          done
+      - name: Verify labels, architecture and runtime; write the acceptance receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir release-container
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          import urllib.request
+          from pathlib import Path
+
+          image = f"opsgraph-release-smoke:{os.environ['TARGET_SLUG']}"
+
+          def inspect(template):
+              return subprocess.check_output(
+                  ["docker", "image", "inspect", "--format", template, image], text=True
+              ).strip()
+
+          image_id = inspect("{{.Id}}")
+          if re.fullmatch(r"sha256:[0-9a-f]{64}", image_id) is None:
+              raise SystemExit("container image ID is invalid")
+          if inspect("{{.Os}}") != "linux" or inspect("{{.Architecture}}") != os.environ["TARGET_ARCHITECTURE"]:
+              raise SystemExit("loaded container architecture does not match the matrix")
+          expected_labels = {
+              "org.opencontainers.image.source": "https://github.com/Arittra-Bag/opsgraph",
+              "org.opencontainers.image.version": os.environ["RELEASE_VERSION"],
+              "org.opencontainers.image.revision": os.environ["RELEASE_COMMIT"],
+              "org.opencontainers.image.created": os.environ["RELEASE_CREATED"],
+              "org.opencontainers.image.licenses": "Apache-2.0",
+          }
+          for name, expected in expected_labels.items():
+              actual = inspect('{{ index .Config.Labels "' + name + '" }}')
+              if actual != expected:
+                  raise SystemExit(f"container label mismatch: {name}")
+          opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+          with opener.open("http://127.0.0.1:8000/api/ready", timeout=3) as response:
+              runtime_ready = json.load(response).get("ready") is True
+          if not runtime_ready:
+              raise SystemExit("container readiness endpoint did not report ready")
+          dockerfile_hash = hashlib.sha256(Path("deploy/container/Dockerfile").read_bytes()).hexdigest()
+          archive_name = f"opsgraph-container-{os.environ['TARGET_SLUG']}.tar"
+          archive = Path("ci-container") / archive_name
+          archive.parent.mkdir()
+          subprocess.run(["docker", "save", "--output", archive, image], check=True)
+          archive_digest = hashlib.sha256()
+          with archive.open("rb") as stream:
+              for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                  archive_digest.update(chunk)
+          receipt = {
+              "schema_version": 1,
+              "result": "pass",
+              "source_commit": os.environ["RELEASE_COMMIT"],
+              "version": os.environ["RELEASE_VERSION"],
+              "platform": os.environ["TARGET_PLATFORM"],
+              "emulated": os.environ["TARGET_EMULATED"].lower() == "true",
+              "runtime_ready": runtime_ready,
+              "image_id": image_id,
+              "dockerfile_sha256": dockerfile_hash,
+              "image_archive": archive_name,
+              "image_archive_sha256": archive_digest.hexdigest(),
+          }
+          output = Path("release-container") / f"container-smoke-{os.environ['TARGET_SLUG']}.json"
+          output.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-container-${{ matrix.slug }}-${{ needs.validate-tag.outputs.source_commit }}
+          path: release-container/container-smoke-${{ matrix.slug }}.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: container-image-${{ matrix.slug }}-${{ needs.validate-tag.outputs.source_commit }}
+          path: ci-container/opsgraph-container-${{ matrix.slug }}.tar
+          if-no-files-found: error
+          retention-days: 1
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs opsgraph-release-smoke || true
+      - name: Remove the smoke container and state
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force opsgraph-release-smoke || true
+          docker volume rm "opsgraph-release-${TARGET_SLUG}" || true
+
+  publish:
+    name: Verify and publish the stable release
+    needs:
+      - validate-tag
+      - quality-package
+      - connected-control-path
+      - native-bundle
+      - container-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      packages: write
+    env:
+      IMAGE: ghcr.io/arittra-bag/opsgraph
+      RELEASE_COMMIT: ${{ needs.validate-tag.outputs.source_commit }}
+      RELEASE_CREATED: ${{ needs.validate-tag.outputs.created }}
+      RELEASE_TAG: ${{ needs.validate-tag.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.validate-tag.outputs.source_commit }}
+          persist-credentials: false
+      - name: Download every gated release artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release-*-${{ needs.validate-tag.outputs.source_commit }}
+          path: incoming
+          merge-multiple: true
+      - name: Download the exact smoke-tested container images
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: container-image-*-${{ needs.validate-tag.outputs.source_commit }}
+          path: container-images
+          merge-multiple: true
+      - name: Verify receipts, identities, hashes and the exact artifact set
+        run: >-
+          python3 scripts/verify_release_assets.py
+          --directory incoming
+          --container-directory container-images
+          --output release-assets
+          --source-commit "${RELEASE_COMMIT}"
+          --tag "${RELEASE_TAG}"
+          --version "${RELEASE_VERSION}"
+      - name: Create or verify the draft recovery release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python3 scripts/reconcile_release_publication.py prepare-release
+          --repository "${GITHUB_REPOSITORY}"
+          --tag "${RELEASE_TAG}"
+          --source-commit "${RELEASE_COMMIT}"
+          --title "OpsGraph ${RELEASE_VERSION}"
+          --notes-file "docs/release/release-notes-${RELEASE_VERSION}.md"
+          --output recovery-release.json
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Authenticate to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: platform-images
+        name: Publish or reuse the exact accepted platform images
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          docker load --input container-images/opsgraph-container-linux-amd64.tar
+          docker load --input container-images/opsgraph-container-linux-arm64.tar
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          image_root = os.environ["IMAGE"]
+          release_tag = os.environ["RELEASE_TAG"]
+          for slug, architecture in (("linux-amd64", "amd64"), ("linux-arm64", "arm64")):
+              receipt = json.loads(
+                  Path(f"incoming/container-smoke-{slug}.json").read_text(encoding="utf-8")
+              )
+              local = f"opsgraph-release-smoke:{slug}"
+
+              def inspect(template):
+                  return subprocess.check_output(
+                      ["docker", "image", "inspect", "--format", template, local], text=True
+                  ).strip()
+
+              if inspect("{{.Id}}") != receipt["image_id"]:
+                  raise SystemExit(f"loaded image ID changed: {slug}")
+              if inspect("{{.Os}}") != "linux" or inspect("{{.Architecture}}") != architecture:
+                  raise SystemExit(f"loaded image platform changed: {slug}")
+              expected_labels = {
+                  "org.opencontainers.image.source": "https://github.com/Arittra-Bag/opsgraph",
+                  "org.opencontainers.image.version": os.environ["RELEASE_VERSION"],
+                  "org.opencontainers.image.revision": os.environ["RELEASE_COMMIT"],
+                  "org.opencontainers.image.created": os.environ["RELEASE_CREATED"],
+                  "org.opencontainers.image.licenses": "Apache-2.0",
+              }
+              for name, expected in expected_labels.items():
+                  actual = inspect('{{ index .Config.Labels "' + name + '" }}')
+                  if actual != expected:
+                      raise SystemExit(f"loaded image label changed: {slug}: {name}")
+              target = f"{image_root}:{release_tag}-{slug}"
+              subprocess.run(["docker", "tag", local, target], check=True)
+          PY
+
+          for slug in linux-amd64 linux-arm64; do
+            tag="${RELEASE_TAG}-${slug}"
+            state_file="platform-state-${slug}.json"
+            python3 scripts/reconcile_release_publication.py container-tag-state \
+              --owner "${GITHUB_REPOSITORY_OWNER}" \
+              --package opsgraph \
+              --tag "${tag}" \
+              --output "${state_file}"
+            state="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["state"])' "${state_file}")"
+            if [[ "${state}" == "absent" ]]; then
+              docker push "${IMAGE}:${tag}"
+              existing_args=()
+            elif [[ "${state}" == "existing" ]]; then
+              existing_digest="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["digest"])' "${state_file}")"
+              existing_args=(--existing-digest "${existing_digest}")
+            else
+              echo "Unexpected registry state for ${IMAGE}:${tag}." >&2
+              exit 1
+            fi
+            docker buildx imagetools inspect --raw "${IMAGE}:${tag}" >"platform-${slug}.json"
+            image_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["image_id"])' "incoming/container-smoke-${slug}.json")"
+            python3 scripts/reconcile_release_publication.py verify-platform-manifest \
+              --manifest "platform-${slug}.json" \
+              --image-id "${image_id}" \
+              "${existing_args[@]}" \
+              --output "platform-verified-${slug}.json"
+          done
+          amd64_digest="$(python3 -c 'import json; print(json.load(open("platform-verified-linux-amd64.json"))["digest"])')"
+          arm64_digest="$(python3 -c 'import json; print(json.load(open("platform-verified-linux-arm64.json"))["digest"])')"
+          {
+            echo "amd64_digest=${amd64_digest}"
+            echo "arm64_digest=${arm64_digest}"
+          } >>"${GITHUB_OUTPUT}"
+      - name: Validate the proposed two-platform index without publishing it
+        env:
+          AMD64_DIGEST: ${{ steps.platform-images.outputs.amd64_digest }}
+          ARM64_DIGEST: ${{ steps.platform-images.outputs.arm64_digest }}
+        run: |
+          docker buildx imagetools create --dry-run \
+            "${IMAGE}@${AMD64_DIGEST}" \
+            "${IMAGE}@${ARM64_DIGEST}" >proposed-index.json
+          python3 scripts/verify_container_index.py \
+            --manifest proposed-index.json \
+            --amd64-digest "${AMD64_DIGEST}" \
+            --arm64-digest "${ARM64_DIGEST}"
+      - id: immutable-index
+        name: Publish or reuse the immutable stable version index
+        env:
+          AMD64_DIGEST: ${{ steps.platform-images.outputs.amd64_digest }}
+          ARM64_DIGEST: ${{ steps.platform-images.outputs.arm64_digest }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/reconcile_release_publication.py container-tag-state \
+            --owner "${GITHUB_REPOSITORY_OWNER}" \
+            --package opsgraph \
+            --tag "${RELEASE_TAG}" \
+            --output version-tag-state.json
+          state="$(python3 -c 'import json; print(json.load(open("version-tag-state.json"))["state"])')"
+          if [[ "${state}" == "absent" ]]; then
+            docker buildx imagetools create \
+              --tag "${IMAGE}:${RELEASE_TAG}" \
+              "${IMAGE}@${AMD64_DIGEST}" \
+              "${IMAGE}@${ARM64_DIGEST}"
+            existing_args=()
+          elif [[ "${state}" == "existing" ]]; then
+            existing_digest="$(python3 -c 'import json; print(json.load(open("version-tag-state.json"))["digest"])')"
+            existing_args=(--existing-digest "${existing_digest}")
+          else
+            echo "Unexpected registry state for ${IMAGE}:${RELEASE_TAG}." >&2
+            exit 1
+          fi
+          docker buildx imagetools inspect --raw \
+            "${IMAGE}:${RELEASE_TAG}" >published-index.json
+          python3 scripts/reconcile_release_publication.py verify-index-manifest \
+            --manifest published-index.json \
+            --amd64-digest "${AMD64_DIGEST}" \
+            --arm64-digest "${ARM64_DIGEST}" \
+            "${existing_args[@]}" \
+            --output immutable-index.json
+          index_digest="$(python3 -c 'import json; print(json.load(open("immutable-index.json"))["digest"])')"
+          echo "index_digest=${index_digest}" >>"${GITHUB_OUTPUT}"
+      - name: Plan GitHub latest from published stable releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python3 scripts/reconcile_release_publication.py plan-aliases
+          --repository "${GITHUB_REPOSITORY}"
+          --tag "${RELEASE_TAG}"
+          --output publication-plan.json
+      - name: Record the published digest and refresh the aggregate checksums
+        env:
+          AMD64_DIGEST: ${{ steps.platform-images.outputs.amd64_digest }}
+          ARM64_DIGEST: ${{ steps.platform-images.outputs.arm64_digest }}
+          INDEX_DIGEST: ${{ steps.immutable-index.outputs.index_digest }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path("release-assets")
+          receipt = {
+              "schema_version": 1,
+              "result": "pass",
+              "source_commit": os.environ["RELEASE_COMMIT"],
+              "version": os.environ["RELEASE_VERSION"],
+              "index_digest": os.environ["INDEX_DIGEST"],
+              "platform_digests": {
+                  "linux/amd64": os.environ["AMD64_DIGEST"],
+                  "linux/arm64": os.environ["ARM64_DIGEST"],
+              },
+              "platform_runtime_evidence": {
+                  "linux/amd64": "native",
+                  "linux/arm64": "QEMU-emulated",
+              },
+              "tags": [
+                  os.environ["RELEASE_TAG"],
+                  f"{os.environ['RELEASE_TAG']}-linux-amd64",
+                  f"{os.environ['RELEASE_TAG']}-linux-arm64",
+              ],
+              "provenance_manifest": False,
+              "sbom_manifest": False,
+          }
+          digest = re.compile(r"^sha256:[0-9a-f]{64}$")
+          if digest.fullmatch(receipt["index_digest"]) is None or any(
+              digest.fullmatch(value) is None for value in receipt["platform_digests"].values()
+          ):
+              raise SystemExit("container publication receipt has an invalid digest")
+          path = root / "container-publication-receipt.json"
+          path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          files = sorted(
+              item for item in root.iterdir() if item.is_file() and item.name != "SHA256SUMS"
+          )
+          lines = []
+          for item in files:
+              value = hashlib.sha256()
+              with item.open("rb") as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                      value.update(chunk)
+              lines.append(f"{value.hexdigest()}  {item.name}\n")
+          (root / "SHA256SUMS").write_text("".join(lines), encoding="utf-8", newline="\n")
+          PY
+      - name: Reconcile the exact GitHub release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python3 scripts/reconcile_release_publication.py reconcile-assets
+          --repository "${GITHUB_REPOSITORY}"
+          --tag "${RELEASE_TAG}"
+          --directory release-assets
+      - name: Publish or verify the exact GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python3 scripts/reconcile_release_publication.py publish-release
+          --repository "${GITHUB_REPOSITORY}"
+          --tag "${RELEASE_TAG}"
+          --title "OpsGraph ${RELEASE_VERSION}"
+          --notes-file "docs/release/release-notes-${RELEASE_VERSION}.md"
+          --directory release-assets
+          --plan publication-plan.json
+          --output published-release.json

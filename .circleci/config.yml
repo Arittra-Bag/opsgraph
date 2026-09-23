@@ -58,9 +58,4 @@ jobs:
 workflows:
   native-compatibility:
     jobs:
-      - windows-server-2022-python-312:
-          filters:
-            branches:
-              only:
-                - main
-                - codex/opsgraph-productization
+      - windows-server-2022-python-312
