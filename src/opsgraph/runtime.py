@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from functools import lru_cache
 from threading import RLock
@@ -39,7 +40,7 @@ class Runtime:
     provider: ModelProvider
     provider_lock: object = field(default_factory=RLock)
     provider_revision: str = field(default_factory=lambda: uuid4().hex)
-    skill_lock: object = field(default_factory=RLock)
+    skill_lock: AbstractContextManager[bool] = field(default_factory=RLock)
 
 
 def _provider(settings: Settings, audit: SQLiteAuditChain | None = None) -> ModelProvider:

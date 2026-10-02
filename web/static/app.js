@@ -702,7 +702,7 @@
       id = runId(id);
       const run = await api(`/api/runs/${encodeURIComponent(id)}`);
       if (token !== state.streamToken) return;
-      $('#activityLog').replaceChildren(); state.lastEventId = 0; state.lastEvent = null; state.runEvents = []; state.runEventsLoaded = false; $('#evidencePanel').hidden = true; $('#toggleEvidence').setAttribute('aria-expanded', 'false'); $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = false; renderRun(run); showView('investigations', false); streamRun(id, token);
+      $('#activityLog').replaceChildren(); state.lastEventId = 0; state.lastEvent = null; state.runEvents = []; state.runEventsLoaded = false; $('#evidencePanel').hidden = true; $('#toggleEvidence').setAttribute('aria-expanded', 'false'); $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = false; renderRun(run); showView('investigations', false); void streamRun(id, token);
     } catch (error) { notice('#globalError', error.message); }
   }
   function addEvent(event) {
@@ -797,7 +797,7 @@
   }
   document.addEventListener('click', event => {
     const view = event.target.closest('[data-view]'); if (view) showView(view.dataset.view);
-    const run = event.target.closest('[data-run-id]'); if (run) openRun(run.dataset.runId);
+    const run = event.target.closest('[data-run-id]'); if (run) void openRun(run.dataset.runId);
     const source = event.target.closest('[data-edit-source]'); if (source) sourceSetup(state.sources.find(item => item.id === source.dataset.editSource));
     const finding = event.target.closest('[data-finding]'); if (finding) showFinding(Number(finding.dataset.finding), finding);
     const evidence = event.target.closest('[data-evidence]'); if (evidence) {
@@ -886,5 +886,5 @@
       catch (error) { if (epoch !== state.authEpoch) return; notice('#globalError', error.message); readiness(); }
     }
   }
-  readiness(); loadBootstrap(); startWorkspace();
+  readiness(); void loadBootstrap(); void startWorkspace();
 })();
