@@ -200,7 +200,17 @@ def start(argv: list[str] | None = None) -> int:
                     "The build did not produce exactly one OpsGraph application wheel."
                 )
             command(
-                [uv, "pip", "install", "--python", str(python), "--no-deps", str(wheels[0])],
+                [
+                    uv,
+                    "pip",
+                    "install",
+                    "--python",
+                    str(python),
+                    "--no-deps",
+                    "--reinstall-package",
+                    "opsgraph",
+                    str(wheels[0]),
+                ],
                 root,
                 environment,
                 "OpsGraph installation failed. Check disk space and retry.",

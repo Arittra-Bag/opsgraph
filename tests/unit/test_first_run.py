@@ -204,6 +204,7 @@ def test_install_uses_lock_hashes_no_shell_and_forwards_only_launcher_options(
     assert "--locked" in calls[0] and "--no-build" in calls[0]
     assert "--require-hashes" in calls[1] and "requirements-build.lock" in calls[1]
     assert "--no-deps" in calls[2]
+    assert "--reinstall-package" in calls[2]
     assert calls[-1][-2:] == ["--flow", "quick"]
     assert "--yes" not in calls[-1]
     assert "--no-browser" in calls[-1] and "--configure" in calls[-1]
