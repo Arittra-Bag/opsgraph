@@ -119,3 +119,16 @@ test('failed runs expose retained captures without fabricating a completed asses
   assert.equal(f.$('#evidenceSection').hidden, false); assert.match(f.$('#limitations').innerHTML, /No completed model assessment/);
   assert.match(f.$('#evidenceLedger').innerHTML, /Partial evidence/);
 });
+
+
+test('readable report decodes escaped prose punctuation without creating active markup', () => {
+  const f = fixture();
+  assert.equal(f.context.reportProse(String.raw`\[value\]\-\_\+\. &lt;script&gt;`), '[value]-_+. <script>');
+  f.context.renderReportDocument('**Partial attempt:** Keep the captured reads.\n- First reference\n- Second reference\n\nA saved snapshot.');
+  const nodes = f.$('#reportDocument').children;
+  assert.equal(nodes[0].className, 'report-warning');
+  assert.equal(nodes[0].children[0].tag, 'strong');
+  assert.equal(nodes[1].tag, 'ul');
+  assert.equal(nodes[1].children.length, 2);
+  assert.equal(nodes[2].textContent, 'A saved snapshot.');
+});

@@ -12,7 +12,7 @@ class PostgresHTTPError(HTTPException):
         super().__init__(status_code=status_code, detail=self.diagnostic["message"])
 
 
-async def postgres_error_response(request: Request, error: PostgresHTTPError) -> JSONResponse:
+def postgres_error_response(_request: Request, error: PostgresHTTPError) -> JSONResponse:
     return JSONResponse(
         status_code=error.status_code,
         content={"detail": error.detail, "diagnostic": error.diagnostic},

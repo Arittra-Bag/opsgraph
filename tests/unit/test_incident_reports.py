@@ -68,9 +68,11 @@ def test_selected_report_includes_exact_retained_content_and_unresolved_referenc
         record, ReportOptions(**{field: True for field in ReportOptions.model_fields})
     )
     text = report["markdown"]
-    assert "Sensitive question" in text and "Sensitive row" in text
+    assert "Sensitive question" in text
+    assert "Sensitive row" in text
     assert "SELECT 'Sensitive SQL'" in text
-    assert "Unresolved reference" in text and "missing\\-hash" in text
+    assert "Unresolved reference" in text
+    assert "missing\\-hash" in text
     assert "Truncated: Yes" in text
     assert "FORBIDDEN" not in text
     assert "not independently verified" in text
@@ -107,7 +109,8 @@ def test_legacy_empty_failure_report_is_honest_and_selective():
     assert "Sensitive" not in report["markdown"]
     assert "No captured evidence" in report["markdown"]
     text = build_incident_report(record, ReportOptions(include_findings=True))["markdown"]
-    assert "Sensitive failure" in text and "Sensitive step" in text
+    assert "Sensitive failure" in text
+    assert "Sensitive step" in text
 
 
 def test_untrusted_markdown_html_controls_and_fences_cannot_escape_sections(record):
@@ -116,16 +119,19 @@ def test_untrusted_markdown_html_controls_and_fences_cannot_escape_sections(reco
     text = build_incident_report(record, ReportOptions(include_question=True, include_sql=True))[
         "markdown"
     ]
-    assert "[click](javascript:" not in text and "<img" not in text
-    assert "\x00" not in text and "\u202e" not in text
+    assert "[click](javascript:" not in text
+    assert "<img" not in text
+    assert "\x00" not in text
+    assert "\u202e" not in text
     assert "`````sql\n" in text
     assert "\n`````\n" in text
 
 
 def test_oversized_selection_can_be_retried_without_rows(record):
     record["evidence"][0]["rows"] = [["x" * 2_000_000]]
+    options = ReportOptions(include_rows=True)
     with pytest.raises(ReportTooLarge, match="Omit captured rows"):
-        build_incident_report(record, ReportOptions(include_rows=True))
+        build_incident_report(record, options)
     assert build_incident_report(record, ReportOptions())["markdown"]
 
 

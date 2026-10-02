@@ -110,6 +110,7 @@
     if (state.activeDrawer) closeDrawer(false);
     state.activeDrawer = document.getElementById(id);
     state.returnFocus = trigger?.node ? trigger : { node: trigger || document.activeElement, key: (trigger || document.activeElement)?.dataset?.focusKey || null };
+    if (state.activeDrawer.tagName === 'DIALOG') state.activeDrawer.setAttribute('open', '');
     state.activeDrawer.classList.add('open'); state.activeDrawer.setAttribute('aria-hidden', 'false');
     $('#drawerBackdrop').hidden = false;
     $$('.app-shell, .trust-bar, .skip-link').forEach(node => { node.inert = true; });
@@ -118,6 +119,7 @@
   function closeDrawer(restore = true) {
     if (!state.activeDrawer) return;
     if (state.activeDrawer.id === 'reportDrawer') resetReport();
+    if (state.activeDrawer.tagName === 'DIALOG') state.activeDrawer.removeAttribute('open');
     state.activeDrawer.classList.remove('open'); state.activeDrawer.setAttribute('aria-hidden', 'true');
     $('#drawerBackdrop').hidden = true; $$('.app-shell, .trust-bar, .skip-link').forEach(node => { node.inert = false; });
     const target = viewState.focusTarget(state.returnFocus, document);
@@ -158,7 +160,8 @@
       row.classList.toggle('step-current', index === completed.indexOf(false));
       if (index === completed.indexOf(false)) row.setAttribute('aria-current', 'step'); else row.removeAttribute('aria-current');
       const labels = ['Connect workspace', 'Inspect PostgreSQL', 'Check your model', 'Verify the path'];
-      $(`#${step}StepTitle`).textContent = `${completed[index] ? '✓' : `${index + 1}.`} ${labels[index]}${completed[index] ? ': complete' : ''}`;
+      const prefix = completed[index] ? '✓' : String(index + 1) + '.';
+      $(`#${step}StepTitle`).textContent = `${prefix} ${labels[index]}${completed[index] ? ': complete' : ''}`;
     });
     $('#setupCredential').hidden = state.authenticated;
     $('#setupSource').textContent = ready.length ? 'Review source' : 'Configure source';
@@ -371,7 +374,7 @@
     const guide = state.hostingGuides.find(item => item.id === $('#sourceHosting').value);
     const node = $('#hostingGuide');
     if (!guide) { node.textContent = state.authenticated ? 'Hosting guidance has not loaded. Retry below.' : 'Connect your workspace to load hosting guidance.'; return; }
-    const list = items => `<ol>${items.map(item => `<li>${esc(item)}</li>`).join('')}</ol>`;
+    const list = items => '<ol>' + items.map(item => '<li>' + esc(item) + '</li>').join('') + '</ol>';
     node.innerHTML = `<p class="eyebrow">CONNECTION GUIDE</p><h3>${esc(guide.name)}</h3><p>${esc(guide.summary)}</p><dl class="hosting-facts"><div><dt>Endpoint</dt><dd>${esc(guide.endpoint)}</dd></div><div><dt>Network</dt><dd>${esc(guide.network)}</dd></div><div><dt>TLS</dt><dd>${esc(guide.tls)}</dd></div></dl><h4>Connect safely</h4>${list(guide.steps)}<h4>Before investigating</h4>${list(guide.checks)}<p class="helper">${esc(guide.validation)}</p>`;
     const url = new URL(guide.documentation);
     if (url.protocol === 'https:' && !url.username && !url.password) {
@@ -396,7 +399,7 @@
   function sourceDiagnostic(error = null) {
     const diagnostic = error?.diagnostic;
     $('#sourceDiagnostic').hidden = !diagnostic;
-    $('#sourceDiagnosticTitle').textContent = diagnostic?.title || '';
+    $('#sourceDiagnosticTitle').textContent = diagnostic?.title || 'Connection needs attention';
     $('#sourceDiagnosticSteps').replaceChildren();
     for (const step of diagnostic?.steps || []) {
       const item = document.createElement('li'); item.textContent = step; $('#sourceDiagnosticSteps').append(item);
@@ -409,29 +412,46 @@
   function reportOptions() {
     return Object.fromEntries(['Question', 'Findings', 'Scope', 'Sql', 'Rows'].map(name => [`include_${name.toLowerCase()}`, $(`#report${name}`).checked]));
   }
+  function reportProse(value) {
+    const entities = { amp: '&', lt: '<', gt: '>', quot: '"', '#x27': "'" };
+    return value.replace(/\\([\\`*_{}[\]()#+.!|~-])/g, '$1').replace(/&(amp|lt|gt|quot|#x27);/g, (_, entity) => entities[entity]);
+  }
+  function appendReportProse(documentNode, line, list) {
+    const heading = line.match(/^(#{1,3}) (.*)$/);
+    if (heading) {
+      const node = document.createElement(`h${heading[1].length + 1}`);
+      node.textContent = reportProse(heading[2]); documentNode.append(node); return null;
+    }
+    if (line.startsWith('- ')) {
+      if (!list) { list = document.createElement('ul'); documentNode.append(list); }
+      const item = document.createElement('li'); item.textContent = reportProse(line.slice(2)); list.append(item); return list;
+    }
+    const paragraph = document.createElement('p');
+    const warning = line.match(/^\*\*([^*]+):\*\* (.*)$/);
+    if (warning) {
+      paragraph.className = 'report-warning'; const label = document.createElement('strong');
+      label.textContent = `${warning[1]}: `; paragraph.append(label, reportProse(warning[2]));
+    } else paragraph.textContent = reportProse(line);
+    documentNode.append(paragraph); return null;
+  }
   function renderReportDocument(markdown) {
     const documentNode = $('#reportDocument'); documentNode.replaceChildren();
-    const prose = value => value.replace(/\\([\\`*_{}\[\]()#+.!|~\-])/g, '$1').replace(/&(amp|lt|gt|quot|#x27);/g, (_, entity) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#x27': "'" })[entity]);
     let fence = null, code = null, codeLines = [], list = null;
     for (const line of markdown.split('\n')) {
       if (fence) {
-        if (line === fence) { code.textContent = codeLines.join('\n') + (codeLines.length ? '\n' : ''); fence = null; code = null; } else codeLines.push(line);
+        if (line === fence) {
+          code.textContent = codeLines.join('\n') + (codeLines.length ? '\n' : ''); fence = null; code = null;
+        } else codeLines.push(line);
         continue;
       }
       const opening = line.match(/^(`{3,})(?:sql|json|text)?$/);
-      if (opening) { fence = opening[1]; codeLines = []; list = null; const pre = document.createElement('pre'); code = document.createElement('code'); code.textContent = ''; pre.append(code); documentNode.append(pre); continue; }
-      if (!line) { list = null; continue; }
-      const heading = line.match(/^(#{1,3}) (.*)$/);
-      if (heading) { list = null; const node = document.createElement(`h${heading[1].length + 1}`); node.textContent = prose(heading[2]); documentNode.append(node); continue; }
-      if (line.startsWith('- ')) {
-        if (!list) { list = document.createElement('ul'); documentNode.append(list); }
-        const item = document.createElement('li'); item.textContent = prose(line.slice(2)); list.append(item); continue;
+      if (opening) {
+        fence = opening[1]; codeLines = []; list = null;
+        const pre = document.createElement('pre'); code = document.createElement('code');
+        pre.append(code); documentNode.append(pre); continue;
       }
-      list = null; const paragraph = document.createElement('p');
-      const warning = line.match(/^\*\*([^*]+):\*\* (.*)$/);
-      if (warning) { paragraph.className = 'report-warning'; const label = document.createElement('strong'); label.textContent = `${warning[1]}: `; paragraph.append(label, prose(warning[2])); }
-      else paragraph.textContent = prose(line);
-      documentNode.append(paragraph);
+      if (!line) { list = null; continue; }
+      list = appendReportProse(documentNode, line, list);
     }
   }
   function resetReport() {
@@ -683,7 +703,8 @@
       if (token !== state.sourceSetupToken) return;
       renderInspection(snapshot);
       $('#sourceStatus').textContent = `Inspection succeeded: ${(snapshot.tables || []).length} permitted table${(snapshot.tables || []).length === 1 ? '' : 's'}. Model readiness is checked separately.`;
-    } catch (error) { if (token !== state.sourceSetupToken) return; $('#sourceStatus').textContent = 'Source is not ready for a new investigation.'; sourceDiagnostic(error); notice('#sourceError', `${error.message}\nCheck the backend environment variable, read-only grants, and explicit table/mapping scope. Save and inspect again after correcting configuration.`); await loadSources().catch(() => {}); }
+    } catch (error) { if (token !== state.sourceSetupToken) { return; }
+      $('#sourceStatus').textContent = 'Source is not ready for a new investigation.'; sourceDiagnostic(error); notice('#sourceError', `${error.message}\nCheck the backend environment variable, read-only grants, and explicit table/mapping scope. Save and inspect again after correcting configuration.`); await loadSources().catch(() => {}); }
     finally { if (token === state.sourceSetupToken) { $('#sourceFields').disabled = false; $('#sourceHosting').disabled = false; $('#saveSource').disabled = false; restoreFocus(); } }
   }
   async function runSourceReadiness() {
@@ -973,7 +994,8 @@
     $('#toggleEvidence').setAttribute('aria-expanded', String(expanded));
     $('#toggleEvidence').textContent = `${expanded ? 'Hide' : 'Show'} captured records (${$('#toggleEvidence').dataset.count || '0'})`;
   });
-  $('#openReport').addEventListener('click', event => { if (!state.run) return; resetReport(); $('#reportForm').reset(); state.reportRunId = state.run.id; openDrawer('reportDrawer', event.currentTarget); });
+  $('#openReport').addEventListener('click', event => { if (!state.run) { return; }
+    resetReport(); $('#reportForm').reset(); state.reportRunId = state.run.id; openDrawer('reportDrawer', event.currentTarget); });
   $('#reportForm').addEventListener('submit', generateReport);
   $('#reportForm').addEventListener('change', resetReport);
   $('#confirmReportReview').addEventListener('change', () => { $('#downloadReport').disabled = !shareableReport(); $('#copyReport').disabled = !shareableReport(); });

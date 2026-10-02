@@ -532,8 +532,9 @@ def test_oversized_schema_metadata_preserves_scope_diagnostic():
         def fetchall(self):
             return [("public", "records", "id", "integer", "NO", None)] * 10_001
 
+    cursor = MetadataCursor()
     with pytest.raises(ConnectorUnavailable) as failure:
         PsycopgReadOnlyExecutor._snapshot_from_cursor(
-            MetadataCursor(), allowed_schemas=("public",), allowed_tables=("public.records",)
+            cursor, allowed_schemas=("public",), allowed_tables=("public.records",)
         )
     assert failure.value.diagnostic_code == "schema_too_large"

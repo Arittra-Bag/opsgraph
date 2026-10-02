@@ -323,10 +323,12 @@ def run_setup(
         output_fn("PostgreSQL hosting options:")
         for guide in HOSTING_GUIDES:
             output_fn(f"  {guide.id}: {guide.name}")
+        known_hosting = {guide.id for guide in HOSTING_GUIDES}
+        stored_hosting = existing.get("OPSGRAPH_POSTGRES_HOSTING")
         selected_hosting = prompt(
             "PostgreSQL hosting",
-            existing.get("OPSGRAPH_POSTGRES_HOSTING") or "self_hosted",
-            lambda value: _choice(value, {guide.id for guide in HOSTING_GUIDES}),
+            stored_hosting if stored_hosting in known_hosting else "self_hosted",
+            lambda value: _choice(value, known_hosting),
         )
         guide = hosting_guide(selected_hosting)
         for line in (guide.endpoint, guide.network, guide.tls, *guide.steps, *guide.checks):

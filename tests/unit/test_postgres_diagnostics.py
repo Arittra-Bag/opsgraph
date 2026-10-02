@@ -30,7 +30,8 @@ def test_failure_classification_retains_only_fixed_safe_content(message, state, 
     code = classify_postgres_failure(error, connecting=True)
     assert code == expected
     diagnostic = connection_diagnostic(code).as_dict()
-    assert diagnostic["steps"] and diagnostic["title"]
+    assert diagnostic["steps"]
+    assert diagnostic["title"]
     assert "secret-marker" not in json.dumps(diagnostic)
 
 

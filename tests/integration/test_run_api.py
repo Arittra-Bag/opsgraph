@@ -1022,7 +1022,8 @@ def test_reports_use_saved_workspace_snapshot_without_reexecution(api, monkeypat
     )
     assert api.client.post(path, json={}).status_code == 401
     result = api.client.post(path, headers=api.headers, json={})
-    assert result.status_code == 200 and result.headers["cache-control"] == "no-store"
+    assert result.status_code == 200
+    assert result.headers["cache-control"] == "no-store"
     assert "Count the approved records" not in result.json()["markdown"]
     selected = api.client.post(
         path,

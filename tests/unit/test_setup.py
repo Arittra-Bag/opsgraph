@@ -614,3 +614,23 @@ def test_guided_remote_setup_requires_verified_tls_without_contacting_database(m
         "postgresql://reader@database.example:5432/operations?sslmode=verify-full"
     )
     assert conninfo_to_dict(value)["sslmode"] == "verify-full"
+
+
+def test_setup_repairs_unknown_stored_hosting_with_default(tmp_path, monkeypatch):
+    directory = private_directory(tmp_path)
+    environment = directory / ".env"
+    environment.write_text("OPSGRAPH_POSTGRES_HOSTING=unknown-host\n")
+    environment.chmod(0o600)
+    monkeypatch.setattr(
+        "psycopg.connect", lambda *_args, **_kwargs: pytest.fail("network attempted")
+    )
+    assert (
+        setup.run_setup(
+            directory,
+            input_fn=lambda label: "yes" if "Reconfigure" in label else "",
+            secret_fn=lambda _: "",
+            output_fn=lambda _: None,
+        )
+        == 0
+    )
+    assert setup.read_private_config(environment)["OPSGRAPH_POSTGRES_HOSTING"] == "self_hosted"

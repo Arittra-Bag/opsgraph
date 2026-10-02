@@ -118,7 +118,7 @@
             </section>
             <label for="sourceEvidenceBindings">Playbook evidence mappings (optional)</label><textarea id="sourceEvidenceBindings" rows="3" placeholder="job_status=public.jobs&#10;queue_state=public.queues"></textarea><small>Required only for specialist playbooks that declare these evidence types. Map each to an allowed table. This is an evidence-coverage binding; it does not define column meanings, units, statuses or relationships. General read-only investigations do not require these mappings.</small>
             <label class="checkbox-label"><input id="sourceExternalEgress" type="checkbox"><span>Permit bounded evidence and schema metadata to reach an external model provider. Keep off for local inference.</span></label>
-            <div class="notice error" id="sourceError" role="alert" hidden></div><section class="connection-diagnostic" id="sourceDiagnostic" aria-labelledby="sourceDiagnosticTitle" hidden><p class="eyebrow">Connection needs attention</p><h3 id="sourceDiagnosticTitle"></h3><ol id="sourceDiagnosticSteps"></ol><p class="helper">No credentials or raw driver output are shown. Correct the configuration, then explicitly run the check again.</p></section><p id="sourceStatus" role="status"></p><button class="primary" id="saveSource" type="submit">Save and inspect source</button><button class="secondary" id="sourceContinue" type="button" hidden>Continue to investigation →</button></fieldset>
+            <div class="notice error" id="sourceError" role="alert" hidden></div><section class="connection-diagnostic" id="sourceDiagnostic" aria-labelledby="sourceDiagnosticTitle" hidden><p class="eyebrow">Connection needs attention</p><h3 id="sourceDiagnosticTitle">Connection needs attention</h3><ol id="sourceDiagnosticSteps"></ol><p class="helper">No credentials or raw driver output are shown. Correct the configuration, then explicitly run the check again.</p></section><output id="sourceStatus"></output><button class="primary" id="saveSource" type="submit">Save and inspect source</button><button class="secondary" id="sourceContinue" type="button" hidden>Continue to investigation →</button></fieldset>
           </form>
         </section>
       </section>
@@ -157,7 +157,7 @@
     <form class="drawer-body credential-form" id="credentialForm"><p>The packaged launcher connects its browser automatically using a one-use handoff. For a separate browser, use the private workspace key generated during setup or by <code>opsgraph init</code>. The key stays in this browser tab's session storage.</p><label for="workspaceKey">Workspace key</label><input id="workspaceKey" type="password" autocomplete="off" required spellcheck="false"><div class="notice error" id="credentialError" role="alert" hidden></div><button class="primary" id="saveCredential" type="submit">Connect workspace</button><button class="secondary" id="clearCredential" type="button">Forget key and clear this view</button><p class="helper">Requests send the key only to this origin in the X-OpsGraph-Key header.</p></form>
   </aside>
   <aside class="drawer evidence-drawer" id="evidenceDrawer" role="dialog" aria-modal="true" aria-labelledby="evidenceDrawerTitle" aria-hidden="true"><header><div><p class="eyebrow">Captured evidence</p><h2 id="evidenceDrawerTitle">Evidence detail</h2></div><button class="drawer-close" aria-label="Close evidence detail">×</button></header><div class="drawer-body" id="evidenceDetail"></div></aside>
-  <aside class="drawer report-drawer" id="reportDrawer" role="dialog" aria-modal="true" aria-labelledby="reportDrawerTitle" aria-hidden="true">
+  <dialog class="drawer report-drawer" id="reportDrawer" aria-modal="true" aria-labelledby="reportDrawerTitle" aria-hidden="true">
     <header><div><p class="eyebrow">Evidence handoff</p><h2 id="reportDrawerTitle">Create an incident report</h2></div><button class="drawer-close" aria-label="Close incident report">×</button></header>
     <div class="drawer-body">
       <p>Build a readable Markdown brief from this saved attempt. No new database or model request is made. Failed and incomplete attempts keep their recorded state.</p>
@@ -168,12 +168,12 @@
         <label><input type="checkbox" id="reportSql"><span><b>Executed SQL</b><small>May contain sensitive identifiers or literals</small></span></label>
         <label><input type="checkbox" id="reportRows"><span><b>Captured records</b><small>May contain sensitive source values</small></span></label>
       </fieldset><p class="helper">All included content can be sensitive. This report does not automatically redact it. Review the preview before sharing.</p><button class="secondary" id="previewReport" type="submit">Generate preview</button></form>
-      <p id="reportStatus" role="status"></p><div class="notice error" id="reportError" role="alert" hidden></div>
-      <section id="reportPreviewPanel" hidden aria-labelledby="reportPreviewTitle"><div class="report-preview-heading"><h3 id="reportPreviewTitle">Report preview</h3><span id="reportSnapshot"></span></div><article id="reportDocument" class="report-document" aria-label="Readable incident report"></article><details class="report-markdown"><summary>View and select Markdown</summary><pre id="reportPreview" tabindex="0" aria-label="Incident report Markdown preview"></pre></details></section>
+      <output id="reportStatus"></output><div class="notice error" id="reportError" role="alert" hidden></div>
+      <section id="reportPreviewPanel" hidden aria-labelledby="reportPreviewTitle"><div class="report-preview-heading"><h3 id="reportPreviewTitle">Report preview</h3><span id="reportSnapshot"></span></div><article id="reportDocument" class="report-document" aria-label="Readable incident report"></article><details class="report-markdown"><summary>View and select Markdown</summary><textarea id="reportPreview" readonly rows="12" aria-label="Incident report Markdown preview" spellcheck="false"></textarea></details></section>
       <label class="checkbox-label"><input type="checkbox" id="confirmReportReview" disabled><span>I reviewed this preview and its selected content for sharing.</span></label>
       <div class="report-actions"><button class="primary" id="downloadReport" disabled>Download Markdown</button><button class="secondary" id="copyReport" disabled>Copy report</button></div><p class="helper">Downloads stay local. OpsGraph does not send this report to another service.</p>
     </div>
-  </aside>
+  </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/assets/static/events.js"></script>
   <script src="/assets/static/view-state.js"></script>

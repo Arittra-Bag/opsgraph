@@ -698,6 +698,14 @@ def inspect_source(
     return scoped_snapshot.inspection_payload(status="ready")
 
 
+def _readiness_failure_code(error: ConnectorUnavailable | UnsafeDatabaseRole | UnsafeQuery) -> str:
+    if isinstance(error, UnsafeDatabaseRole):
+        return "unsafe_role"
+    if isinstance(error, UnsafeQuery):
+        return "scope_unavailable"
+    return error.diagnostic_code
+
+
 @app.post("/api/sources/{source_id}/readiness")
 def check_source_readiness(
     source_id: str,
@@ -787,13 +795,7 @@ def check_source_readiness(
         )
         raise HTTPException(409, str(exc)) from exc
     except (ConnectorUnavailable, UnsafeDatabaseRole, UnsafeQuery) as exc:
-        diagnostic_code = (
-            "unsafe_role"
-            if isinstance(exc, UnsafeDatabaseRole)
-            else "scope_unavailable"
-            if isinstance(exc, UnsafeQuery)
-            else exc.diagnostic_code
-        )
+        diagnostic_code = _readiness_failure_code(exc)
         runtime.audit.append(
             workspace_id=principal.workspace_id,
             actor=principal.subject,

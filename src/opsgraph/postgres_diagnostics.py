@@ -211,16 +211,17 @@ def connection_diagnostic(code: str) -> ConnectionDiagnostic:
 def classify_postgres_failure(error: Exception, *, connecting: bool = False) -> str:
     """Inspect driver details locally, returning a fixed category without those details."""
     state = getattr(error, "sqlstate", None)
-    if state == "28P01":
-        return "authentication_failed"
-    if state in {"28000", "42501"}:
-        return "access_denied"
-    if state == "3D000":
-        return "database_missing"
-    if state in {"53300", "57P03"}:
-        return "capacity_unavailable"
-    if state == "57014":
-        return "query_timeout"
+    states = {
+        "28P01": "authentication_failed",
+        "28000": "access_denied",
+        "42501": "access_denied",
+        "3D000": "database_missing",
+        "53300": "capacity_unavailable",
+        "57P03": "capacity_unavailable",
+        "57014": "query_timeout",
+    }
+    if state in states:
+        return states[state]
     # libpq connection failures commonly have no SQLSTATE. Never expose this text.
     message = str(error).lower()[:4096] if connecting else ""
     if "password authentication failed" in message or "no password supplied" in message:
