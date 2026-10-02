@@ -136,6 +136,46 @@ def test_harness_deadline_is_distinct_and_does_not_cancel_or_resubmit():
     assert requests == []
 
 
+def pending_terminal_run():
+    return {
+        "id": "inv-" + "1" * 32,
+        "status": "completed",
+        "last_event_id": 0,
+        "error": None,
+        "evidence": [{}],
+        "terminal_audited": False,
+    }
+
+
+def test_completed_run_waits_for_its_terminal_audit_acknowledgement():
+    requests = []
+    run = pending_terminal_run()
+
+    def poll(request):
+        requests.append(request)
+        return httpx.Response(200, json={**run, "terminal_audited": len(requests) >= 2})
+
+    with httpx.Client(transport=httpx.MockTransport(poll), base_url="http://127.0.0.1") as client:
+        record = {"runs": []}
+        result = completed(client, run, "first", record)
+    assert result["terminal_audited"] is True
+    assert len(requests) == 2
+    assert not record["runs"][0]["harness_deadline_reached"]
+
+
+def test_pending_terminal_audit_cannot_satisfy_live_acceptance_at_deadline():
+    requests = []
+    run = pending_terminal_run()
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda req: requests.append(req)), base_url="http://127.0.0.1"
+    ) as client:
+        record = {"runs": []}
+        with pytest.raises(AssertionError, match="audit acknowledgement"):
+            completed(client, run, "first", record, deadline_seconds=0)
+    assert record["runs"][0]["harness_deadline_reached"]
+    assert requests == []
+
+
 @pytest.mark.parametrize(
     "classification,references", [("supported", []), ("possible", ["wrong"]), ("invented", [])]
 )

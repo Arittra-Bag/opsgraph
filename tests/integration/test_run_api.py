@@ -1,7 +1,9 @@
 """Contract tests with explicit doubles; real acceptance lives separately."""
 
 import json
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
@@ -144,7 +146,7 @@ def wait(api, run_id):
 
 
 def wait_for_terminal_audit(api, run_id):
-    """Allow the worker to finish its audit callback after exposing terminal state."""
+    """Wait for both the audit callback and its durable run acknowledgement."""
 
     for _ in range(200):
         entries = [
@@ -152,10 +154,54 @@ def wait_for_terminal_audit(api, run_id):
             for entry in api.runtime.audit.entries
             if entry.action == "core.investigation.connected" and entry.resource == run_id
         ]
-        if entries:
+        run = api.service.store.get(api.runtime.settings.workspace_id, run_id)
+        if entries and run.get("terminal_audited") is True:
             return entries
         time.sleep(0.01)
     pytest.fail("terminal investigation audit was not recorded")
+
+
+def test_terminal_audit_wait_includes_the_durable_acknowledgement(api, monkeypatch):
+    entered, release, waiting = threading.Event(), threading.Event(), threading.Event()
+    mark = api.service.store.mark_terminal_audited
+
+    def delayed_marker(workspace, run_id):
+        entered.set()
+        if not release.wait(5):
+            raise RuntimeError("Test acknowledgement was not released")
+        return mark(workspace, run_id)
+
+    monkeypatch.setattr(api.service.store, "mark_terminal_audited", delayed_marker)
+    response = api.client.post(
+        "/api/runs",
+        headers=api.headers,
+        json={"question": "Count the approved records", "source_id": "local-data"},
+    )
+    run_id = response.json()["id"]
+
+    def wait_for_acknowledgement():
+        waiting.set()
+        return wait_for_terminal_audit(api, run_id)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        try:
+            assert entered.wait(2)
+            assert (
+                api.service.store.get(api.runtime.settings.workspace_id, run_id)["terminal_audited"]
+                is False
+            )
+            future = executor.submit(wait_for_acknowledgement)
+            assert waiting.wait(2)
+            with pytest.raises(TimeoutError):
+                future.result(timeout=0.05)
+            release.set()
+            assert len(future.result(timeout=2)) == 1
+            assert (
+                api.service.store.get(api.runtime.settings.workspace_id, run_id)["terminal_audited"]
+                is True
+            )
+        finally:
+            release.set()
 
 
 def test_database_query_failure_is_distinct_from_connectivity(api, monkeypatch):

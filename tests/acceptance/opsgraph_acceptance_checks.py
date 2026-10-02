@@ -62,6 +62,14 @@ def safe_run_id(value):
     )
 
 
+def run_pending(run):
+    """A terminal transition is still settling until its audit is acknowledged."""
+    return run["status"] in {"queued", "running", "cancelling"} or (
+        run["status"] in {"completed", "blocked", "failed", "interrupted", "cancelled"}
+        and run.get("terminal_audited") is False
+    )
+
+
 def observed_stage(client, run):
     """Read only the already-persisted SSE prefix; never wait for new progress."""
     target = run.get("last_event_id", 0)
@@ -95,12 +103,12 @@ def observed_stage(client, run):
 def completed(client, run, role, record, *, deadline_seconds=RUN_DEADLINE_SECONDS):
     started = time.monotonic()
     deadline = started + deadline_seconds
-    while run["status"] in {"queued", "running", "cancelling"} and time.monotonic() < deadline:
+    while run_pending(run) and time.monotonic() < deadline:
         time.sleep(0.5)
         response = client.get(f"/api/runs/{run['id']}", timeout=10.0)
         require(response.status_code == 200, "Run polling failed; response body withheld")
         run = response.json()
-    timed_out = run["status"] in {"queued", "running", "cancelling"}
+    timed_out = run_pending(run)
     error_code = (run.get("error") or {}).get("code")
     summary = {
         "role": role,
@@ -119,6 +127,7 @@ def completed(client, run, role, record, *, deadline_seconds=RUN_DEADLINE_SECOND
         + json.dumps(summary, sort_keys=True)
         + ". No automatic cancellation, repair or retry was performed.",
     )
+    require(run.get("terminal_audited") is True, "Terminal audit acknowledgement did not finish")
     require(bool(run["evidence"]), "A successful live run must capture evidence")
     return run
 
