@@ -23,8 +23,15 @@ from opsgraph.brokers import (
 )
 from opsgraph.brokers.query import UnsupportedEvidenceTypeError
 from opsgraph.domain import EvidenceBinding, Obligation, Principal
-from opsgraph.orchestration.plan_joins import conditional_count_conflict, empty_parent_join_conflict
-from opsgraph.orchestration.plan_meaning import missing_unit_clarification
+from opsgraph.orchestration.plan_joins import (
+    conditional_count_conflict,
+    empty_parent_join_conflict,
+    outer_join_row_count_conflict,
+)
+from opsgraph.orchestration.plan_meaning import (
+    explicit_missing_requested_unit,
+    missing_unit_clarification,
+)
 from opsgraph.policy import FailClosedPolicy, StaticPolicyEvaluator
 from opsgraph.providers import ChatMessage, ModelProvider, StructuredRequest
 from opsgraph.schema_service import SchemaSnapshot
@@ -569,8 +576,9 @@ def build_connected_graph(
             raise PermissionError("selected skill forbids external model egress")
         schema = snapshot.model_dump(mode="json")
         approved_bindings = [binding.model_dump(mode="json") for binding in evidence_bindings]
+        # Model instructions are never executed as SQL.
         prompt = (
-            "First interpret the question using its explicit operator definitions. "
+            "First interpret the question using its explicit operator definitions. "  # noqa: S608
             "Those definitions are sufficient assumptions for the requested calculation; "
             "do not ask the operator to reconfirm definitions already supplied simply because "
             "physical metadata cannot prove them. Ask only about meaning actually missing or "
@@ -602,7 +610,10 @@ def build_connected_graph(
             "COUNT(value) excludes NULL values; it is not a count of all reading or event rows. "
             "To count rows, including those with NULL measurements, count the non-null row "
             "identifier. With outer joins, count the child identifier, not the synthetic "
-            "empty-parent row. Keep distinct-parent counts separate from joined child counts. "
+            "empty-parent row. A wildcard row count includes that placeholder even when no "
+            "child exists. The missing-value count is the non-null child identifier count "
+            "minus the non-null child measurement count. This returns zero missing values "
+            "for an empty parent. Keep distinct-parent counts separate from joined child counts. "
             "No clarification is needed for a direct observation that avoids such assumptions. "
             "Never use comments, functions beyond common aggregates, system schemas, or writes.\n"
             "The application, not you, determines evidence coverage from the "
@@ -616,6 +627,8 @@ def build_connected_graph(
             f"Schema: {json.dumps(schema, sort_keys=True)}\n"
             f"Prior investigation context (historical, not fresh evidence): {parent_context}"
         )
+        if clarification := explicit_missing_requested_unit(state["question"]):
+            raise ClarificationRequired(clarification)
         for attempt in range(2):
             if len(prompt.encode("utf-8")) > 131_072:
                 raise PlanningContextTooLargeError(
@@ -637,7 +650,9 @@ def build_connected_graph(
                         "to count each entity once, count DISTINCT entity identifiers or aggregate "
                         "children first. Requested units do not define stored units: if the source "
                         "unit or required conversion is missing, ask a clarification "
-                        "and emit no SQL."
+                        "and emit no SQL. For optional children, COUNT(*) is not a child row "
+                        "count. Count the non-null child identifier so an empty parent has zero "
+                        "child rows and zero missing measurements."
                     )
                     if len(snapshot.tables) > 1
                     else "You are a cautious database investigation planner.",
@@ -659,6 +674,11 @@ def build_connected_graph(
             if not conflict:
                 conflict = conditional_count_conflict(state["question"], validated.queries)
                 reason = "conditional_count_conflict"
+            if not conflict:
+                conflict = outer_join_row_count_conflict(
+                    state["question"], validated.queries, snapshot
+                )
+                reason = "outer_join_row_count_conflict"
             if not conflict:
                 break
             if attempt:

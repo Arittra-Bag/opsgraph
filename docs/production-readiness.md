@@ -159,9 +159,15 @@ access, not confidentiality against an account or disk compromise. Audit records
 identify the workspace operator and approved scope, not distinct team members.
 
 The opt-in real-model scenario suite compares independently defined ledger,
-dispatch and metering facts, exact numeric results and ambiguous definitions.
+dispatch and metering facts, exact numeric results, empty parents and ambiguous definitions.
 It is a validation harness, not a model leaderboard or a calibrated confidence
 score. Offline protocol fixtures do not count as real-model quality results.
 Review recommendations and citation relevance against the captured records.
+Additional pre-execution checks reject synthetic outer-join row counts for explicit
+child-row and NULL-value metrics on an operator-defined relationship. One corrected
+plan is allowed before the investigation stops without executing that plan. A
+literal measurement threshold with an explicitly unavailable source-unit definition
+requires clarification before inference or querying. These narrow checks do not
+establish general SQL or business-semantic correctness.
 Hosted PostgreSQL guidance covers connection patterns, not certified testing of
 every provider, network arrangement or account configuration.

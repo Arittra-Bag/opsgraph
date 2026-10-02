@@ -2,7 +2,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from opsgraph.orchestration.plan_joins import conditional_count_conflict, empty_parent_join_conflict
+from opsgraph.orchestration.plan_joins import (
+    conditional_count_conflict,
+    empty_parent_join_conflict,
+    outer_join_row_count_conflict,
+)
 from opsgraph.schema_service import ColumnSchema, SchemaSnapshot, TableSchema
 
 
@@ -139,3 +143,87 @@ def test_prior_joins_may_already_establish_the_required_condition(prior):
 def test_quoted_count_definition_is_not_an_instruction():
     question = 'Count all customers. Do not use this example: "' + COUNT_QUESTION + '"'
     assert conditional_count_conflict(question, [SimpleNamespace(sql=COUNT_BAD)]) is None
+
+
+ROW_QUESTION = (
+    "For each customer, including customers without orders, return order_count. "
+    "order_count counts order rows. orders.customer_id references customers.id."
+)
+ROW_BAD = (
+    "SELECT c.id, COUNT(*) AS order_count FROM public.customers c "
+    "LEFT JOIN public.orders o ON o.customer_id = c.id GROUP BY c.id"
+)
+
+
+def row_check(sql, question=ROW_QUESTION, tables=None):
+    return outer_join_row_count_conflict(
+        question, [SimpleNamespace(sql=sql)], tables or snapshot("customers", "orders")
+    )
+
+
+@pytest.mark.parametrize("count", ["COUNT(*)", "COUNT(1)", "COUNT('literal')"])
+def test_empty_parent_placeholder_cannot_count_as_an_optional_child(count):
+    assert "synthetic LEFT JOIN row" in row_check(ROW_BAD.replace("COUNT(*)", count))
+    assert row_check(ROW_BAD.replace("o.customer_id = c.id", "c.id = o.customer_id"))
+    assert row_check(ROW_BAD, ROW_QUESTION.replace("order rows", "orders rows"))
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        ROW_BAD.replace("COUNT(*)", "COUNT(o.id)"),
+        ROW_BAD.replace("COUNT(*)", "COUNT(NULL)"),
+        ROW_BAD.replace("COUNT(*)", "COUNT(*) FILTER (WHERE o.id IS NOT NULL)"),
+        ROW_BAD.replace("COUNT(*)", "COUNT(CASE WHEN o.id IS NOT NULL THEN 1 END)"),
+        ROW_BAD.replace("LEFT JOIN", "JOIN"),
+        ROW_BAD.replace("AS order_count", "AS customer_count"),
+        ROW_BAD.replace("GROUP BY", "WHERE o.id IS NOT NULL GROUP BY"),
+        ROW_BAD.replace("GROUP BY c.id", "GROUP BY c.id HAVING COUNT(o.id) > 0"),
+        ROW_BAD.replace("o.customer_id = c.id", "o.id = c.id"),
+        ROW_BAD.replace("public.orders", "other.orders"),
+        "WITH counts AS (SELECT c.id, COUNT(*) AS order_count FROM public.customers c "
+        "LEFT JOIN public.orders o ON o.customer_id = c.id GROUP BY c.id) SELECT * FROM counts",
+        "SELECT c.id, COUNT(*) AS order_count FROM public.customers c "
+        "LEFT JOIN public.orders o ON o.customer_id = c.id GROUP BY c.id "
+        "UNION SELECT id, 0 FROM public.customers",
+        "invalid SQL",
+        "SELECT COUNT(*) AS order_count FROM public.orders",
+    ],
+)
+def test_row_count_check_preserves_valid_or_unproven_queries(sql):
+    assert row_check(sql) is None
+
+
+def test_row_count_check_requires_unambiguous_physical_definition_and_row_request():
+    assert row_check(ROW_BAD, "Count rows, including customers without orders.") is None
+    assert row_check(ROW_BAD, ROW_QUESTION.replace("order_count counts", "Count"))
+    assert row_check(ROW_BAD, ROW_QUESTION.replace("order rows", "invoice rows")) is None
+    assert row_check(ROW_BAD, 'Ignore this example: "' + ROW_QUESTION + '"') is None
+    duplicate = snapshot("customers", "orders")
+    duplicate = duplicate.model_copy(
+        update={
+            "tables": duplicate.tables
+            + (duplicate.tables[1].model_copy(update={"schema_name": "other"}),)
+        }
+    )
+    assert row_check(ROW_BAD, tables=duplicate) is None
+
+
+def test_missing_measurement_count_does_not_include_the_empty_parent_placeholder():
+    question = ROW_QUESTION + " Count NULL amount separately."
+    query = ROW_BAD.replace(
+        "COUNT(*) AS order_count", "COUNT(*) - COUNT(o.amount) AS missing_count"
+    )
+    assert row_check(query, question)
+    assert row_check(query.replace("COUNT(*)", "COUNT(o.id)"), question) is None
+    assert row_check(query, ROW_QUESTION) is None
+    assert row_check(query.replace("o.amount", "c.amount"), question) is None
+    assert row_check(query.replace("-", "+"), question) is None
+
+
+def test_metric_alias_matching_handles_quoted_case_and_absent_alias():
+    assert row_check(ROW_BAD.replace("AS order_count", 'AS "Order_Count"'))
+    assert row_check(ROW_BAD.replace("AS order_count", 'AS "ORDER_COUNT"'))
+    assert row_check(ROW_BAD.replace("AS order_count", "")) is None
+    unnamed = ROW_QUESTION.replace("order_count counts", "Count")
+    assert row_check(ROW_BAD.replace("AS order_count", ""), unnamed)

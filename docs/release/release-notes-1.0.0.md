@@ -103,3 +103,20 @@ managed by the operator. Model assessments still require evidence review.
   role guide. Cancelling or retrying setup preserves existing private configuration.
 - Hosted guidance clarifies Supabase address-family/pooler choices and DigitalOcean
   networking, database/user selection and cluster-CA configuration.
+
+## Optional-child count correctness
+
+- Planning guidance distinguishes actual child rows from an empty outer-join row.
+  Empty parents should have zero child rows and zero missing measurements.
+- A narrow pre-execution check rejects wildcard or constant counts of synthetic
+  outer-join rows for explicit child-row and NULL-value metrics on an
+  operator-defined relationship. The existing single correction attempt applies,
+  then an inconsistent plan stops without querying.
+- A measurement threshold with an explicitly unavailable source-unit definition
+  requires clarification before inference or querying. Requested units are never
+  treated as a definition of the stored values by this check.
+- Real-model metering scenarios now include a probe with no readings. Exact-result
+  checks cover its zero counts and NULL minimum and maximum values.
+
+These checks do not prove general query correctness. Review model conclusions
+against the recorded SQL, bounded source values and operator definitions.

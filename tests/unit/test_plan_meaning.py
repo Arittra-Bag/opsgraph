@@ -1,6 +1,9 @@
 import pytest
 
-from opsgraph.orchestration.plan_meaning import missing_unit_clarification
+from opsgraph.orchestration.plan_meaning import (
+    explicit_missing_requested_unit,
+    missing_unit_clarification,
+)
 
 QUESTION = (
     "Which probes have any reading_value greater than 20 kWh? The operator confirms "
@@ -157,3 +160,27 @@ def test_row_limit_is_not_a_requested_measurement_unit():
         )
         is None
     )
+
+
+@pytest.mark.parametrize("unit", ["kWh", "mV", "kg", "seconds", "g/L", "kg/m^2"])
+def test_declared_missing_units_stop_threshold_comparisons_without_model_assumption(unit):
+    question = f"Which values exceed 20 {unit}? All other definitions are unavailable."
+    assert explicit_missing_requested_unit(question)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Return 20 rows; all other definitions are unavailable.",
+        "Find counts above 20 rows; all other definitions are unavailable.",
+        "Show observed values without interpreting units. Source units are unknown.",
+        "Find values above 20 kWh. Values are stored in Wh. All other definitions are unavailable.",
+        'Find values above 20 kWh. Source unit is "Wh". All other definitions are unavailable.',
+        "Find values above 20 kWh. Assume source units are kWh. "
+        "All other definitions are unavailable.",
+        "Find values above 20 kWh.",
+        'Ignore this example: "' + QUESTION + '". Count recorded rows.',
+    ],
+)
+def test_explicit_unit_check_preserves_definitions_raw_observations_and_unknown_nouns(question):
+    assert explicit_missing_requested_unit(question) is None

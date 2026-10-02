@@ -130,9 +130,11 @@ METERING = Scenario(
     name="metering_nulls_and_decimals",
     tables=("acceptance_metering.probes", "acceptance_metering.readings"),
     question=(
-        "For each probe, return probe_key, sample_count, missing_value_count, min_reading, "
+        "For each probe, including probes without readings, return probe_key, sample_count, "
+        "missing_value_count, min_reading, "
         "max_reading, ordered by probe_key. Operator relationship definition: readings.probe_id "
-        "references probes.probe_id. Count reading rows, count NULL reading_value separately, "
+        "references probes.probe_id. sample_count counts reading rows, including rows with "
+        "NULL reading_value. Count NULL reading_value separately, "
         "and report the numeric minimum and maximum of non-NULL reading_value. Use exact "
         "numeric values. Cite observations. Do not infer measurement units, elapsed periods, "
         "timezones, equipment health or the meaning of reading_state from these records."
@@ -150,6 +152,7 @@ METERING = Scenario(
         ("P-A", 3, 1, Decimal("12.3400"), Decimal("13.1000")),
         ("P-B", 3, 0, Decimal("0.0000"), Decimal("0.0020")),
         ("P-C", 3, 1, Decimal("999.9900"), Decimal("1001.2300")),
+        ("P-D", 0, 0, None, None),
     ),
 )
 
