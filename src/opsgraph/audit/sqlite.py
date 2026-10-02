@@ -70,10 +70,14 @@ class SQLiteAuditChain(AuditChain):
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
-        """Open a verified transaction that can include related state changes."""
+        """Verify a stable read snapshot before taking SQLite's writer lock.
+
+        WAL refuses a stale snapshot's upgrade to a writer (SQLITE_BUSY_SNAPSHOT),
+        so an intervening external write fails closed instead of bypassing verification.
+        """
 
         with self._lock, self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.execute("BEGIN")
             try:
                 self._require_valid_connection(connection)
                 yield connection

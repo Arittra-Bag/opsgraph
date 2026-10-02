@@ -34,6 +34,30 @@ execution until explicitly updated. It must never start querying stored
 credentials automatically. Public `POST /api/investigations/sample` now returns
 `410 Gone`; deterministic runner helpers remain available for automated tests.
 
+## Saved provider settings before startup
+
+Stop OpsGraph and take a complete private backup first. Beta settings saved through
+Settings may lack an audit revision. The new backend refuses to trust these
+implicitly and cannot open Settings until they are re-attested. Privately review
+`<state database>.provider/settings.env` (endpoint, model, credential, and egress
+choice), then run from the workspace directory containing `.env`:
+
+```sh
+opsgraph provider-reattest --confirm
+```
+
+This explicit offline command requires the coordinator to be stopped, verifies the
+existing audit chain, and writes a new receipt before activating the settings. It
+makes no database or model calls and prints no credentials. Corrupt audit chains
+still require backup recovery; this command does not repair or bypass them.
+
+Provider receipt binding now uses a private per-install secret stored alongside
+provider settings and included in normal workspace backups. Workspace API-key
+rotation therefore leaves saved provider settings valid. Existing audited settings
+migrate after their old receipt verifies; start once before rotating the old key,
+or use the same explicit offline re-attestation if it was already rotated.
+After startup, review Settings and run the structured model probe again.
+
 ## Existing records and new runs
 
 Existing real evidence/results stay available in local storage. Historical

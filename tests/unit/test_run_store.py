@@ -300,3 +300,33 @@ def test_exception_handler_storage_failure_defers_running_run_to_restart_recover
         assert recovered_store.get("alpha", run["id"])["status"] == "interrupted"
     finally:
         recovered.close()
+
+
+def test_cancel_racing_failure_finishes_before_terminal_callback(tmp_path):
+    finished = threading.Event()
+    notified = []
+
+    class RacingStore(RunStore):
+        def update(self, workspace, run_id, event_type, **changes):
+            if changes.get("status") == "failed":
+                self.cancel(workspace, run_id)
+            return super().update(workspace, run_id, event_type, **changes)
+
+    store = RacingStore(tmp_path / "state.db")
+
+    def fail(*args):
+        raise ValueError("fixture failure")
+
+    def terminal(workspace, run_id, status, code):
+        notified.append(status)
+        assert store.get(workspace, run_id)["status"] == "cancelled"
+        finished.set()
+
+    coordinator = RunCoordinator(store, fail, workspace_id="alpha", on_terminal=terminal)
+    store.create("alpha", BODY)
+    coordinator.start()
+    try:
+        assert finished.wait(5)
+        assert notified == ["cancelled"]
+    finally:
+        coordinator.close()

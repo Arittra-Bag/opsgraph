@@ -538,3 +538,75 @@ def test_probe_rejects_result_from_replaced_provider(configured):
     response = client.post("/api/providers/current/test")
     assert response.status_code == 409
     assert "changed during" in response.json()["detail"]
+
+
+def test_saved_provider_survives_workspace_key_rotation(configured):
+    client, runtime, _ = configured
+    assert (
+        client.put(
+            "/api/providers/configuration",
+            headers={"Origin": "http://testserver"},
+            json=payload(api_key="rotation-test-fixture"),
+        ).status_code
+        == 200
+    )
+    rotated = runtime.settings.model_copy(update={"api_key": "r" * 32})
+    assert (
+        build_runtime(rotated).provider.config.api_key.get_secret_value() == "rotation-test-fixture"
+    )
+
+
+def test_legacy_provider_can_be_reattested_before_runtime_start(configured):
+    from opsgraph.provider_settings import reattest_provider_config
+
+    _, runtime, _ = configured
+    config = runtime.provider.config
+    write_private_config(
+        settings_path(runtime.settings),
+        {
+            "PROVIDER_CONFIG": config.model_dump_json(exclude={"api_key"}),
+            "PROVIDER_KEY": "legacy-fixture",
+        },
+    )
+    with pytest.raises(SetupError, match="missing its audit revision"):
+        build_runtime(runtime.settings)
+    reattest_provider_config(runtime.settings)
+    restored = build_runtime(runtime.settings)
+    assert restored.provider.config.api_key.get_secret_value() == "legacy-fixture"
+    assert read_private_config(settings_path(runtime.settings))["PROVIDER_BINDING_KEY"]
+
+
+def test_old_audit_binding_migrates_before_workspace_key_rotation(configured):
+    from opsgraph.provider_settings import provider_audit_fingerprint
+
+    _, runtime, _ = configured
+    config = runtime.provider.config
+    revision = "legacy-audited-revision"
+    write_private_config(
+        settings_path(runtime.settings),
+        {
+            "PROVIDER_CONFIG": config.model_dump_json(exclude={"api_key"}),
+            "PROVIDER_KEY": "",
+            "PROVIDER_REVISION": revision,
+        },
+    )
+    runtime.audit.append(
+        workspace_id=runtime.settings.workspace_id,
+        actor="test",
+        action="core.provider.manage",
+        resource="current-provider",
+        outcome="allowed",
+        details={
+            "reason": "configuration_saved",
+            "preset": config.provider_preset,
+            "adapter": config.kind,
+            "external_egress": config.egress_enabled,
+            "revision": revision,
+            "configuration_fingerprint": provider_audit_fingerprint(
+                config, binding_key=runtime.settings.api_key
+            ),
+        },
+    )
+    build_runtime(runtime.settings)
+    assert read_private_config(settings_path(runtime.settings))["PROVIDER_BINDING_KEY"]
+    build_runtime(runtime.settings.model_copy(update={"api_key": "z" * 32}))

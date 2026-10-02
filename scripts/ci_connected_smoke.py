@@ -31,6 +31,7 @@ from psycopg.conninfo import conninfo_to_dict
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLE = "public.opsgraph_ci_records"
+EXTRA_TABLE = "public.opsgraph_ci_records_extra"
 SOURCE_ID = "ci-source"
 SOURCE_DSN_ENV = "OPSGRAPH_CI_SOURCE_DSN"
 QUESTION = (
@@ -317,6 +318,10 @@ def provision_database(dsn: str, role_name: str, role_password: str) -> str:
             require(
                 existing == (None,), "CI source relation already exists; refusing to replace it"
             )
+            extra_existing = connection.execute(
+                "SELECT pg_catalog.to_regclass(%s)", (EXTRA_TABLE,)
+            ).fetchone()
+            require(extra_existing == (None,), "CI extra relation exists; refusing to replace it")
             role_exists = connection.execute(
                 "SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = %s)",
                 (role_name,),
@@ -326,9 +331,10 @@ def provision_database(dsn: str, role_name: str, role_password: str) -> str:
             )
             connection.execute(
                 "CREATE TABLE public.opsgraph_ci_records "
-                "(id integer PRIMARY KEY, status text NOT NULL, duration_ms integer NOT NULL)"
+                "(id serial PRIMARY KEY, status text NOT NULL, duration_ms integer NOT NULL)"
             )
             created_resources = True
+            connection.execute("CREATE TABLE public.opsgraph_ci_records_extra (id integer)")
             connection.execute(
                 "INSERT INTO public.opsgraph_ci_records (id, status, duration_ms) VALUES "
                 "(1, 'succeeded', 120), (2, 'failed', 2400), (3, 'succeeded', 180)"
@@ -357,6 +363,12 @@ def provision_database(dsn: str, role_name: str, role_password: str) -> str:
                     sql.Identifier(*TABLE.split(".")), sql.Identifier(role_name)
                 )
             )
+            connection.execute(
+                sql.SQL("GRANT SELECT ON TABLE public.opsgraph_ci_records_extra TO {}").format(
+                    sql.Identifier(role_name)
+                )
+            )
+            connection.execute("REVOKE ALL ON TABLE public.opsgraph_ci_records_extra FROM PUBLIC")
             connection.execute("REVOKE ALL ON TABLE public.opsgraph_ci_records FROM PUBLIC")
             privileges = connection.execute(
                 "SELECT pg_catalog.has_table_privilege(%s, %s, 'SELECT'), "
@@ -403,6 +415,7 @@ def verify_database_write_denial(reader_dsn: str, owner_connection: str) -> None
 def cleanup_database(dsn: str, role_name: str) -> None:
     try:
         with psycopg.connect(dsn, autocommit=True, connect_timeout=5) as connection:
+            connection.execute("DROP TABLE IF EXISTS public.opsgraph_ci_records_extra")
             connection.execute("DROP TABLE IF EXISTS public.opsgraph_ci_records CASCADE")
             connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role_name)))
             connection.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name)))
@@ -536,7 +549,7 @@ def run_smoke() -> dict[str, Any]:
                             "name": "Connected CI PostgreSQL",
                             "secret_ref": SOURCE_DSN_ENV,
                             "allowed_schemas": ["public"],
-                            "allowed_tables": [TABLE],
+                            "allowed_tables": [TABLE, EXTRA_TABLE],
                             "evidence_bindings": [],
                             "allow_external_egress": False,
                         },
@@ -678,7 +691,8 @@ def run_smoke() -> dict[str, Any]:
                 "database_write_denial": True,
                 "application_write_sql_denial": True,
                 "history_after_restart": True,
-                "checked_api_response_credential_leakage": False,
+                "api_response_credential_leakage_checked": True,
+                "api_response_credential_leakage_found": False,
                 "source_password_in_state_database": False,
                 "model_quality_tested": False,
             }

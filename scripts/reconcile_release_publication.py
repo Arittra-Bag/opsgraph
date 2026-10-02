@@ -273,33 +273,41 @@ def alias_plan(releases: Sequence[dict[str, Any]], *, repository: str, tag: str)
 def container_tag_state(
     client: GitHubClient, *, owner: str, package: str, tag: str
 ) -> dict[str, Any]:
-    """Return exact GHCR tag state from a complete authenticated package listing."""
-
+    """Inspect GHCR using the registry login already used for publication."""
     _require(_PACKAGE.fullmatch(owner) is not None, "invalid package owner")
     _require(_PACKAGE.fullmatch(package) is not None, "invalid package name")
     _require(_PACKAGE.fullmatch(tag) is not None, "invalid container tag")
-    path = f"/users/{_quote(owner)}/packages/container/{_quote(package)}/versions"
-    versions = client.paginated(path)
-    found: list[str] = []
-    for version in versions:
-        _require(isinstance(version, dict), "container package version is invalid")
-        digest = version.get("name")
-        metadata = version.get("metadata")
-        container = metadata.get("container") if isinstance(metadata, dict) else None
-        tags = container.get("tags") if isinstance(container, dict) else None
-        _require(isinstance(tags, list), "container package tags are invalid")
-        if tag in tags:
-            _require(
-                isinstance(digest, str) and _DIGEST.fullmatch(digest) is not None,
-                f"container tag {tag} has an invalid registry digest",
-            )
-            found.append(digest)
-    _require(len(found) <= 1, f"container tag {tag} resolves to multiple package versions")
+    reference = f"ghcr.io/{owner.lower()}/{package}:{tag}"
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["docker", "buildx", "imagetools", "inspect", "--raw", reference],  # noqa: S607
+            check=False,
+            capture_output=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise PublicationError("Registry tag inspection failed") from None
+    if result.returncode:
+        error = result.stderr.decode("utf-8", errors="replace").lower()
+        # Never interpret authentication/transport failures as permission to publish.
+        absent = "manifest unknown" in error or error.strip().endswith(f"{reference}: not found")
+        _require(absent, "Registry tag inspection failed")
+        return {"schema_version": 1, "tag": tag, "state": "absent", "digest": None}
+    raw = result.stdout
+    _require(len(raw) <= MAX_JSON_BYTES, "Registry manifest is too large")
+    try:
+        manifest = json.loads(raw)
+    except (ValueError, UnicodeError):
+        raise PublicationError("Registry manifest is invalid") from None
+    _require(
+        isinstance(manifest, dict) and manifest.get("schemaVersion") == 2,
+        "Registry manifest is invalid",
+    )
     return {
         "schema_version": 1,
         "tag": tag,
-        "state": "existing" if found else "absent",
-        "digest": found[0] if found else None,
+        "state": "existing",
+        "digest": "sha256:" + hashlib.sha256(raw).hexdigest(),
     }
 
 

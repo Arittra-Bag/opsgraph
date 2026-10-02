@@ -185,40 +185,42 @@ def test_prepare_rejects_conflicting_release_notes():
         )
 
 
-def test_container_tag_absence_requires_a_successful_complete_listing():
-    client = FakeClient(versions=[])
+@pytest.mark.parametrize(
+    "error", [b"manifest unknown", b"ERROR: ghcr.io/arittra-bag/opsgraph:v1.2.3: not found"]
+)
+def test_container_tag_absence_requires_registry_not_found(monkeypatch, error):
+    from types import SimpleNamespace
 
-    result = container_tag_state(client, owner="Arittra-Bag", package="opsgraph", tag=TAG)
-
+    monkeypatch.setattr(
+        "scripts.reconcile_release_publication.subprocess.run",
+        lambda *a, **k: SimpleNamespace(returncode=1, stdout=b"", stderr=error),
+    )
+    result = container_tag_state(FakeClient(), owner="Arittra-Bag", package="opsgraph", tag=TAG)
     assert result == {"schema_version": 1, "tag": TAG, "state": "absent", "digest": None}
 
 
-def test_container_tag_reuses_one_exact_registry_digest():
-    client = FakeClient(
-        versions=[
-            {
-                "name": AMD64_DIGEST,
-                "metadata": {"container": {"tags": [TAG, "1.2"]}},
-            }
-        ]
+def test_container_tag_reuses_exact_raw_manifest_digest(monkeypatch):
+    from types import SimpleNamespace
+
+    raw = json.dumps(image_manifest()).encode()
+    monkeypatch.setattr(
+        "scripts.reconcile_release_publication.subprocess.run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=raw, stderr=b""),
     )
-
-    result = container_tag_state(client, owner="Arittra-Bag", package="opsgraph", tag=TAG)
-
-    assert result["state"] == "existing"
-    assert result["digest"] == AMD64_DIGEST
+    result = container_tag_state(FakeClient(), owner="Arittra-Bag", package="opsgraph", tag=TAG)
+    assert result["digest"] == "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
-def test_container_tag_rejects_duplicate_tag_ownership():
-    client = FakeClient(
-        versions=[
-            {"name": AMD64_DIGEST, "metadata": {"container": {"tags": [TAG]}}},
-            {"name": ARM64_DIGEST, "metadata": {"container": {"tags": [TAG]}}},
-        ]
+@pytest.mark.parametrize("error", [b"unauthorized", b"connection refused", b"executable not found"])
+def test_container_tag_discovery_fails_closed(monkeypatch, error):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "scripts.reconcile_release_publication.subprocess.run",
+        lambda *a, **k: SimpleNamespace(returncode=1, stdout=b"", stderr=error),
     )
-
-    with pytest.raises(PublicationError, match="multiple package versions"):
-        container_tag_state(client, owner="Arittra-Bag", package="opsgraph", tag=TAG)
+    with pytest.raises(PublicationError, match="inspection failed"):
+        container_tag_state(FakeClient(), owner="Arittra-Bag", package="opsgraph", tag=TAG)
 
 
 def image_manifest():

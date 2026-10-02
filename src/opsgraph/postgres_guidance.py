@@ -109,7 +109,7 @@ def build_postgres_role_guide(
 
     createuser = (
         "createuser --pwprompt --no-superuser --no-createdb --no-createrole "
-        f"--no-inherit --no-replication --no-bypassrls {role}"
+        f"--no-inherit --no-replication {role}"
     )
     return PostgresRoleGuide(
         executed=False,

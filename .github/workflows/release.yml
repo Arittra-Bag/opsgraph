@@ -209,13 +209,13 @@ jobs:
       postgres:
         image: postgres:17.7-bookworm
         env:
-          POSTGRES_DB: opsgraph_release
+          POSTGRES_DB: opsgraph_ci_release
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: ${{ github.run_id }}
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready --username=postgres --dbname=opsgraph_release"
+          --health-cmd "pg_isready --username=postgres --dbname=opsgraph_ci_release"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -234,7 +234,7 @@ jobs:
       - name: Exercise the real read-only control path
         env:
           OPSGRAPH_CI_POSTGRES_OWNER_DSN: >-
-            postgresql://postgres:${{ github.run_id }}@127.0.0.1:5432/opsgraph_release
+            postgresql://postgres:${{ github.run_id }}@127.0.0.1:5432/opsgraph_ci_release
         run: >-
           uv run --locked --no-sync --no-build python scripts/ci_connected_smoke.py
           > connected-smoke.json
@@ -483,7 +483,7 @@ jobs:
           name: container-image-${{ matrix.slug }}-${{ needs.validate-tag.outputs.source_commit }}
           path: ci-container/opsgraph-container-${{ matrix.slug }}.tar
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
       - name: Show container logs on failure
         if: failure()
         run: docker logs opsgraph-release-smoke || true

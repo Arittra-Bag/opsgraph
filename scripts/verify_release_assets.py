@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import re
@@ -181,13 +182,14 @@ def _verify_docker_image_archive(
             config_name = record.get("Config")
             _require(
                 isinstance(config_name, str)
-                and re.fullmatch(r"[0-9a-f]{64}\.json", config_name) is not None,
+                and re.fullmatch(r"(?:[0-9a-f]{64}\.json|blobs/sha256/[0-9a-f]{64})", config_name)
+                is not None,
                 "container archive config path is invalid",
             )
             config_bytes = _tar_member_bytes(archive, members, config_name, limit=MAX_JSON_BYTES)
             config_digest = hashlib.sha256(config_bytes).hexdigest()
             _require(
-                config_name == f"{config_digest}.json",
+                config_name in {f"{config_digest}.json", f"blobs/sha256/{config_digest}"},
                 "container archive config filename does not match its SHA-256",
             )
             _require(
@@ -233,11 +235,15 @@ def _verify_docker_image_archive(
                 ),
                 "container archive root filesystem identity is invalid",
             )
-            for layer in layers:
+            for layer, diff_id in zip(layers, diff_ids, strict=True):
                 _require(isinstance(layer, str), "container archive layer path is invalid")
                 normalized = _safe_tar_name(layer)
                 _require(
-                    normalized == layer and layer.endswith("/layer.tar"),
+                    normalized == layer
+                    and (
+                        layer.endswith("/layer.tar")
+                        or re.fullmatch(r"blobs/sha256/[0-9a-f]{64}", layer) is not None
+                    ),
                     "container archive layer path is invalid",
                 )
                 member = members.get(layer)
@@ -247,9 +253,34 @@ def _verify_docker_image_archive(
                 )
                 stream = archive.extractfile(member)
                 _require(stream is not None, f"container archive could not read layer: {layer}")
-                while stream.read(1024 * 1024):
-                    pass
-    except (OSError, tarfile.TarError) as exc:
+                digest = hashlib.sha256()
+                while chunk := stream.read(1024 * 1024):
+                    digest.update(chunk)
+                layer_hash = digest.hexdigest()
+                # OCI exports may retain gzip-compressed blobs; diff_ids describe
+                # uncompressed layer bytes, while blob paths name stored bytes.
+                stream.seek(0)
+                compressed = stream.read(2) == b"\x1f\x8b"
+                stream.seek(0)
+                diff_hash = layer_hash
+                if compressed:
+                    uncompressed = hashlib.sha256()
+                    size = 0
+                    with gzip.GzipFile(fileobj=stream) as decoded:
+                        while chunk := decoded.read(1024 * 1024):
+                            size += len(chunk)
+                            _require(
+                                size <= MAX_ARTIFACT_BYTES, "container layer expands beyond limit"
+                            )
+                            uncompressed.update(chunk)
+                    diff_hash = uncompressed.hexdigest()
+                _require(diff_id == f"sha256:{diff_hash}", "container layer digest mismatch")
+                if layer.startswith("blobs/sha256/"):
+                    _require(
+                        layer == f"blobs/sha256/{layer_hash}",
+                        "container layer blob filename does not match its SHA-256",
+                    )
+    except (OSError, EOFError, tarfile.TarError) as exc:
         raise ReleaseAssetError(f"invalid Docker image archive: {path.name}") from exc
 
 
@@ -332,7 +363,8 @@ def _verify_connected_receipt(root: Path, *, source_commit: str, tag: str) -> No
     )
     _require(
         checks.get("provider_save_restart_probe") is True
-        and checks.get("checked_api_response_credential_leakage") is False
+        and checks.get("api_response_credential_leakage_checked") is True
+        and checks.get("api_response_credential_leakage_found") is False
         and checks.get("source_password_in_state_database") is False
         and checks.get("model_quality_tested") is False,
         "connected smoke security or evidence boundary is incomplete",

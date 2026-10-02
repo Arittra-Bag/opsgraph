@@ -295,3 +295,72 @@ def test_reinspection_invalidates_prior_readiness(schema_api):
         "status": "pending",
         "reason": "Run the bounded readiness check after reviewing this inspection.",
     }
+
+
+@pytest.mark.parametrize("operation", ["inspect", "readiness"])
+def test_source_transition_rolls_back_when_audit_insert_fails(schema_api, monkeypatch, operation):
+    import sqlite3
+
+    client, runtime, _, _, headers = schema_api
+    inspect_ready_source(client, headers)
+    before = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    ).value
+    count = len(runtime.audit.entries)
+
+    def fail(*args, **kwargs):
+        raise sqlite3.OperationalError("fixture storage failure")
+
+    monkeypatch.setattr(runtime.audit, "append_in_transaction", fail)
+    response = client.post(
+        f"/api/sources/schema-data/{operation}",
+        headers=headers,
+        json={"table": "public.records", "confirm_bounded_read": True},
+    )
+    assert response.status_code == 503
+    after = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    ).value
+    assert len(runtime.audit.entries) == count
+    # Inspection deliberately marks old metadata stale before contacting the source.
+    assert after == ({**before, "status": "stale"} if operation == "inspect" else before)
+
+
+@pytest.mark.parametrize("failure", ["state", "audit"])
+def test_source_save_cannot_leave_false_success_receipt(schema_api, monkeypatch, failure):
+    import sqlite3
+
+    client, runtime, _, _, headers = schema_api
+    before = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    )
+    audit_before = runtime.audit.entries
+
+    def fail(*args, **kwargs):
+        raise sqlite3.OperationalError("fixture storage failure")
+
+    target, method = (
+        (runtime.store, "put_in_transaction")
+        if failure == "state"
+        else (runtime.audit, "append_in_transaction")
+    )
+    monkeypatch.setattr(target, method, fail)
+    response = client.post(
+        "/api/sources",
+        headers=headers,
+        json={
+            "id": "schema-data",
+            "name": "Changed",
+            "secret_ref": "OPSGRAPH_SOURCE_DSN",
+            "allowed_schemas": ["public"],
+            "allowed_tables": ["public.records"],
+        },
+    )
+    assert response.status_code == 503, response.text
+    assert (
+        runtime.store.get(
+            workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+        )
+        == before
+    )
+    assert runtime.audit.entries == audit_before

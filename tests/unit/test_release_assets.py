@@ -1,3 +1,4 @@
+import gzip
 import hashlib
 import io
 import json
@@ -135,7 +136,8 @@ def release_set(root: Path) -> Path:
                 "source_role": "dedicated SELECT-only login",
                 "provider": "local OpenAI-compatible protocol fixture",
                 "provider_save_restart_probe": True,
-                "checked_api_response_credential_leakage": False,
+                "api_response_credential_leakage_checked": True,
+                "api_response_credential_leakage_found": False,
                 "source_password_in_state_database": False,
                 "model_quality_tested": False,
             },
@@ -400,3 +402,39 @@ def test_rejects_container_receipt_for_another_dockerfile(tmp_path):
 
     with pytest.raises(ReleaseAssetError, match="different Dockerfiles"):
         verify(incoming, container_images, tmp_path / "release")
+
+
+@pytest.mark.parametrize("corrupt", [False, True])
+@pytest.mark.parametrize("compressed", [False, True])
+def test_oci_docker_save_archive_validates_blob_contents(tmp_path, corrupt, compressed):
+    from scripts.verify_release_assets import _verify_docker_image_archive
+
+    path = tmp_path / "image.tar"
+    image_id = write_docker_archive(path, slug="linux-amd64", platform_name="linux/amd64")
+    with tarfile.open(path) as archive:
+        files = {m.name: archive.extractfile(m).read() for m in archive.getmembers()}
+    manifest = json.loads(files.pop("manifest.json"))
+    config = files.pop(manifest[0]["Config"])
+    layer = files.pop(manifest[0]["Layers"][0])
+    if compressed:
+        layer = gzip.compress(layer)
+    config_path, layer_path = f"blobs/sha256/{sha(config)}", f"blobs/sha256/{sha(layer)}"
+    manifest[0].update(Config=config_path, Layers=[layer_path])
+    with tarfile.open(path, "w") as archive:
+        add_tar_file(archive, "manifest.json", json.dumps(manifest).encode())
+        add_tar_file(archive, config_path, config)
+        add_tar_file(archive, layer_path, layer + b"tampered" if corrupt else layer)
+    args = dict(
+        platform="linux/amd64",
+        reference="opsgraph-release-smoke:linux-amd64",
+        image_id=image_id,
+        source_commit=COMMIT,
+        version=VERSION,
+    )
+    if corrupt:
+        with pytest.raises(
+            ReleaseAssetError, match="layer digest mismatch|invalid Docker image archive"
+        ):
+            _verify_docker_image_archive(path, **args)
+    else:
+        _verify_docker_image_archive(path, **args)

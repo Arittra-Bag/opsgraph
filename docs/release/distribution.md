@@ -130,3 +130,13 @@ or PostgreSQL topology is compatible, or that a dependency is free of
 vulnerabilities. Review the [support matrix](support-matrix.md), verify the
 source and model from the target environment, and inspect captured evidence
 before relying on a finding.
+
+### Source archive digest drift
+
+GitHub-generated codeload archives can change bytes without a tag change. A digest
+mismatch must stop the release. Preserve the expected manifest and failing receipt;
+compare the upstream commit and extracted source with the previously reviewed
+archive. Recover the original archive from a verified private build cache when
+available. Otherwise review the replacement source and notices in a new PR, update
+its size and SHA-256 only after that review, and run the source-supplement checks
+again. Never disable checksum validation or silently refresh hashes at tag time.

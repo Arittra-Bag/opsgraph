@@ -183,15 +183,21 @@ def authorize(principal: Principal, action: str, resource: str) -> Obligation:
     return decision.obligations
 
 
-def append_required_audit(**entry) -> None:
-    """Fail a security-sensitive state transition when its audit cannot persist."""
-
+def save_audited_source(*, records, expected=None, conflict_message="Source changed.", **entry):
+    """Commit source metadata and its successful audit receipt together."""
     try:
-        runtime.audit.append(**entry)
-    except Exception:
+        with runtime.audit.transaction() as connection:
+            if expected is None:
+                for record in records:
+                    runtime.store.put_in_transaction(connection, record)
+            elif not runtime.store.replace_if_unchanged_in_transaction(
+                connection, expected, records
+            ):
+                raise HTTPException(409, conflict_message)
+            runtime.audit.append_in_transaction(connection, **entry)
+    except (AuditIntegrityError, OSError, sqlite3.Error):
         raise HTTPException(
-            503,
-            "The operation was not saved because local audit storage is unavailable.",
+            503, "The operation was not saved because local state or audit storage is unavailable."
         ) from None
 
 
@@ -519,7 +525,8 @@ def create_source(
         "status": "configured",
         "read_only": True,
     }
-    append_required_audit(
+    save_audited_source(
+        records=(WorkspaceRecord(principal.workspace_id, f"source:{body.id}", record),),
         workspace_id=principal.workspace_id,
         actor=principal.subject,
         action="core.source.manage",
@@ -535,7 +542,6 @@ def create_source(
             "allow_external_egress": body.allow_external_egress,
         },
     )
-    runtime.store.put(WorkspaceRecord(principal.workspace_id, f"source:{body.id}", record))
     return record
 
 
@@ -656,7 +662,17 @@ def inspect_source(
             "reason": "Run the bounded readiness check after reviewing this inspection.",
         },
     }
-    append_required_audit(
+    save_audited_source(
+        expected=WorkspaceRecord(principal.workspace_id, f"source:{source_id}", stored),
+        records=(
+            WorkspaceRecord(principal.workspace_id, f"source:{source_id}", updated),
+            WorkspaceRecord(
+                principal.workspace_id,
+                f"schema:{source_id}",
+                {"record_type": "schema", **scoped_snapshot.model_dump(mode="json")},
+            ),
+        ),
+        conflict_message="Source configuration changed during inspection. Inspect again.",
         workspace_id=principal.workspace_id,
         actor=principal.subject,
         action="core.schema.inspect",
@@ -668,18 +684,7 @@ def inspect_source(
             "readiness_status": "pending",
         },
     )
-    if not runtime.store.put_if_unchanged(
-        WorkspaceRecord(principal.workspace_id, f"source:{source_id}", stored),
-        (
-            WorkspaceRecord(principal.workspace_id, f"source:{source_id}", updated),
-            WorkspaceRecord(
-                principal.workspace_id,
-                f"schema:{source_id}",
-                {"record_type": "schema", **scoped_snapshot.model_dump(mode="json")},
-            ),
-        ),
-    ):
-        raise HTTPException(409, "Source configuration changed during inspection. Inspect again.")
+
     return scoped_snapshot.inspection_payload(status="ready")
 
 
@@ -746,7 +751,7 @@ def check_source_readiness(
             allow_insecure_remote=runtime.settings.allow_insecure_remote_postgres,
             allowed_schemas=tuple(stored["allowed_schemas"]),
             allowed_tables=(body.table,),
-            expected_schema_fingerprint=snapshot.fingerprint,
+            expected_schema_fingerprint=snapshot.scoped((body.table,)).fingerprint,
         )
         executor.execute_readonly(plan.sql, timeout_ms=obligations.timeout_ms)
     except SourceSchemaChanged as exc:
@@ -794,7 +799,10 @@ def check_source_readiness(
         "policy_revision": stable_hash(policy_obligations.model_dump(mode="json")),
     }
     updated = {**stored, "readiness": readiness}
-    append_required_audit(
+    save_audited_source(
+        expected=stored_record,
+        records=(WorkspaceRecord(principal.workspace_id, f"source:{source_id}", updated),),
+        conflict_message="Source configuration changed during readiness. Run it again.",
         workspace_id=principal.workspace_id,
         actor=principal.subject,
         action="core.source.readiness",
@@ -807,11 +815,7 @@ def check_source_readiness(
             "max_rows": obligations.max_rows,
         },
     )
-    if not runtime.store.put_if_unchanged(
-        stored_record,
-        (WorkspaceRecord(principal.workspace_id, f"source:{source_id}", updated),),
-    ):
-        raise HTTPException(409, "Source configuration changed during readiness. Run it again.")
+
     return readiness
 
 

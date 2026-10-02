@@ -131,3 +131,17 @@ test('source list defaults to a readiness-checked source', async () => {
   await f.context.loadSources();
   assert.equal(f.$('#investigationSource').value, 'verified');
 });
+
+test('readiness inputs do not invalidate source settings while source edits do', () => {
+  let listener; let dirty = 0;
+  const start = source.indexOf("  $('#sourceForm').addEventListener('input'");
+  const end = source.indexOf('\n  });', start) + '\n  });'.length;
+  vm.runInNewContext(source.slice(start, end), {
+    $: () => ({ addEventListener: (_, handler) => { listener = handler; } }),
+    markSourceDirty: () => { dirty++; },
+  });
+  listener({ target: { closest: selector => selector === '#sourceReadinessPanel' } });
+  assert.equal(dirty, 0);
+  listener({ target: { closest: () => null } });
+  assert.equal(dirty, 1);
+});

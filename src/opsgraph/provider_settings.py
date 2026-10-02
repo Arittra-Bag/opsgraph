@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
+import secrets
 from typing import Literal
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
@@ -16,7 +19,14 @@ from opsgraph.providers.models import (
     PROVIDER_DEFAULT_ENDPOINTS,
     ProviderPreset,
 )
-from opsgraph.setup import SetupError, _loopback_url, _model_name, _model_url, read_private_config
+from opsgraph.setup import (
+    SetupError,
+    _loopback_url,
+    _model_name,
+    _model_url,
+    read_private_config,
+    write_private_config,
+)
 
 RequestProvider = ProviderPreset | Literal["openai_compatible"]
 
@@ -59,7 +69,21 @@ def provider_audit_fingerprint(config: ProviderConfig, *, binding_key: str) -> s
 
     return stable_hash(
         {
-            "configuration": config.model_dump(mode="json", exclude={"api_key"}),
+            "configuration": config.model_dump(
+                mode="json",
+                include={
+                    "kind",
+                    "provider_preset",
+                    "model",
+                    "allowed_models",
+                    "base_url",
+                    "egress_enabled",
+                    "timeout_seconds",
+                    "reasoning_effort",
+                    "schema_profile",
+                    "max_output_tokens",
+                },
+            ),
             "credential_binding": credential_binding,
         }
     )
@@ -118,19 +142,24 @@ def load_provider_config(settings, fallback, *, audit=None):
         if not revision:
             raise SetupError(
                 "Saved model configuration is missing its audit revision. "
-                "Restore its private backup or save it again."
+                "Stop OpsGraph, review private settings, then run "
+                "opsgraph provider-reattest --confirm."
             )
         if audit is None or not _matching_audit(
             audit.entries,
             config,
             revision,
             workspace_id=settings.workspace_id,
-            binding_key=settings.api_key,
+            binding_key=values.get("PROVIDER_BINDING_KEY") or settings.api_key,
         ):
             raise SetupError(
                 "Saved model configuration has no matching audit record. "
-                "Restore its private backup or save it again."
+                "Stop OpsGraph, review private settings, then run "
+                "opsgraph provider-reattest --confirm."
             )
+        if not values.get("PROVIDER_BINDING_KEY"):
+            # Only migrate an existing configuration after its old receipt verified.
+            attest_provider_config(settings, config, audit=audit)
         config = config.model_copy(
             update={
                 "egress_enabled": config.egress_enabled and settings.egress_enabled,
@@ -143,6 +172,72 @@ def load_provider_config(settings, fallback, *, audit=None):
         raise SetupError(
             "Saved model configuration is invalid. Restore its private backup."
         ) from None
+
+
+def attest_provider_config(settings, config, *, audit):
+    """Bind reviewed private settings to a workspace-independent secret.
+
+    Call only after verifying an existing receipt or explicit offline operator approval.
+    A pending file is never activated until the new audit receipt is durable.
+    """
+    binding_key = secrets.token_hex(32)
+    revision = uuid4().hex
+    pending = pending_settings_path(settings)
+    write_private_config(
+        pending,
+        {
+            "PROVIDER_CONFIG": config.model_dump_json(exclude={"api_key"}),
+            "PROVIDER_KEY": config.api_key.get_secret_value() if config.api_key else "",
+            "PROVIDER_REVISION": revision,
+            "PROVIDER_BINDING_KEY": binding_key,
+        },
+    )
+    try:
+        audit.append(
+            workspace_id=settings.workspace_id,
+            actor="local-operator",
+            action="core.provider.manage",
+            resource="current-provider",
+            outcome="allowed",
+            details={
+                "reason": "configuration_saved",
+                "preset": config.provider_preset,
+                "adapter": config.kind,
+                "external_egress": config.egress_enabled,
+                "revision": revision,
+                "configuration_fingerprint": provider_audit_fingerprint(
+                    config, binding_key=binding_key
+                ),
+            },
+        )
+        os.replace(pending, settings_path(settings))
+    finally:
+        pending.unlink(missing_ok=True)
+
+
+def reattest_provider_config(settings):
+    """Offline recovery entry point; does not construct a runtime or contact a provider."""
+    from opsgraph.audit import SQLiteAuditChain
+    from opsgraph.maintenance import stopped_state
+
+    audit = SQLiteAuditChain(settings.state_path)
+    with stopped_state(settings.state_path):
+        values = read_private_config(settings_path(settings))
+        try:
+            config = ProviderConfig.model_validate_json(values["PROVIDER_CONFIG"])
+            config = config.model_copy(
+                update={
+                    "api_key": SecretStr(values["PROVIDER_KEY"])
+                    if values.get("PROVIDER_KEY")
+                    else None,
+                }
+            )
+        except (ValueError, KeyError, TypeError):
+            raise SetupError(
+                "Saved model configuration is invalid; restore its private backup."
+            ) from None
+        audit.require_valid()
+        attest_provider_config(settings, config, audit=audit)
 
 
 def _preset(value: RequestProvider) -> ProviderPreset:

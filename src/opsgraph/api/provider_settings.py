@@ -1,6 +1,7 @@
 """Authenticated model settings: saving never invokes a provider."""
 
 import os
+import secrets
 from typing import Annotated
 from uuid import uuid4
 
@@ -83,8 +84,8 @@ def router_for(runtime, run_api):
             path = settings_path(runtime.settings)
             pending = pending_settings_path(runtime.settings)
             try:
-                if path.exists():
-                    read_private_config(path)
+                existing = read_private_config(path) if path.exists() else {}
+                binding_key = existing.get("PROVIDER_BINDING_KEY") or secrets.token_hex(32)
                 config = make_config(body, runtime.provider.config, runtime.settings.egress_enabled)
                 provider = create_provider(config)
                 revision = uuid4().hex
@@ -94,6 +95,7 @@ def router_for(runtime, run_api):
                         "PROVIDER_CONFIG": config.model_dump_json(exclude={"api_key"}),
                         "PROVIDER_KEY": config.api_key.get_secret_value() if config.api_key else "",
                         "PROVIDER_REVISION": revision,
+                        "PROVIDER_BINDING_KEY": binding_key,
                     },
                 )
             except PermissionError:
@@ -122,7 +124,7 @@ def router_for(runtime, run_api):
                     revision=revision,
                     configuration_fingerprint=provider_audit_fingerprint(
                         config,
-                        binding_key=runtime.settings.api_key,
+                        binding_key=binding_key,
                     ),
                 )
             except Exception:

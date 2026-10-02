@@ -236,6 +236,7 @@ class PsycopgReadOnlyExecutor:
         """Read visible schema metadata inside the caller's database snapshot."""
 
         table_scope = list(allowed_tables) if allowed_tables is not None else None
+        cursor.execute("SELECT set_config('search_path', 'pg_catalog', true)")
         cursor.execute(
             "SELECT table_schema, table_name, column_name, data_type, is_nullable, "
             "column_default FROM information_schema.columns "
@@ -276,7 +277,7 @@ class PsycopgReadOnlyExecutor:
             "LEFT JOIN pg_catalog.pg_foreign_data_wrapper AS foreign_wrapper "
             "ON foreign_wrapper.oid = foreign_server.srvfdw "
             "WHERE relation_schema.nspname = ANY(%s) "
-            "AND relation.relkind IN ('r', 'p', 'v', 'm', 'f') "
+            "AND relation.relkind IN ('r', 'p', 'v', 'f') "
             "AND pg_catalog.has_schema_privilege(relation_schema.nspname, 'USAGE') "
             "AND pg_catalog.has_any_column_privilege(relation.oid, 'SELECT') "
             "AND (%s::text[] IS NULL OR "

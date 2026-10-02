@@ -410,6 +410,15 @@ class RunCoordinator:
                         else (403 if isinstance(exc, PermissionError) else 422),
                     },
                 )
+                if terminal["status"] == "cancelling":
+                    terminal = self.store.update(
+                        workspace,
+                        run_id,
+                        "cancelled",
+                        status="cancelled",
+                        finished_at=timestamp(),
+                        error={"code": "cancelled", "message": "Investigation cancelled."},
+                    )
                 if not terminal_notified:
                     terminal_notified = self._notify_terminal(
                         workspace,

@@ -822,7 +822,9 @@
   $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
   $('#setupReadiness').addEventListener('click', () => sourceSetup(sourceForReadinessSetup()));
   $('#sourceForm').addEventListener('submit', saveSource); $('#investigationForm').addEventListener('submit', submitRun);
-  $('#sourceForm').addEventListener('input', markSourceDirty);
+  $('#sourceForm').addEventListener('input', event => {
+    if (!event.target.closest('#sourceReadinessPanel')) markSourceDirty();
+  });
   $('#generateRoleGuide').addEventListener('click', generateRoleGuide); $('#copyRoleGuide').addEventListener('click', copyRoleGuide);
   $('#investigationSource').addEventListener('change', () => { renderComposerScope(); readiness(); }); $('#investigationSkill').addEventListener('change', renderComposerScope);
   $('#sourceReadinessTable').addEventListener('change', () => { $('#confirmSourceReadiness').checked = false; $('#runSourceReadiness').disabled = true; });
