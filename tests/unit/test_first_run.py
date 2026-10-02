@@ -43,9 +43,9 @@ def test_quick_setup_defers_credentials_and_skips_advanced_prompts(tmp_path):
     assert config["OPSGRAPH_EGRESS_ENABLED"] == "false"
     assert not any("Approved schemas" in label or "timeout" in label for label in labels)
     assert not any("Schema profile" in label or "Reasoning effort" in label for label in labels)
-    assert "not test connectivity" in output
-    assert "administrator role guide" in output
-    assert "generated or preserved privately" in output
+    assert "Not tested yet: database access and model responses" in output
+    assert "Database connection skipped" in output
+    assert "Browser sign-in key: created or kept privately" in output
     assert config["OPSGRAPH_API_KEY"] not in output
     assert labels[-1].startswith("Save configuration?")
 
@@ -61,7 +61,7 @@ def test_hosted_quick_presets_require_consent_and_use_official_endpoints(tmp_pat
     assert config["OPSGRAPH_LOCAL_MODEL_URL"] == PROVIDER_DEFAULT_ENDPOINTS[preset]
     assert config["OPSGRAPH_MODEL_PRESET"] == preset
     assert config["OPSGRAPH_EGRESS_ENABLED"] == "true"
-    assert "captured evidence" in output
+    assert "captured evidence" in " ".join(output.split())
     settings = Settings(_env_file=None, **{k: v for k, v in config.items() if v is not None})
     assert _provider(settings).config.provider_preset == preset
 

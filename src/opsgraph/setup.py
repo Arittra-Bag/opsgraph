@@ -26,10 +26,23 @@ from opsgraph.brokers.postgres import ConnectorUnavailable, PsycopgReadOnlyExecu
 from opsgraph.postgres_diagnostics import connection_diagnostic
 from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide
 from opsgraph.providers.models import FIXED_HOSTED_PRESETS, PROVIDER_DEFAULT_ENDPOINTS
+from opsgraph.terminal_ui import TerminalUI
 
 ConfigValues = dict[str, str | None]
 _IDENTIFIER = re.compile(r"[a-z_][a-z0-9_]{0,62}\Z")
 _ENV_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+_PROVIDER_LABELS = {
+    "ollama": "Ollama (on this computer)",
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "groq": "Groq",
+    "together": "Together AI",
+    "mistral": "Mistral AI",
+    "lm_studio": "LM Studio (on this computer)",
+    "vllm": "vLLM (your model server)",
+    "anthropic": "Anthropic",
+    "custom_openai": "Other compatible service (custom address)",
+}
 
 
 class SetupError(ValueError):
@@ -169,13 +182,13 @@ def normalize_guided_dsn(value: str) -> str:
         parameters = conninfo_to_dict(value)
     except Exception:
         raise SetupError(
-            "PostgreSQL connection syntax is invalid. Enter a PostgreSQL URL "
-            "or libpq connection string with host, port, database and user."
+            "PostgreSQL connection syntax is invalid. Paste a complete connection string "
+            "with the host, port, database and user. Type ? for connection instructions."
         ) from None
     if "service" in parameters or "servicefile" in parameters:
         raise SetupError(
             "Guided setup does not use PostgreSQL service files. "
-            "Enter host, port, database and user directly in the DSN."
+            "Enter host, port, database and user directly in the connection string."
         )
     if "passfile" in parameters and parameters["passfile"] != os.devnull:
         raise SetupError(
@@ -194,7 +207,7 @@ def normalize_guided_dsn(value: str) -> str:
     ):
         raise SetupError(
             "Guided setup requires one explicit host and port. "
-            "Use operator-managed configuration for multi-host connection strings."
+            "Ask your administrator to configure multi-host connections outside this wizard."
         )
     port = parameters["port"]
     if not re.fullmatch(r"[0-9]{1,5}", port) or not 1 <= int(port) <= 65535:
@@ -204,7 +217,7 @@ def normalize_guided_dsn(value: str) -> str:
         normalized = make_conninfo(**dict(sorted(parameters.items())))
     except Exception:
         raise SetupError(
-            "PostgreSQL connection syntax is invalid. Re-enter the complete DSN."
+            "PostgreSQL connection syntax is invalid. Re-enter the complete connection string."
         ) from None
     try:
         PsycopgReadOnlyExecutor(normalized)
@@ -235,10 +248,9 @@ def _model_url(value: str, *, allow_remote: bool = False) -> str:
         valid = False
     if not valid:
         raise SetupError(
-            "Use a literal loopback http(s) URL"
-            + (" or an HTTPS provider URL" if allow_remote else "")
-            + ", "
-            "without credentials, query or fragment."
+            "For a local model, use http://127.0.0.1:<port>/v1 or http://[::1]:<port>/v1. "
+            + ("Hosted services must use https://. " if allow_remote else "")
+            + "Keep API keys out of the address. Remove anything after ? or #."
         )
     return value.rstrip("/")
 
@@ -288,89 +300,131 @@ def run_setup(
     output_fn: Callable[[str], object] = print,
 ) -> int:
     """Prompt for backend configuration; browser inspection/probing stays mandatory."""
-    ask = input_fn or input
-    hidden = secret_fn or getpass.getpass
+    ui = TerminalUI(output_fn)
+    ask = input_fn or (lambda label: input(ui.question(label)))
+    hidden = secret_fn or (lambda label: getpass.getpass(ui.question(label)))
+    output_fn = ui.write
     try:
         workspace = ensure_private_directory(directory or default_workspace_directory())
         path = workspace / ".env"
         existing = read_private_config(path)
         if path.exists():
             output_fn(
-                "Existing configuration found. Guided setup selects a provider and asks before "
-                "external model egress. It also removes PostgreSQL environment overrides (PG*) "
-                "and disables password-file fallback; other settings are preserved."
+                "Saved settings found. Your history will stay safe. Setup uses the database "
+                "details you enter here, removing PostgreSQL environment overrides (PG*) "
+                "and saved password-file fallback. Other settings are preserved."
             )
             if ask("Reconfigure these settings? [y/N]: ").strip().lower() not in {"y", "yes"}:
                 output_fn("Existing configuration preserved.")
                 return 0
         if os.name == "nt":
             output_fn(
-                "Windows: keep this workspace within your private user profile and verify "
-                "inherited ACLs; POSIX permission bits do not verify Windows privacy."
+                "Windows: keep this workspace in your own user folder. Check that other users "
+                "cannot read it. This setup cannot verify Windows folder access rules."
             )
         output_fn(
-            "Credentials stay on this backend. Setup validates syntax only; "
-            "inspect source scope and test the real model in the browser."
-        )
-        output_fn(
-            "Provide the source host, port, database and user explicitly. "
-            "Saved PostgreSQL services and password files are not used by guided setup."
-        )
-        output_fn(
-            "For local inference, use an already installed model. Downloads require several GB "
-            "and enough RAM; this setup does not install a runtime or download a model."
+            "Three steps: database, model service, then review and save. "
+            "Press Ctrl+C at any time to cancel without replacing your settings."
         )
         values = {name: value for name, value in existing.items() if not name.startswith("PG")}
 
-        def prompt(label: str, default: str, validate: Callable[[str], str]) -> str:
+        def prompt(
+            label: str,
+            default: str,
+            validate: Callable[[str], str],
+            help_text: str = "",
+            display_default: str | None = None,
+        ) -> str:
             while True:
-                value = ask(f"{label} [Enter keeps current/default]: ").strip() or default
+                output_fn(
+                    f"Press Enter to use: {display_default or default}. Type ? for help."
+                    if default
+                    else "Enter a value. Type ? for help."
+                )
+                value = ask(f"{label}: ").strip()
+                if value == "?":
+                    output_fn(
+                        help_text
+                        or "Choose one of the shown values. Press Enter to keep the default."
+                    )
+                    continue
+                value = value or default
                 try:
                     return validate(value)
                 except SetupError as error:
                     output_fn(str(error))
 
         if flow == "choose":
-            output_fn("\n## Choose your setup")
-            output_fn("  1. Quick: Recommended defaults, with your database and model choices.")
-            output_fn(
-                "  2. Advanced: Also configure schema scope, endpoint, output profile and timeout."
+            ui.heading("Choose how to set up")
+            ui.menu(
+                (
+                    ("quick", "Quick setup (recommended)"),
+                    ("advanced", "Advanced setup (more options)"),
+                ),
+                "quick",
             )
             flow = prompt(
-                "Setup: quick / advanced (default quick)",
+                "Setup",
                 "quick",
                 lambda value: _menu_choice(value, ("quick", "advanced")),
             )
         if flow not in {"quick", "advanced"}:
             raise SetupError("Choose quick or advanced setup.")
-        output_fn("\n## 1. PostgreSQL connection")
+        ui.heading("Step 1 of 3: Your database")
         output_fn(
-            "No read-only login yet? Skip the DSN now. Sources has an administrator role guide."
+            "Use a PostgreSQL login that can read approved tables but cannot change data. "
+            "No login yet? You can skip the connection and finish it in Sources later."
         )
-        output_fn("PostgreSQL hosting options:")
-        for index, guide in enumerate(HOSTING_GUIDES, 1):
-            output_fn(f"  {index}. {guide.name} ({guide.id})")
         known_hosting = {guide.id for guide in HOSTING_GUIDES}
         stored_hosting = existing.get("OPSGRAPH_POSTGRES_HOSTING")
+        hosting_default = stored_hosting if stored_hosting in known_hosting else "self_hosted"
+        ui.menu(tuple((guide.id, guide.name) for guide in HOSTING_GUIDES), hosting_default)
         selected_hosting = prompt(
-            "PostgreSQL hosting",
-            stored_hosting if stored_hosting in known_hosting else "self_hosted",
+            "PostgreSQL hosting: where does your database run?",
+            hosting_default,
             lambda value: _menu_choice(value, tuple(guide.id for guide in HOSTING_GUIDES)),
+            "Pick the company hosting your database, or Local PostgreSQL for this computer. "
+            "This selects instructions. It does not create or connect a database.",
+            hosting_guide(hosting_default).name,
         )
         guide = hosting_guide(selected_hosting)
-        for line in (guide.endpoint, guide.network, guide.tls, *guide.steps, *guide.checks):
-            output_fn(line)
-        output_fn(f"Provider instructions: {guide.documentation}")
+        output_fn(f"Selected: {guide.name}.")
         output_fn(
-            "Choosing a hosting option configures guidance only. Connection checks run later."
+            "Paste your read-only connection string below. It contains the database address, "
+            "port, database name and login. Typing is hidden to protect its password."
+        )
+        output_fn(
+            "For a database on this computer, use its local address and port."
+            if selected_hosting == "local"
+            else "Remote connections must use sslmode=verify-full "
+            "and the provider's trusted certificate."
+        )
+        output_fn(
+            "Need connection instructions? Enter ? below. Connection checks run later in Sources."
+        )
+        database_help = "\n".join(
+            (
+                "A connection string is also called a DSN. Ask your database administrator for "
+                "a read-only login. Sources includes an administrator role guide.",
+                guide.endpoint,
+                guide.network,
+                guide.tls,
+                *guide.steps,
+                *guide.checks,
+                f"Provider instructions: {guide.documentation}",
+            )
         )
 
         while True:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", getpass.GetPassWarning)
                 dsn = hidden(
-                    "Read-only PostgreSQL DSN (hidden; Enter keeps existing or skips): "
+                    "Database connection string (hidden). Enter keeps a saved connection or skips. "
+                    "? shows help: "
                 ).strip()
+            if dsn == "?":
+                output_fn(database_help)
+                continue
             if not dsn:
                 dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
             if dsn:
@@ -380,17 +434,28 @@ def run_setup(
                     output_fn(str(error))
                     continue
             break
+        output_fn(
+            "Database connection entered. It will be saved after you confirm."
+            if dsn
+            else "Database connection skipped. You can add it later in Sources."
+        )
         schemas = existing.get("OPSGRAPH_POSTGRES_ALLOWED_SCHEMAS") or "public"
         if flow == "advanced":
             schemas = prompt(
-                "Approved schemas, comma-separated (default public)", schemas, _schemas
+                "Approved schemas (database groups, separated by commas)",
+                schemas,
+                _schemas,
+                "Most databases use public. Enter only the groups OpsGraph may inspect. "
+                "You will choose individual tables in Sources later.",
             )
         else:
             schemas = _schemas(schemas)
             output_fn(
-                "Quick setup keeps the existing schema ceiling, or public for a new workspace."
+                "Database groups: saved choices kept, or public for a new workspace. "
+                "Choose individual tables in Sources after setup."
             )
-        output_fn("\n## 2. Model connection")
+        ui.heading("Step 2 of 3: Your model service")
+        output_fn("Choose a model running on your computer, or a hosted service with an API key.")
         if existing.get("OPSGRAPH_MODEL_PROVIDER") in {"anthropic", "external"}:
             provider_default = "anthropic"
         elif existing.get("OPSGRAPH_LOCAL_SCHEMA_PROFILE", "ollama") == "ollama" and _loopback_url(
@@ -410,20 +475,23 @@ def run_setup(
                     ),
                     "custom_openai" if saved_endpoint else "ollama",
                 )
-            output_fn("Providers (choose a number or name):")
-            for index, name in enumerate(PROVIDER_DEFAULT_ENDPOINTS, 1):
-                output_fn(f"  {index}. {name}")
+            ui.menu(
+                tuple((name, _PROVIDER_LABELS[name]) for name in PROVIDER_DEFAULT_ENDPOINTS),
+                provider_default,
+            )
             selected = prompt(
-                f"Provider (default {provider_default})",
+                "Provider",
                 provider_default,
                 lambda value: _menu_choice(value, tuple(PROVIDER_DEFAULT_ENDPOINTS)),
             )
         else:
+            ui.menu(
+                tuple((name, _PROVIDER_LABELS[name]) for name in PROVIDER_DEFAULT_ENDPOINTS)
+                + (("openai_compatible", "Other compatible service"),),
+                provider_default,
+            )
             selected = prompt(
-                "Provider: "
-                + " / ".join(PROVIDER_DEFAULT_ENDPOINTS)
-                + " / openai_compatible "
-                + f"(default {provider_default})",
+                "Provider",
                 provider_default,
                 lambda value: _menu_choice(
                     value, (*PROVIDER_DEFAULT_ENDPOINTS, "openai_compatible")
@@ -433,7 +501,7 @@ def run_setup(
         if selected == "anthropic":
             output_fn("Anthropic uses its official API endpoint, https://api.anthropic.com.")
             values["OPSGRAPH_ANTHROPIC_MODEL"] = prompt(
-                "Anthropic model identifier (default claude-sonnet-5)",
+                "Model name",
                 existing.get("OPSGRAPH_ANTHROPIC_MODEL") or "claude-sonnet-5",
                 _model_name,
             )
@@ -450,9 +518,7 @@ def run_setup(
                 endpoint_default
                 if selected in FIXED_HOSTED_PRESETS
                 else prompt(
-                    "Model API URL (default "
-                    + (PROVIDER_DEFAULT_ENDPOINTS.get(selected) or "enter URL")
-                    + ")",
+                    "Model service address",
                     endpoint_default,
                     lambda value: _model_url(value, allow_remote=selected != "ollama"),
                 )
@@ -464,11 +530,13 @@ def run_setup(
             elif selected == "vllm":
                 output_fn("Default vLLM uses port 8000. Launch OpsGraph with --port 8010.")
             model = prompt(
-                "Model identifier (Ollama default qwen3:8b; "
-                "compatible APIs require their model ID)",
+                "Model name",
                 (existing.get("OPSGRAPH_LOCAL_MODEL") if same_selection else None)
                 or ("qwen3:8b" if selected == "ollama" else ""),
                 _model_name,
+                "Use the exact model name from your provider's model list. "
+                "Ollama uses names such as qwen3:8b. Hosted services may use company/model names. "
+                "This setup does not fetch the available models or check account access.",
             )
             if flow == "quick":
                 profile = (
@@ -478,21 +546,23 @@ def run_setup(
                 reasoning = (
                     existing.get("OPSGRAPH_LOCAL_REASONING_EFFORT") if same_selection else None
                 ) or "omit"
-                output_fn(
-                    "Quick setup keeps saved reasoning options and omits them for new providers."
-                )
+                output_fn("Recommended response settings selected. Saved model options are kept.")
             else:
                 profile = prompt(
-                    "Schema profile: ollama / standard",
+                    "Response format (Schema profile): ollama / standard",
                     (existing.get("OPSGRAPH_LOCAL_SCHEMA_PROFILE") if same_selection else None)
                     or ("ollama" if selected == "ollama" else "standard"),
                     lambda value: _choice(value, {"ollama", "standard"}),
+                    "Choose ollama for Ollama. Choose standard for hosted services and other "
+                    "compatible servers. This controls how OpsGraph asks for structured answers.",
                 )
                 reasoning = prompt(
-                    "Reasoning effort: none / low / medium / high / omit",
+                    "Reasoning effort: omit / none / low / medium / high",
                     (existing.get("OPSGRAPH_LOCAL_REASONING_EFFORT") if same_selection else None)
                     or ("none" if profile == "ollama" else "omit"),
                     lambda value: _choice(value, {"none", "low", "medium", "high", "omit"}),
+                    "Omit lets the provider use its own setting. Other choices request a specific "
+                    "thinking level. Some models do not support this option.",
                 )
             values.update(
                 {
@@ -505,15 +575,19 @@ def run_setup(
             remote = urlsplit(endpoint).hostname not in {"127.0.0.1", "::1"}
         if remote:
             output_fn(
-                "External model use sends questions, scoped schema and captured evidence to "
-                "the selected provider. This enables external model egress; "
-                "setup itself sends nothing."
+                "Hosted model privacy: your questions, selected table descriptions and captured "
+                "evidence, which may contain actual database values, will be sent to this provider "
+                "during investigations. Setup itself sends nothing."
             )
-            if ask("Allow external model egress? [y/N]: ").strip().lower() not in {"y", "yes"}:
+            if ask(
+                "Allow sending investigation data to this provider? [y/N]: "
+            ).strip().lower() not in {"y", "yes"}:
                 output_fn("Setup cancelled. Existing configuration was not replaced.")
                 return 1
         else:
-            output_fn("Literal loopback model selected; external model egress will be disabled.")
+            output_fn(
+                "Model stays on this computer. Sending data to external model services is disabled."
+            )
         endpoint_changed = selected != "anthropic" and (
             endpoint != (existing.get("OPSGRAPH_LOCAL_MODEL_URL") or "")
         )
@@ -523,29 +597,35 @@ def run_setup(
         else:
             if endpoint_changed:
                 output_fn(
-                    "Endpoint changed: enter its key explicitly; "
-                    "the previous key will not be reused."
+                    "Model service changed. Enter its API key below. "
+                    "The previous key will not be reused."
                 )
+            output_fn(
+                "Your API key is hidden while you type or paste. It will not appear on screen."
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter("error", getpass.GetPassWarning)
                 credential = hidden(
-                    "Model API key (hidden; Enter keeps existing or skips): "
+                    "Model API key (hidden). Enter keeps a key for the same service or skips: "
                 ).strip()
             if credential:
                 values[credential_name] = credential
             elif endpoint_changed or not values.get(credential_name):
                 values[credential_name] = ""
                 output_fn(
-                    "Model credential skipped; authenticated providers require it before probing."
+                    "Model credential skipped. Add the required API key in Settings "
+                    "before testing this service."
                 )
         timeout_default = existing.get("OPSGRAPH_PROVIDER_TIMEOUT_SECONDS") or "300"
         timeout = (
             _timeout(timeout_default)
             if flow == "quick"
             else prompt(
-                "Model timeout in seconds (default 300)",
+                "Maximum wait for a model response, in seconds",
                 timeout_default,
                 _timeout,
+                "How long each model request may take before stopping. The allowed range is "
+                "0.1 to 600 seconds. Slower models may need more time.",
             )
         )
         state = ensure_private_directory(workspace / ".opsgraph")
@@ -590,23 +670,26 @@ def run_setup(
             values["OPSGRAPH_MODEL_PRESET"] = selected
         else:
             values.pop("OPSGRAPH_MODEL_PRESET", None)
-        output_fn("\n## 3. Review before saving")
+        ui.heading("Step 3 of 3: Review and save")
         output_fn(f"Setup: {flow}. Hosting: {guide.name}.")
-        output_fn("Database credential: " + ("configured privately" if dsn else "deferred"))
+        output_fn("Database connection: " + ("entered privately" if dsn else "skipped for now"))
         output_fn(
-            "Model provider: "
-            + selected
-            + ". Credential: "
-            + ("configured privately" if values.get(credential_name) else "not configured")
+            "Model service: "
+            + _PROVIDER_LABELS.get(selected, "Other compatible service")
+            + ". API key: "
+            + ("entered privately" if values.get(credential_name) else "not entered")
         )
         output_fn(
-            "External model egress: " + ("enabled with your consent" if remote else "disabled")
+            "Send investigation data to provider: " + ("yes, with your consent" if remote else "no")
         )
-        output_fn("Workspace key: generated or preserved privately. It is never printed.")
-        output_fn("Saving does not test connectivity or prove answer quality.")
-        output_fn("Browser model settings take precedence. Change providers in Settings.")
+        output_fn("Browser sign-in key: created or kept privately. It is never printed.")
+        output_fn("Not tested yet: database access and model responses. Test both in the browser.")
+        output_fn(
+            "If you already saved model choices in browser Settings, those are used instead. "
+            "Change them there when needed."
+        )
         decision = prompt(
-            "Save configuration? save / cancel (default save)",
+            "Save configuration? save / cancel",
             "save",
             lambda value: _choice(value, {"save", "cancel"}),
         )
@@ -614,20 +697,24 @@ def run_setup(
             output_fn("Setup cancelled. Existing configuration was not replaced.")
             return 1
         write_private_config(path, values)
+        output_fn("Private settings saved. Your browser workspace is next.")
+        output_fn("If you ran setup on its own, run opsgraph launch to open the browser.")
+        ui.heading("Next: finish connecting in the browser")
         output_fn(
-            "Private configuration saved. Run opsgraph launch, select explicit tables in Sources, "
-            "inspect actual access, and test the model in Settings."
+            "1. Sources: choose your tables and check the read-only login. "
+            "Approve a small test read to check that queries work."
         )
-        output_fn("\n## Next steps in the browser")
         output_fn(
-            "1. Sources: choose exact tables, inspect access, and approve the readiness read."
+            "2. Settings: click Test model to check a real response from your selected model."
         )
-        output_fn("2. Settings: test the real model with the structured probe.")
-        output_fn("3. Ask a narrow question and review each finding against its captured evidence.")
-        output_fn("No model weights were installed. Use Settings to repair or change providers.")
+        output_fn(
+            "3. Ask a specific question. Check the records behind each answer before trusting it."
+        )
+        output_fn("No model files were installed. Local model services must already be running.")
         if not dsn:
             output_fn(
-                "PostgreSQL credential skipped. Run opsgraph setup again when it is available."
+                "Database connection skipped. Run opsgraph setup again "
+                "when you have a read-only login."
             )
         return 0
     except (EOFError, KeyboardInterrupt):

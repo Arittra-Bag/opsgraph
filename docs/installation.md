@@ -12,6 +12,14 @@ After cloning, run `python3 Start.py` on macOS/Linux or `py Start.py` on Windows
 The source installer needs Python 3.9 or newer. It uses or downloads a supported
 Python 3.11–3.13 for the application. Git and a browser remain prerequisites.
 
+The terminal shows installation progress, then three setup steps: your database,
+your model service, and a review before saving. Choose menu items by number.
+Defaults are shown before entry. Type `?` where offered for an explanation,
+including the hidden database connection prompt. Passwords and API keys do not
+appear while typing. Press Ctrl+C to cancel without replacing saved settings.
+Terminal headings and questions use color when supported, with plain output when
+redirected or when `NO_COLOR` is set. Long instructions wrap to the terminal width.
+
 The installation plan is shown before any download. Accepting it installs pinned
 uv in `.bootstrap` only when uv is missing, synchronizes locked runtime/provider
 dependencies in `.venv`, and builds the application using hashed build constraints.
@@ -54,7 +62,7 @@ uv run --locked opsgraph launch
 `opsgraph setup --flow quick` and `opsgraph launch --configure --flow advanced`
 work from an installed application, including offline bundles. Cancelling at the
 save review preserves the previous configuration. Rerun setup to change choices.
-If a read-only database login is not available, skip the hidden DSN prompt and
+If a read-only database login is not available, skip the hidden connection-string prompt and
 use Sources' administrator role guide. It generates reviewable SQL and never
 executes it. Install a local model separately or choose a hosted provider and its
 exact model identifier. Provider presets do not guarantee model compatibility.

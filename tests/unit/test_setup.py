@@ -64,7 +64,7 @@ def test_empty_dsn_is_a_visible_deferred_step(tmp_path):
         == 0
     )
     assert setup.read_private_config(directory / ".env")["OPSGRAPH_SOURCE_DSN"] == ""
-    assert any("credential skipped" in line for line in output)
+    assert any("Database connection skipped" in line for line in output)
 
 
 def test_reconfigure_requires_consent_and_preserves_existing_bytes(tmp_path):
@@ -446,7 +446,7 @@ def test_anthropic_setup_requires_consent_and_hides_key(tmp_path):
     assert saved["ANTHROPIC_API_KEY"] == "private-provider-key"
     assert saved["OPSGRAPH_EGRESS_ENABLED"] == "true"
     assert "private-provider-key" not in " ".join(output)
-    assert any("captured evidence" in line for line in output)
+    assert "captured evidence" in " ".join(" ".join(output).split())
 
 
 def test_remote_egress_decline_preserves_existing_configuration(tmp_path):
@@ -636,3 +636,42 @@ def test_setup_repairs_unknown_stored_hosting_with_default(tmp_path, monkeypatch
         == 0
     )
     assert setup.read_private_config(environment)["OPSGRAPH_POSTGRES_HOSTING"] == "self_hosted"
+
+
+def test_optional_connection_help_does_not_connect_or_save_before_confirmation(
+    tmp_path, monkeypatch
+):
+    directory = private_directory(tmp_path)
+    answers = iter(("?", "1", "", "", "", "", "", "", "", "cancel"))
+    credentials = iter(("?", "", ""))
+    output = []
+    monkeypatch.setattr("psycopg.connect", lambda *a, **k: pytest.fail("network attempted"))
+    result = setup.run_setup(
+        directory,
+        input_fn=lambda _: next(answers),
+        secret_fn=lambda _: next(credentials),
+        output_fn=output.append,
+    )
+    assert result == 1
+    assert not (directory / ".env").exists()
+    transcript = "\n".join(output)
+    assert "A connection string is also called a DSN" in transcript
+    assert "Database connection skipped" in transcript
+    assert "Step 3 of 3" in transcript
+
+
+def test_hosting_reference_text_is_only_shown_when_requested(tmp_path):
+    directory = private_directory(tmp_path)
+    output = []
+    result = setup.run_setup(
+        directory,
+        input_fn=lambda _: "",
+        secret_fn=lambda _: "",
+        output_fn=output.append,
+    )
+    assert result == 0
+    transcript = "\n".join(output)
+    assert "Step 1 of 3" in transcript and "Step 2 of 3" in transcript
+    assert "database CONNECT" not in transcript
+    assert "Container localhost" not in transcript
+    assert "Press Enter to use: Remote or self-hosted" in transcript
