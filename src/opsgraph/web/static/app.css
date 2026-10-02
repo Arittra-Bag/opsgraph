@@ -497,7 +497,6 @@ main { min-width: 0; overflow: visible; }
 .report-preview-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-top: 24px; }
 .report-preview-heading h3 { font-size: 15px; margin: 0; }
 .report-preview-heading span { font-size: 11px; color: var(--muted); }
-#reportPreview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 55vh; line-height: 1.75; font-size: 12px; }
 .report-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 @media (max-width: 900px) { .source-setup { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .hosting-intro { padding: 20px; } .report-options { grid-template-columns: 1fr; } .report-actions button { flex: 1; } }
@@ -518,4 +517,4 @@ main { min-width: 0; overflow: visible; }
 
 dialog.report-drawer { margin: 0 0 0 auto; padding: 0; max-height: none; max-width: none; border: 0; border-left: 1px solid var(--line); color: var(--text); }
 #sourceStatus, #reportStatus { display: block; margin: 13px 0; color: var(--muted); font-size: 13px; }
-#reportPreview { display: block; width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: #090d10; color: var(--text-2); padding: 13px; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+#reportPreview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 55vh; display: block; width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: #090d10; color: var(--text-2); padding: 13px; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }

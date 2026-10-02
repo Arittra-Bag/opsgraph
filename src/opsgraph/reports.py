@@ -172,44 +172,50 @@ def _append_captures(
     if not evidence:
         lines.extend(["No captured evidence was recorded in this snapshot.", ""])
     for index, item in enumerate(evidence, 1):
-        provenance = item.get("provenance") or {}
+        _append_capture(lines, item, index, options, partial)
+
+
+def _append_capture(
+    lines: list[str], item: dict[str, Any], index: int, options: ReportOptions, partial: bool
+) -> None:
+    provenance = item.get("provenance") or {}
+    lines.extend(
+        [
+            f"### Capture {index}",
+            "",
+            f"- Capture identity: {_text(provenance.get('capture_id'))}",
+            f"- Evidence reference: {_text(item.get('evidence_hash'))}",
+            f"- Collected: {_text(provenance.get('finished_at') or item.get('created_at'))}",
+            f"- Captured rows: {len(item.get('rows') or [])}",
+            f"- Truncated: {'Yes' if item.get('truncated') else 'No'}",
+            f"- Capture status: {'Partial attempt' if partial else 'Recorded capture'}",
+            "",
+        ]
+    )
+    if options.include_findings and item.get("purpose"):
+        lines.extend([f"Purpose: {_text(item['purpose'])}", ""])
+    if options.include_sql:
+        executed = provenance.get("sql")
         lines.extend(
             [
-                f"### Capture {index}",
+                "Executed SQL:",
                 "",
-                f"- Capture identity: {_text(provenance.get('capture_id'))}",
-                f"- Evidence reference: {_text(item.get('evidence_hash'))}",
-                f"- Collected: {_text(provenance.get('finished_at') or item.get('created_at'))}",
-                f"- Captured rows: {len(item.get('rows') or [])}",
-                f"- Truncated: {'Yes' if item.get('truncated') else 'No'}",
-                f"- Capture status: {'Partial attempt' if partial else 'Recorded capture'}",
+                _block(executed, "sql")
+                if executed
+                else "Executed SQL was not retained for this capture.",
                 "",
             ]
         )
-        if options.include_findings and item.get("purpose"):
-            lines.extend([f"Purpose: {_text(item['purpose'])}", ""])
-        if options.include_sql:
-            executed = provenance.get("sql")
-            lines.extend(
-                [
-                    "Executed SQL:",
-                    "",
-                    _block(executed, "sql")
-                    if executed
-                    else "Executed SQL was not retained for this capture.",
-                    "",
-                ]
-            )
-        if options.include_rows:
-            data = {"columns": item.get("columns") or [], "rows": item.get("rows") or []}
-            lines.extend(
-                [
-                    "Captured records:",
-                    "",
-                    _block(json.dumps(data, ensure_ascii=False, indent=2), "json"),
-                    "",
-                ]
-            )
+    if options.include_rows:
+        data = {"columns": item.get("columns") or [], "rows": item.get("rows") or []}
+        lines.extend(
+            [
+                "Captured records:",
+                "",
+                _block(json.dumps(data, ensure_ascii=False, indent=2), "json"),
+                "",
+            ]
+        )
 
 
 def build_incident_report(run: dict[str, Any], options: ReportOptions) -> dict[str, Any]:
