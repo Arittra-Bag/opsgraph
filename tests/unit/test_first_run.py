@@ -270,3 +270,17 @@ def test_advanced_setup_supports_named_hosted_presets(tmp_path):
 def test_guided_model_endpoint_respects_provider_length_bound():
     with pytest.raises(setup.SetupError):
         setup._model_url("https://example.invalid/" + "x" * 2048, allow_remote=True)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX symlink boundary")
+def test_installer_does_not_modify_another_runtime_through_a_symlink(tmp_path, monkeypatch):
+    root = checkout(tmp_path, monkeypatch)
+    unrelated = tmp_path / "unrelated-runtime"
+    unrelated.mkdir()
+    marker = unrelated / "preserved"
+    marker.write_text("unchanged")
+    (root / ".venv").symlink_to(unrelated, target_is_directory=True)
+    monkeypatch.setattr(first_run, "bootstrap_uv", lambda *_: pytest.fail("install attempted"))
+    assert first_run.start(["--yes", "--install-only"]) == 2
+    assert marker.read_text() == "unchanged"
+    assert sorted(p.name for p in unrelated.iterdir()) == ["preserved"]

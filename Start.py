@@ -143,6 +143,19 @@ def start(argv: list[str] | None = None) -> int:
         }:
             print("Installation cancelled. No files were changed.")
             return 1
+        runtime = root / ".venv"
+        if runtime.exists() or runtime.is_symlink():
+            info = runtime.lstat()
+            if (
+                not stat.S_ISDIR(info.st_mode)
+                or stat.S_ISLNK(info.st_mode)
+                or getattr(info, "st_file_attributes", 0) & 0x400
+                or (os.name == "posix" and info.st_uid != os.getuid())
+            ):
+                raise StartError(
+                    "The existing .venv must be a directory you own, without a symlink or "
+                    "reparse point. Use a fresh checkout to avoid changing another runtime."
+                )
         environment = install_environment()
         uv = bootstrap_uv(root, environment)
         print("\n## Installing locked dependencies")
