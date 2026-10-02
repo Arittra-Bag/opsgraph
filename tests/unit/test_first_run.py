@@ -43,8 +43,8 @@ def test_quick_setup_defers_credentials_and_skips_advanced_prompts(tmp_path):
     assert config["OPSGRAPH_EGRESS_ENABLED"] == "false"
     assert not any("Approved schemas" in label or "timeout" in label for label in labels)
     assert not any("Schema profile" in label or "Reasoning effort" in label for label in labels)
-    assert "not test connectivity" in output
-    assert "administrator role guide" in output
+    assert "Not tested yet: database access and model responses" in output
+    assert "Database connection skipped" in output
     assert "generated or preserved privately" in output
     assert config["OPSGRAPH_API_KEY"] not in output
     assert labels[-1].startswith("Save configuration?")

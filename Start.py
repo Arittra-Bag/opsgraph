@@ -11,6 +11,10 @@ import sys
 import tempfile
 import venv
 from pathlib import Path
+from runpy import run_path
+
+# The source installer must work before application dependencies are installed.
+TerminalUI = run_path(str(Path(__file__).parent / "src/opsgraph/terminal_ui.py"))["TerminalUI"]
 
 UV_VERSION = "0.9.26"
 
@@ -102,6 +106,7 @@ def start(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args(argv)
     root = Path(__file__).resolve().parent
+    ui = TerminalUI()
     try:
         if sys.version_info < (3, 9):  # noqa: UP036
             raise StartError(
@@ -118,30 +123,27 @@ def start(argv: list[str] | None = None) -> int:
             raise StartError("Run Start.py from a complete OpsGraph source checkout.")
         if not 1024 <= args.port <= 65535:
             raise StartError("Choose a local port between 1024 and 65535.")
-        print("\n# Welcome to OpsGraph")
-        print("One private workspace. Read-only PostgreSQL investigations. Inspectable evidence.")
-        print("\n## Installation plan")
-        print("1. Use uv, or install a pinned uv in this checkout's private .bootstrap directory.")
-        print("2. Use Python 3.11–3.13, downloading a compatible runtime if needed.")
-        print(
-            "3. Install locked dependencies and OpsGraph in .venv using hashed build constraints."
+        ui.heading("Welcome to OpsGraph")
+        ui.write("Ask questions about your PostgreSQL data. Check the records behind each answer.")
+        ui.write("\nWhat happens next:")
+        ui.write("  1. Install OpsGraph and the software it needs.")
+        ui.write("  2. Choose your database and model service.")
+        ui.write("  3. Open your private workspace in the browser.")
+        if args.install_only:
+            ui.write("You chose installation only. Setup and the browser will not open yet.")
+        ui.write(
+            "\nDownloads use PyPI and uv's Python service. Python may be downloaded if needed."
         )
-        print(
-            "4. Finish installation without setup."
-            if args.install_only
-            else "4. Open Quick or Advanced setup, then your authenticated local browser."
-        )
-        print("Downloads use PyPI and uv's Python service. No administrator access needed.")
-        print("No database or model weights are installed. No credentials are requested here.")
-        print("Existing private workspace configuration and investigation history are preserved.")
+        ui.write("No administrator access needed. Your existing settings and history stay safe.")
+        ui.write("This installs OpsGraph, not PostgreSQL or model files.")
         if not args.yes and input(
-            "\nInstall dependencies and continue? [Y/n]: "
+            ui.question("Install and continue? Press Enter for Yes, or type n to cancel")
         ).strip().lower() not in {
             "",
             "y",
             "yes",
         }:
-            print("Installation cancelled. No files were changed.")
+            ui.write("Installation cancelled. No files were changed.")
             return 1
         runtime = root / ".venv"
         if runtime.exists() or runtime.is_symlink():
@@ -157,68 +159,74 @@ def start(argv: list[str] | None = None) -> int:
                     "reparse point. Use a fresh checkout to avoid changing another runtime."
                 )
         environment = install_environment()
-        uv = bootstrap_uv(root, environment)
-        print("\n## Installing locked dependencies")
-        command(
-            [
-                uv,
-                "sync",
-                "--locked",
-                "--extra",
-                "providers",
-                "--no-install-project",
-                "--no-build",
-                "--python",
-                ">=3.11,<3.14",
-            ],
-            root,
-            environment,
-            "Dependency installation failed. Check internet access, certificates, disk space and "
-            "Python compatibility. Rerun Start.py to retry. Private configuration is unchanged.",
-        )
-        print("\n## Installing OpsGraph")
-        python = root / (".venv/Scripts/python.exe" if os.name == "nt" else ".venv/bin/python")
-        with tempfile.TemporaryDirectory(prefix="opsgraph-install-") as directory:
+        ui.heading("Installation 1 of 2: Prepare the software")
+        with ui.progress("Preparing the installer"):
+            uv = bootstrap_uv(root, environment)
+        with ui.progress("Installing required software"):
             command(
                 [
                     uv,
-                    "build",
-                    "--wheel",
-                    "--build-constraints",
-                    "requirements-build.lock",
-                    "--require-hashes",
-                    "--out-dir",
-                    directory,
+                    "sync",
+                    "--locked",
+                    "--extra",
+                    "providers",
+                    "--no-install-project",
+                    "--no-build",
+                    "--python",
+                    ">=3.11,<3.14",
                 ],
                 root,
                 environment,
-                "OpsGraph build failed. Restore a complete, consistent source checkout and retry.",
+                "Dependency installation failed. Check internet access, certificates, disk space "
+                "and Python compatibility. Rerun Start.py to retry. "
+                "Private configuration is unchanged.",
             )
+        ui.heading("Installation 2 of 2: Install OpsGraph")
+        python = root / (".venv/Scripts/python.exe" if os.name == "nt" else ".venv/bin/python")
+        with tempfile.TemporaryDirectory(prefix="opsgraph-install-") as directory:
+            with ui.progress("Building OpsGraph"):
+                command(
+                    [
+                        uv,
+                        "build",
+                        "--wheel",
+                        "--build-constraints",
+                        "requirements-build.lock",
+                        "--require-hashes",
+                        "--out-dir",
+                        directory,
+                    ],
+                    root,
+                    environment,
+                    "OpsGraph build failed. Restore a complete, consistent source checkout "
+                    "and retry.",
+                )
             wheels = list(Path(directory).glob("opsgraph-*-py3-none-any.whl"))
             if len(wheels) != 1:
                 raise StartError(
                     "The build did not produce exactly one OpsGraph application wheel."
                 )
-            command(
-                [
-                    uv,
-                    "pip",
-                    "install",
-                    "--python",
-                    str(python),
-                    "--no-deps",
-                    "--reinstall-package",
-                    "opsgraph",
-                    str(wheels[0]),
-                ],
-                root,
-                environment,
-                "OpsGraph installation failed. Check disk space and retry.",
-            )
+            with ui.progress("Installing OpsGraph"):
+                command(
+                    [
+                        uv,
+                        "pip",
+                        "install",
+                        "--python",
+                        str(python),
+                        "--no-deps",
+                        "--reinstall-package",
+                        "opsgraph",
+                        str(wheels[0]),
+                    ],
+                    root,
+                    environment,
+                    "OpsGraph installation failed. Check disk space and retry.",
+                )
         if args.install_only:
-            print("\nInstalled. Run Start.py again to open your private workspace.")
+            ui.write("\nInstalled. Run Start.py again to set up and open your private workspace.")
             return 0
-        print("\n## Opening your private workspace")
+        ui.heading("Installation complete. Let's set up your workspace.")
         launch = [
             uv,
             "run",
