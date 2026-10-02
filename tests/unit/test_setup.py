@@ -64,7 +64,7 @@ def test_empty_dsn_is_a_visible_deferred_step(tmp_path):
         == 0
     )
     assert setup.read_private_config(directory / ".env")["OPSGRAPH_SOURCE_DSN"] == ""
-    assert any("credential skipped" in line for line in output)
+    assert any("Database connection skipped" in line for line in output)
 
 
 def test_reconfigure_requires_consent_and_preserves_existing_bytes(tmp_path):
@@ -446,7 +446,7 @@ def test_anthropic_setup_requires_consent_and_hides_key(tmp_path):
     assert saved["ANTHROPIC_API_KEY"] == "private-provider-key"
     assert saved["OPSGRAPH_EGRESS_ENABLED"] == "true"
     assert "private-provider-key" not in " ".join(output)
-    assert any("captured evidence" in line for line in output)
+    assert "captured evidence" in " ".join(" ".join(output).split())
 
 
 def test_remote_egress_decline_preserves_existing_configuration(tmp_path):

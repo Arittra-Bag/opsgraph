@@ -319,8 +319,8 @@ def run_setup(
                 return 0
         if os.name == "nt":
             output_fn(
-                "Windows: keep this workspace within your private user profile and verify "
-                "inherited ACLs; POSIX permission bits do not verify Windows privacy."
+                "Windows: keep this workspace in your own user folder. Check that other users "
+                "cannot read it. This setup cannot verify Windows folder access rules."
             )
         output_fn(
             "Three steps: database, model service, then review and save. "
@@ -672,19 +672,22 @@ def run_setup(
             values.pop("OPSGRAPH_MODEL_PRESET", None)
         ui.heading("Step 3 of 3: Review and save")
         output_fn(f"Setup: {flow}. Hosting: {guide.name}.")
-        output_fn("Database credential: " + ("configured privately" if dsn else "deferred"))
+        output_fn("Database connection: " + ("entered privately" if dsn else "skipped for now"))
         output_fn(
-            "Model provider: "
-            + selected
-            + ". Credential: "
-            + ("configured privately" if values.get(credential_name) else "not configured")
+            "Model service: "
+            + _PROVIDER_LABELS.get(selected, "Other compatible service")
+            + ". API key: "
+            + ("entered privately" if values.get(credential_name) else "not entered")
         )
         output_fn(
             "Send investigation data to provider: " + ("yes, with your consent" if remote else "no")
         )
-        output_fn("Workspace key: generated or preserved privately. It is never printed.")
+        output_fn("Browser sign-in key: created or kept privately. It is never printed.")
         output_fn("Not tested yet: database access and model responses. Test both in the browser.")
-        output_fn("Browser model settings take precedence. Change providers in Settings.")
+        output_fn(
+            "If you already saved model choices in browser Settings, those are used instead. "
+            "Change them there when needed."
+        )
         decision = prompt(
             "Save configuration? save / cancel",
             "save",
@@ -695,6 +698,7 @@ def run_setup(
             return 1
         write_private_config(path, values)
         output_fn("Private settings saved. Your browser workspace is next.")
+        output_fn("If you ran setup on its own, run opsgraph launch to open the browser.")
         ui.heading("Next: finish connecting in the browser")
         output_fn(
             "1. Sources: choose your tables and check the read-only login. "
@@ -703,11 +707,14 @@ def run_setup(
         output_fn(
             "2. Settings: click Test model to check a real response from your selected model."
         )
-        output_fn("3. Ask a narrow question and review each finding against its captured evidence.")
+        output_fn(
+            "3. Ask a specific question. Check the records behind each answer before trusting it."
+        )
         output_fn("No model files were installed. Local model services must already be running.")
         if not dsn:
             output_fn(
-                "PostgreSQL credential skipped. Run opsgraph setup again when it is available."
+                "Database connection skipped. Run opsgraph setup again "
+                "when you have a read-only login."
             )
         return 0
     except (EOFError, KeyboardInterrupt):
