@@ -1000,3 +1000,49 @@ def test_inconsistent_plan_error_is_actionable_without_collecting_evidence(api):
     assert "No query was executed" in run["error"]["message"]
     assert run["plan"] is None and run["answer"] is None and run["evidence"] == []
     assert "private model response" not in json.dumps(run)
+
+
+def test_reports_use_saved_workspace_snapshot_without_reexecution(api, monkeypatch):
+    response = api.client.post(
+        "/api/runs",
+        headers=api.headers,
+        json={"question": "Count the approved records", "source_id": "local-data"},
+    )
+    run = wait(api, response.json()["id"])
+    wait_for_terminal_audit(api, run["id"])
+    run = api.client.get(f"/api/runs/{run['id']}", headers=api.headers).json()
+    path = f"/api/runs/{run['id']}/report"
+    monkeypatch.setattr(
+        ContractProvider, "invoke_structured", lambda *_: pytest.fail("report contacted model")
+    )
+    monkeypatch.setattr(
+        ContractExecutor,
+        "execute_readonly",
+        lambda *_args, **_kwargs: pytest.fail("report queried database"),
+    )
+    assert api.client.post(path, json={}).status_code == 401
+    result = api.client.post(path, headers=api.headers, json={})
+    assert result.status_code == 200
+    assert result.headers["cache-control"] == "no-store"
+    assert "Count the approved records" not in result.json()["markdown"]
+    selected = api.client.post(
+        path,
+        headers=api.headers,
+        json={"include_question": True, "include_findings": True, "include_sql": True},
+    )
+    assert selected.status_code == 200
+    assert "Count the approved records" in selected.json()["markdown"]
+    assert "SELECT id FROM public.records" in selected.json()["markdown"]
+    assert api.client.get(f"/api/runs/{run['id']}", headers=api.headers).json() == run
+    assert (
+        api.client.post(path, headers=api.headers, json={"include_rows": "yes"}).status_code == 422
+    )
+    other = api.service.store.create(
+        "other-workspace", {"question": "Other workspace content", "source_id": "local-data"}
+    )
+    assert (
+        api.client.post(
+            f"/api/runs/{other['id']}/report", headers=api.headers, json={"include_question": True}
+        ).status_code
+        == 404
+    )

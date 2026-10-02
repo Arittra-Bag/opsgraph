@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from opsgraph.postgres_hosting import PostgresHosting
+
 
 class StatePathError(ValueError):
     """A safe path or migration error, without exposing private configuration."""
@@ -77,6 +79,9 @@ class Settings(BaseSettings):
     anthropic_model: str = Field(default="claude-sonnet-5", alias="OPSGRAPH_ANTHROPIC_MODEL")
     state_path: Path = Field(default=Path(".opsgraph/state.db"), alias="OPSGRAPH_STATE_PATH")
     postgres_secret_ref: str | None = Field(default=None, alias="OPSGRAPH_POSTGRES_SECRET_REF")
+    postgres_hosting: PostgresHosting = Field(
+        default="self_hosted", alias="OPSGRAPH_POSTGRES_HOSTING"
+    )
     allowed_postgres_secret_refs: Annotated[tuple[str, ...], NoDecode] = Field(
         default=("OPSGRAPH_SOURCE_DSN",), alias="OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS"
     )

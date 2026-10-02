@@ -144,7 +144,7 @@ test('workspace loads provider configuration before rendering provider status', 
   const context = vm.createContext({
     state: { authenticated: false },
     notice() {}, readiness() {},
-    loadSources: async () => {}, loadSkills: async () => {}, loadHistory: async () => {}, loadPolicy: async () => {},
+    loadSources: async () => {}, loadSkills: async () => {}, loadHistory: async () => {}, loadPolicy: async () => {}, loadHostingGuides: async () => {},
     loadProviderConfiguration: async () => { calls.push('configuration'); },
     loadProvider: async () => { calls.push('status'); },
   });

@@ -14,7 +14,7 @@ def private_directory(tmp_path):
 
 def prompts(*answers):
     values = iter(answers)
-    return lambda _label: next(values)
+    return lambda label: "" if label.startswith("PostgreSQL hosting") else next(values)
 
 
 def test_fresh_setup_stores_hidden_literal_dsn_without_network(tmp_path, monkeypatch):
@@ -570,3 +570,67 @@ def test_reconfigured_ollama_explicitly_disables_ambient_key(tmp_path, monkeypat
     values = setup.read_private_config(directory / ".env")
     assert values["OPSGRAPH_OPENAI_API_KEY"] == ""
     assert "unrelated-secret" not in (directory / ".env").read_text()
+
+
+@pytest.mark.parametrize(
+    "profile",
+    [
+        "local",
+        "self_hosted",
+        "supabase",
+        "neon",
+        "aws_rds",
+        "google_cloud_sql",
+        "azure",
+        "digitalocean",
+    ],
+)
+def test_setup_persists_each_hosting_choice_without_network(tmp_path, monkeypatch, profile):
+    directory = private_directory(tmp_path)
+    monkeypatch.setattr(
+        "psycopg.connect", lambda *_args, **_kwargs: pytest.fail("network attempted")
+    )
+    output = []
+    assert (
+        setup.run_setup(
+            directory,
+            input_fn=lambda label: profile if label.startswith("PostgreSQL hosting") else "",
+            secret_fn=lambda _: "",
+            output_fn=output.append,
+        )
+        == 0
+    )
+    assert setup.read_private_config(directory / ".env")["OPSGRAPH_POSTGRES_HOSTING"] == profile
+    assert any("Connection checks run later" in line for line in output)
+
+
+def test_guided_remote_setup_requires_verified_tls_without_contacting_database(monkeypatch):
+    monkeypatch.setattr(
+        "psycopg.connect", lambda *_args, **_kwargs: pytest.fail("network attempted")
+    )
+    with pytest.raises(setup.SetupError, match="sslmode=verify-full"):
+        setup.normalize_guided_dsn("postgresql://reader@database.example:5432/operations")
+    value = setup.normalize_guided_dsn(
+        "postgresql://reader@database.example:5432/operations?sslmode=verify-full"
+    )
+    assert conninfo_to_dict(value)["sslmode"] == "verify-full"
+
+
+def test_setup_repairs_unknown_stored_hosting_with_default(tmp_path, monkeypatch):
+    directory = private_directory(tmp_path)
+    environment = directory / ".env"
+    environment.write_text("OPSGRAPH_POSTGRES_HOSTING=unknown-host\n")
+    environment.chmod(0o600)
+    monkeypatch.setattr(
+        "psycopg.connect", lambda *_args, **_kwargs: pytest.fail("network attempted")
+    )
+    assert (
+        setup.run_setup(
+            directory,
+            input_fn=lambda label: "yes" if "Reconfigure" in label else "",
+            secret_fn=lambda _: "",
+            output_fn=lambda _: None,
+        )
+        == 0
+    )
+    assert setup.read_private_config(environment)["OPSGRAPH_POSTGRES_HOSTING"] == "self_hosted"

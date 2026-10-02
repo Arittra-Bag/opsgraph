@@ -30,6 +30,7 @@ from opsgraph.providers import (
     StructuredRequest,
 )
 from opsgraph.readiness import source_readiness_basis
+from opsgraph.reports import ReportOptions, ReportTooLarge, build_incident_report
 from opsgraph.schema_service import SchemaSnapshot
 from opsgraph.skills import SkillRepository
 
@@ -214,6 +215,7 @@ class RunAPI:
             "run_id": run["id"],
             "source_id": source["id"],
             "source_name": source["name"],
+            "source_hosting_profile": source.get("hosting_profile", "self_hosted"),
             "source_revision": source_revision,
             "schema_fingerprint": snapshot.fingerprint,
             "schema_inspected_at": snapshot.model_dump(mode="json")["inspected_at"],
@@ -479,6 +481,18 @@ class RunAPI:
                 {"export_version": 1, **run},
                 headers={"Content-Disposition": f'attachment; filename="{run["id"]}.json"'},
             )
+
+        @router.post("/api/runs/{run_id}/report")
+        def report(
+            run_id: str,
+            body: ReportOptions,
+            workspace: Annotated[str, Depends(require_workspace)],
+        ):
+            try:
+                value = build_incident_report(self.get(workspace, run_id), body)
+            except ReportTooLarge as error:
+                raise HTTPException(422, str(error)) from None
+            return JSONResponse(value, headers={"Cache-Control": "no-store"})
 
         @router.post("/api/runs/{run_id}/cancel")
         def cancel(run_id: str, principal: Annotated[Principal, Depends(require_principal)]):

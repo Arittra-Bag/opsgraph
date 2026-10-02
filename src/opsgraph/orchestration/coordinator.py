@@ -25,6 +25,7 @@ from opsgraph.orchestration.connected import (
     PlanningContextTooLargeError,
 )
 from opsgraph.persistence.runs import RunStore, timestamp
+from opsgraph.postgres_diagnostics import connection_diagnostic
 from opsgraph.providers import ProviderError, ProviderOutputTruncatedError, ProviderTimeoutError
 
 
@@ -379,10 +380,8 @@ class RunCoordinator:
                         )
                     elif isinstance(exc, ConnectorUnavailable):
                         code = "source_unavailable"
-                        message = (
-                            "Database read failed. Check connectivity, role permissions "
-                            "and statement timeout."
-                        )
+                        diagnostic = connection_diagnostic(exc.diagnostic_code)
+                        message = " ".join((diagnostic.message, *diagnostic.steps))
                     elif isinstance(exc, EvidenceTooLargeError):
                         code = "evidence_too_large"
                         message = (
@@ -408,6 +407,12 @@ class RunCoordinator:
                         "http_status": exc.status_code
                         if isinstance(exc, RunBlocked)
                         else (403 if isinstance(exc, PermissionError) else 422),
+                        **(
+                            {"diagnostic": connection_diagnostic(exc.diagnostic_code).as_dict()}
+                            if isinstance(exc, ConnectorUnavailable)
+                            and not isinstance(exc, QueryExecutionFailed)
+                            else {}
+                        ),
                     },
                 )
                 if terminal["status"] == "cancelling":

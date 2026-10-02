@@ -522,3 +522,19 @@ def test_schema_discovery_rejects_unapproved_descendants_before_metadata_read() 
         )
 
     assert not any("information_schema.columns" in sql for sql, _ in connection._cursor.executed)
+
+
+def test_oversized_schema_metadata_preserves_scope_diagnostic():
+    class MetadataCursor:
+        def execute(self, *_args):
+            return None
+
+        def fetchall(self):
+            return [("public", "records", "id", "integer", "NO", None)] * 10_001
+
+    cursor = MetadataCursor()
+    with pytest.raises(ConnectorUnavailable) as failure:
+        PsycopgReadOnlyExecutor._snapshot_from_cursor(
+            cursor, allowed_schemas=("public",), allowed_tables=("public.records",)
+        )
+    assert failure.value.diagnostic_code == "schema_too_large"

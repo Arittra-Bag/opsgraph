@@ -206,3 +206,11 @@ sensitive. External inference and tracing are disabled by default; review
 OpsGraph source is [Apache-2.0](LICENSE). Dependencies retain their own licenses;
 release artifacts include the matching notices, dependency inventory, and source
 supplement described in [stable distribution](docs/release/distribution.md).
+
+## Guided connections and readable reports
+
+Choose a PostgreSQL hosting route in Sources, follow its private connection
+guide, then inspect and approve a bounded readiness check. See
+[hosted PostgreSQL onboarding](docs/hosted-postgresql.md).
+Saved investigations can produce a selectable Markdown report with a reviewed
+preview. See [incident reports](docs/incident-reports.md).

@@ -19,7 +19,7 @@
     anthropic: { endpoint: '', fixed: true },
     custom_openai: { endpoint: '' },
   };
-  const state = { authenticated: false, sources: [], skills: [], runs: [], run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0 };
+  const state = { authenticated: false, sources: [], skills: [], runs: [], run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
   // A launcher supplies only a short-lived single-use token, never the API key.
   const launchToken = new URLSearchParams(location.hash.slice(1)).get('connect');
@@ -93,6 +93,7 @@
       const error = new Error(errorMessage(payload, `Request failed (${response.status}). Retry or check the backend connection.`));
       if (response.status === 401) error.message = 'Workspace key was rejected. Reconnect using the key configured on the backend.';
       error.status = response.status;
+      error.diagnostic = payload.diagnostic;
       throw error;
     }
     return payload;
@@ -109,6 +110,7 @@
     if (state.activeDrawer) closeDrawer(false);
     state.activeDrawer = document.getElementById(id);
     state.returnFocus = trigger?.node ? trigger : { node: trigger || document.activeElement, key: (trigger || document.activeElement)?.dataset?.focusKey || null };
+    if (state.activeDrawer.tagName === 'DIALOG') state.activeDrawer.setAttribute('open', '');
     state.activeDrawer.classList.add('open'); state.activeDrawer.setAttribute('aria-hidden', 'false');
     $('#drawerBackdrop').hidden = false;
     $$('.app-shell, .trust-bar, .skip-link').forEach(node => { node.inert = true; });
@@ -116,6 +118,8 @@
   }
   function closeDrawer(restore = true) {
     if (!state.activeDrawer) return;
+    if (state.activeDrawer.id === 'reportDrawer') resetReport();
+    if (state.activeDrawer.tagName === 'DIALOG') state.activeDrawer.removeAttribute('open');
     state.activeDrawer.classList.remove('open'); state.activeDrawer.setAttribute('aria-hidden', 'true');
     $('#drawerBackdrop').hidden = true; $$('.app-shell, .trust-bar, .skip-link').forEach(node => { node.inert = false; });
     const target = viewState.focusTarget(state.returnFocus, document);
@@ -156,7 +160,8 @@
       row.classList.toggle('step-current', index === completed.indexOf(false));
       if (index === completed.indexOf(false)) row.setAttribute('aria-current', 'step'); else row.removeAttribute('aria-current');
       const labels = ['Connect workspace', 'Inspect PostgreSQL', 'Check your model', 'Verify the path'];
-      $(`#${step}StepTitle`).textContent = `${completed[index] ? '✓' : `${index + 1}.`} ${labels[index]}${completed[index] ? ' — complete' : ''}`;
+      const prefix = completed[index] ? '✓' : String(index + 1) + '.';
+      $(`#${step}StepTitle`).textContent = `${prefix} ${labels[index]}${completed[index] ? ': complete' : ''}`;
     });
     $('#setupCredential').hidden = state.authenticated;
     $('#setupSource').textContent = ready.length ? 'Review source' : 'Configure source';
@@ -365,6 +370,118 @@
       notice('#providerError', error.message); $('#providerTestStatus').textContent = 'Model unavailable. Source setup and saved investigations remain available.'; $('#trustModel').textContent = 'Model unreachable'; $('#trustModel').className = 'trust-signal failed';
     } finally { if (token === state.providerTestToken) state.providerBusy = false; readiness(); restoreFocus(); }
   }
+  function renderHostingGuide() {
+    const guide = state.hostingGuides.find(item => item.id === $('#sourceHosting').value);
+    const node = $('#hostingGuide');
+    if (!guide) { node.textContent = state.authenticated ? 'Hosting guidance has not loaded. Retry below.' : 'Connect your workspace to load hosting guidance.'; return; }
+    const list = items => '<ol>' + items.map(item => '<li>' + esc(item) + '</li>').join('') + '</ol>';
+    node.innerHTML = `<p class="eyebrow">CONNECTION GUIDE</p><h3>${esc(guide.name)}</h3><p>${esc(guide.summary)}</p><dl class="hosting-facts"><div><dt>Endpoint</dt><dd>${esc(guide.endpoint)}</dd></div><div><dt>Network</dt><dd>${esc(guide.network)}</dd></div><div><dt>TLS</dt><dd>${esc(guide.tls)}</dd></div></dl><h4>Connect safely</h4>${list(guide.steps)}<h4>Before investigating</h4>${list(guide.checks)}<p class="helper">${esc(guide.validation)}</p>`;
+    const url = new URL(guide.documentation);
+    if (url.protocol === 'https:' && !url.username && !url.password) {
+      const link = document.createElement('a'); link.href = url.href; link.textContent = 'Official connection documentation ↗'; link.target = '_blank'; link.rel = 'noopener noreferrer'; node.append(link);
+    }
+  }
+  async function loadHostingGuides() {
+    const token = ++state.hostingToken; const epoch = state.authEpoch;
+    notice('#hostingError'); $('#retryHostingGuides').hidden = true;
+    $('#hostingGuide').setAttribute('aria-busy', 'true');
+    try {
+      const catalog = await api('/api/postgres/hosting-guides');
+      if (token !== state.hostingToken || epoch !== state.authEpoch) return;
+      state.hostingGuides = catalog.profiles; state.hostingDefault = catalog.default_profile;
+      if (!state.sourceEditingId && !state.sourceDirty) $('#sourceHosting').value = state.hostingDefault;
+      renderHostingGuide();
+    } catch (error) {
+      if (token !== state.hostingToken || epoch !== state.authEpoch) return;
+      notice('#hostingError', error.message); $('#retryHostingGuides').hidden = false; renderHostingGuide();
+    } finally { if (token === state.hostingToken) $('#hostingGuide').setAttribute('aria-busy', 'false'); }
+  }
+  function sourceDiagnostic(error = null) {
+    const diagnostic = error?.diagnostic;
+    $('#sourceDiagnostic').hidden = !diagnostic;
+    $('#sourceDiagnosticTitle').textContent = diagnostic?.title || 'Connection needs attention';
+    $('#sourceDiagnosticSteps').replaceChildren();
+    for (const step of diagnostic?.steps || []) {
+      const item = document.createElement('li'); item.textContent = step; $('#sourceDiagnosticSteps').append(item);
+    }
+  }
+  function updateSourceContinue(source) {
+    $('#sourceContinue').hidden = state.sourceDirty || !sourceReadinessPassed(source);
+    $('#sourceContinue').textContent = state.modelTested && !state.providerDirty ? 'Continue to investigation →' : 'Continue to model setup →';
+  }
+  function reportOptions() {
+    return Object.fromEntries(['Question', 'Findings', 'Scope', 'Sql', 'Rows'].map(name => [`include_${name.toLowerCase()}`, $(`#report${name}`).checked]));
+  }
+  function reportProse(value) {
+    const entities = { amp: '&', lt: '<', gt: '>', quot: '"', '#x27': "'" };
+    return value.replace(/\\([\\`*_{}[\]()#+.!|~-])/g, '$1').replace(/&(amp|lt|gt|quot|#x27);/g, (_, entity) => entities[entity]);
+  }
+  function appendReportProse(documentNode, line, list) {
+    const heading = line.match(/^(#{1,3}) (.*)$/);
+    if (heading) {
+      const node = document.createElement(`h${heading[1].length + 1}`);
+      node.textContent = reportProse(heading[2]); documentNode.append(node); return null;
+    }
+    if (line.startsWith('- ')) {
+      if (!list) { list = document.createElement('ul'); documentNode.append(list); }
+      const item = document.createElement('li'); item.textContent = reportProse(line.slice(2)); list.append(item); return list;
+    }
+    const paragraph = document.createElement('p');
+    const warning = line.match(/^\*\*([^*]+):\*\* (.*)$/);
+    if (warning) {
+      paragraph.className = 'report-warning'; const label = document.createElement('strong');
+      label.textContent = `${warning[1]}: `; paragraph.append(label, reportProse(warning[2]));
+    } else paragraph.textContent = reportProse(line);
+    documentNode.append(paragraph); return null;
+  }
+  function renderReportDocument(markdown) {
+    const documentNode = $('#reportDocument'); documentNode.replaceChildren();
+    let fence = null, code = null, codeLines = [], list = null;
+    for (const line of markdown.split('\n')) {
+      if (fence) {
+        if (line === fence) {
+          code.textContent = codeLines.join('\n') + (codeLines.length ? '\n' : ''); fence = null; code = null;
+        } else codeLines.push(line);
+        continue;
+      }
+      const opening = line.match(/^(`{3,})(?:sql|json|text)?$/);
+      if (opening) {
+        fence = opening[1]; codeLines = []; list = null;
+        const pre = document.createElement('pre'); code = document.createElement('code');
+        pre.append(code); documentNode.append(pre); continue;
+      }
+      if (!line) { list = null; continue; }
+      list = appendReportProse(documentNode, line, list);
+    }
+  }
+  function resetReport() {
+    state.reportToken++; state.report = null;
+    $('#reportPreviewPanel').hidden = true; $('#reportPreview').textContent = ''; $('#reportDocument').replaceChildren();
+    $('#confirmReportReview').checked = false; $('#confirmReportReview').disabled = true;
+    $('#downloadReport').disabled = true; $('#copyReport').disabled = true;
+    $('#previewReport').disabled = false; $('#reportForm').setAttribute('aria-busy', 'false');
+    notice('#reportError'); $('#reportStatus').textContent = 'Choose sections, then generate a preview. No database or model request is made.';
+  }
+  async function generateReport(event) {
+    event?.preventDefault();
+    const id = state.reportRunId;
+    if (!id || id !== state.run?.id) return;
+    resetReport(); const token = state.reportToken; const epoch = state.authEpoch;
+    $('#previewReport').disabled = true; $('#reportForm').setAttribute('aria-busy', 'true');
+    $('#reportStatus').textContent = 'Preparing a report from the saved investigation…';
+    try {
+      const report = await api(`/api/runs/${encodeURIComponent(runId(id))}/report`, { method: 'POST', body: JSON.stringify(reportOptions()) });
+      if (token !== state.reportToken || epoch !== state.authEpoch || id !== state.run?.id || state.activeDrawer?.id !== 'reportDrawer') return;
+      state.report = report; renderReportDocument(report.markdown); $('#reportPreview').textContent = report.markdown; $('#reportPreviewPanel').hidden = false;
+      $('#reportSnapshot').textContent = `Saved ${report.run_status} snapshot · updated ${stamp(report.snapshot_updated_at)}.`;
+      $('#reportStatus').textContent = 'Preview ready. Review the selected content before enabling copy or download.';
+      $('#confirmReportReview').disabled = false;
+    } catch (error) { if (token === state.reportToken) { notice('#reportError', error.message); $('#reportStatus').textContent = 'Report could not be prepared. Review the error and retry.'; } }
+    finally { if (token === state.reportToken) { $('#previewReport').disabled = false; $('#reportForm').setAttribute('aria-busy', 'false'); } }
+  }
+  function shareableReport() {
+    return state.report && state.report.run_id === state.run?.id && state.report.snapshot_updated_at === state.run?.updated_at && $('#confirmReportReview').checked;
+  }
   async function loadSources() {
     state.sources = (await api('/api/sources')).filter(source => source.kind === 'postgresql');
     const selected = state.run?.source_id || $('#investigationSource').value;
@@ -400,7 +517,7 @@
   async function loadWorkspace() {
     state.authenticated = true; notice('#globalError');
     const provider = async () => { await loadProviderConfiguration(); await loadProvider(); };
-    const results = await Promise.allSettled([loadSources(), loadSkills(), provider(), loadHistory(), loadPolicy()]);
+    const results = await Promise.allSettled([loadSources(), loadSkills(), provider(), loadHistory(), loadPolicy(), loadHostingGuides()]);
     const rejected = results.filter(item => item.status === 'rejected');
     if (rejected.some(item => item.reason.status === 401)) { state.authenticated = false; throw rejected.find(item => item.reason.status === 401).reason; }
     if (rejected.length) notice('#globalError', rejected.map(item => item.reason.message).join('\n'));
@@ -426,7 +543,7 @@
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
   function clearWorkspace() {
-    state.authEpoch++; stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
+    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
     state.authenticated = false; state.modelTested = false; state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
@@ -442,7 +559,9 @@
   function sourceSetup(source = null) {
     const token = ++state.sourceSetupToken;
     state.sourceDirty = false; state.sourceEditingId = source?.id || null;
+    $('#sourceFields').disabled = false; $('#sourceHosting').disabled = false;
     showView('sources'); $('#sourceSetup').hidden = false; $('#sourceSetup').dataset.sourceId = source?.id || ''; $('#sourceForm').reset(); $('#saveSource').disabled = false; $('#inspectedTables').hidden = true; $('#inspectedTables').replaceChildren(); $('#sourceReadinessPanel').hidden = true; $('#sourceReadinessStatus').textContent = 'Not run for this source revision.'; notice('#sourceError'); $('#sourceStatus').textContent = ''; invalidateRoleGuide();
+    $('#sourceHosting').value = source?.hosting_profile || state.hostingDefault; renderHostingGuide(); sourceDiagnostic(); updateSourceContinue(source);
     $('#sourceId').readOnly = Boolean(source);
     if (!source) {
       $('#sourceId').value = `source-${Array.from(crypto.getRandomValues(new Uint8Array(4)), byte => byte.toString(16).padStart(2, '0')).join('')}`;
@@ -469,7 +588,7 @@
     $('#sourceSetupTitle').focus();
   }
   function markSourceDirty() {
-    state.sourceDirty = true;
+    state.sourceDirty = true; updateSourceContinue(null);
     state.sourceEditingId = $('#sourceSetup').dataset.sourceId || null;
     $('#sourceStatus').textContent = 'Unsaved source changes. Investigations using this source are paused until you save and inspect again.';
     readiness();
@@ -561,7 +680,7 @@
     const restoreFocus = guardAsyncFocus($('#saveSource'), $('#sourceStatus'));
     const token = ++state.sourceSetupToken;
     invalidateRoleGuide();
-    event.preventDefault(); notice('#sourceError'); $('#saveSource').disabled = true; $('#sourceStatus').textContent = 'Saving source configuration…';
+    event.preventDefault(); $('#sourceFields').disabled = true; $('#sourceHosting').disabled = true; notice('#sourceError'); sourceDiagnostic(); updateSourceContinue(null); $('#saveSource').disabled = true; $('#sourceStatus').textContent = 'Saving source configuration…';
     const parts = value => value.split(',').map(item => item.trim()).filter(Boolean);
     const id = $('#sourceId').value.trim();
     try {
@@ -570,7 +689,7 @@
         if (!type?.trim() || !tables?.trim()) throw new Error('Use evidence_type=public.table for each playbook mapping.');
         return { evidence_type: type.trim(), source_tables: parts(tables) };
       });
-      await api('/api/sources', { method: 'POST', body: JSON.stringify({ id, name: $('#sourceName').value.trim(), secret_ref: $('#sourceSecretRef').value.trim(), allowed_schemas: parts($('#sourceSchemas').value), allowed_tables: parts($('#sourceTables').value), evidence_bindings: bindings, allow_external_egress: $('#sourceExternalEgress').checked }) });
+      await api('/api/sources', { method: 'POST', body: JSON.stringify({ id, hosting_profile: $('#sourceHosting').value, name: $('#sourceName').value.trim(), secret_ref: $('#sourceSecretRef').value.trim(), allowed_schemas: parts($('#sourceSchemas').value), allowed_tables: parts($('#sourceTables').value), evidence_bindings: bindings, allow_external_egress: $('#sourceExternalEgress').checked }) });
       if (token !== state.sourceSetupToken) return;
       state.sourceDirty = false; state.sourceEditingId = id;
       const source = state.sources.find(item => item.id === id);
@@ -584,17 +703,18 @@
       if (token !== state.sourceSetupToken) return;
       renderInspection(snapshot);
       $('#sourceStatus').textContent = `Inspection succeeded: ${(snapshot.tables || []).length} permitted table${(snapshot.tables || []).length === 1 ? '' : 's'}. Model readiness is checked separately.`;
-    } catch (error) { if (token !== state.sourceSetupToken) return; $('#sourceStatus').textContent = 'Source is not ready for a new investigation.'; notice('#sourceError', `${error.message}\nCheck the backend environment variable, read-only grants, and explicit table/mapping scope. Save and inspect again after correcting configuration.`); await loadSources().catch(() => {}); }
-    finally { if (token === state.sourceSetupToken) { $('#saveSource').disabled = false; restoreFocus(); } }
+    } catch (error) { if (token !== state.sourceSetupToken) { return; }
+      $('#sourceStatus').textContent = 'Source is not ready for a new investigation.'; sourceDiagnostic(error); notice('#sourceError', `${error.message}\nCheck the backend environment variable, read-only grants, and explicit table/mapping scope. Save and inspect again after correcting configuration.`); await loadSources().catch(() => {}); }
+    finally { if (token === state.sourceSetupToken) { $('#sourceFields').disabled = false; $('#sourceHosting').disabled = false; $('#saveSource').disabled = false; restoreFocus(); } }
   }
   async function runSourceReadiness() {
     const id = $('#sourceSetup').dataset.sourceId || $('#sourceId').value.trim();
     const table = $('#sourceReadinessTable').value;
     if (!id || !table || !$('#confirmSourceReadiness').checked) return;
     const token = state.sourceSetupToken;
-    const current = () => token === state.sourceSetupToken && id === ($('#sourceSetup').dataset.sourceId || $('#sourceId').value.trim()) && table === $('#sourceReadinessTable').value;
+    const current = () => token === state.sourceSetupToken && !state.sourceDirty && id === ($('#sourceSetup').dataset.sourceId || $('#sourceId').value.trim()) && table === $('#sourceReadinessTable').value;
     const restoreFocus = guardAsyncFocus($('#runSourceReadiness'), $('#sourceReadinessStatus'));
-    notice('#sourceError'); $('#runSourceReadiness').disabled = true; $('#sourceReadinessStatus').textContent = 'Running one bounded no-value read…';
+    notice('#sourceError'); sourceDiagnostic(); updateSourceContinue(null); $('#runSourceReadiness').disabled = true; $('#sourceReadinessStatus').textContent = 'Running one bounded no-value read…';
     let result = null;
     try {
       result = await api(`/api/sources/${encodeURIComponent(id)}/readiness`, { method: 'POST', body: JSON.stringify({ table, confirm_bounded_read: true }) });
@@ -607,9 +727,11 @@
         $('#sourceReadinessStatus').textContent = 'Source configuration changed after the check. Review and run readiness again.';
         return;
       }
+      updateSourceContinue(refreshed);
       $('#sourceReadinessStatus').textContent = `Passed ${stamp(result.checked_at)}. PostgreSQL executed the bounded query and no source value was returned or retained.`;
     } catch (error) {
       if (!current()) return;
+      sourceDiagnostic(error);
       $('#sourceReadinessStatus').textContent = result ? 'Readiness response could not be confirmed.' : 'Readiness did not pass.';
       notice('#sourceError', `${error.message}\n${result ? 'Refresh current source state, then review and run the check again.' : 'Review the inspected scope, database role and secure connection, then explicitly run the check again.'}`);
     } finally { if (current()) { $('#runSourceReadiness').disabled = !$('#confirmSourceReadiness').checked; restoreFocus(); } }
@@ -618,6 +740,7 @@
   function renderRun(run) {
     const bookmark = viewState.focusBookmark(document);
     const selectedId = runId(run.id);
+    if (state.report && (state.report.run_id !== run.id || state.report.snapshot_updated_at !== run.updated_at)) { resetReport(); $('#reportStatus').textContent = 'The saved investigation changed. Generate a fresh preview before sharing.'; }
     state.run = run; sessionStorage.setItem('opsgraph.selectedRun', selectedId);
     $('#onboarding').hidden = true; $('#runWorkspace').hidden = false;
     $('#runIdentity').textContent = run.legacy_provenance ? `${run.id} · imported legacy investigation; some provenance was not retained` : run.id; $('#caseTitle').textContent = run.question; $('#runSource').textContent = run.source_id;
@@ -648,9 +771,9 @@
     $('#cancelRun').hidden = terminal(run.status); $('#cancelRun').disabled = run.status === 'cancelling'; $('#cancelRun').textContent = run.status === 'cancelling' ? 'Cancellation requested' : 'Cancel run';
     $('#retryRun').hidden = !['failed', 'blocked', 'interrupted', 'cancelled'].includes(run.status);
     notice('#runError', run.error ? `${run.error.message || run.error.code}${run.status === 'interrupted' ? '\nBackend process stopped. Retry explicitly to create a separate attempt; this run will not resume automatically.' : ''}` : run.status === 'cancelling' ? 'Cancellation requested. The backend must finish or interrupt its current bounded operation before cancellation is confirmed.' : '');
-    const answer = run.answer; $('#answerThread').hidden = !answer; $('#conclusionCard').hidden = !answer;
+    const answer = run.answer; $('#answerThread').hidden = !answer && !(run.evidence || []).length; $('#conclusionCard').hidden = !answer;
     $('#conclusionTitle').textContent = answer?.summary || '';
-    $('#limitations').innerHTML = (answer?.limitations || []).map(limit => `<li>${esc(limit)}</li>`).join('') || (answer ? '<li>No additional limitation recorded by the model. This does not establish completeness.</li>' : '');
+    $('#limitations').innerHTML = (answer?.limitations || []).map(limit => `<li>${esc(limit)}</li>`).join('') || (answer ? '<li>No additional limitation recorded by the model. This does not establish completeness.</li>' : '<li>No completed model assessment was recorded. Inspect retained captures as partial evidence.</li>');
     const classes = new Set(['supported', 'possible', 'unknown', 'contradictory']);
     $('#findingGrid').innerHTML = (answer?.findings || []).map((finding, index) => {
       const classification = classes.has(finding.classification) ? finding.classification : 'unknown';
@@ -659,7 +782,7 @@
     }).join('');
     $('#evidenceSection').hidden = !(run.evidence || []).length;
     $('#toggleEvidence').dataset.count = String((run.evidence || []).length);
-    $('#toggleEvidence').textContent = `Show captured records (${(run.evidence || []).length})`;
+    $('#toggleEvidence').textContent = `${$('#evidencePanel').hidden ? 'Show' : 'Hide'} captured records (${(run.evidence || []).length})`;
     $('#captureStatus').textContent = viewState.captureStatus(run);
     $('#evidenceLedger').innerHTML = (run.evidence || []).map((item, index) => `<button class="evidence-reference" data-evidence="${index}" data-focus-key="capture:${esc(run.id)}:${esc(item.provenance?.capture_id || item.evidence_hash || index)}"><b>${esc(item.purpose || `Capture ${index + 1}`)}</b><span>${run.status === 'completed' ? 'Recorded capture' : 'Partial evidence'} · ${esc(item.provenance?.source_id || run.source_id)} · collected ${esc(stamp(item.provenance?.finished_at || item.created_at))} · ${(item.rows || []).length} rows${item.truncated ? ' · truncated' : ''}</span></button>`).join('');
     if (terminal(run.status)) $('#streamState').textContent = `Saved ${run.status} state · updated ${stamp(run.updated_at)}.`;
@@ -697,6 +820,7 @@
     openDrawer('evidenceDrawer', trigger);
   }
   async function openRun(id) {
+    if (state.activeDrawer?.id === 'reportDrawer') closeDrawer(false);
     stopStream(); const token = state.streamToken; notice('#composerError'); notice('#globalError');
     try {
       id = runId(id);
@@ -775,6 +899,7 @@
     finally { state.busy = false; $('#retryRun').disabled = false; readiness(); restoreFocus(); }
   }
   function newInvestigation() {
+    if (state.activeDrawer?.id === 'reportDrawer') closeDrawer(false);
     stopStream(); state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.lastEvent = null; state.pending = null; sessionStorage.removeItem('opsgraph.selectedRun'); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = true; notice('#composerError'); showView('investigations'); readiness(); renderHistory();
     if (!state.authenticated) openDrawer('credentialDrawer', $('#newInvestigation')); else $('#investigationQuestion').focus();
@@ -821,6 +946,15 @@
   $('#credentialForm').addEventListener('submit', connectWorkspace); $('#clearCredential').addEventListener('click', clearWorkspace);
   $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
   $('#setupReadiness').addEventListener('click', () => sourceSetup(sourceForReadinessSetup()));
+  $('#sourceHosting').addEventListener('change', () => { renderHostingGuide(); markSourceDirty(); });
+  $('#retryHostingGuides').addEventListener('click', loadHostingGuides);
+  $('#sourceForm').addEventListener('invalid', event => { const details = event.target.closest('details'); if (details) details.open = true; }, true);
+  $('#sourceContinue').addEventListener('click', () => {
+    const source = state.sources.find(item => item.id === $('#sourceSetup').dataset.sourceId);
+    if (state.sourceDirty || !sourceReadinessPassed(source)) return;
+    newInvestigation(); $('#investigationSource').value = source.id; readiness();
+    if (!state.modelTested || state.providerDirty) showView('settings');
+  });
   $('#sourceForm').addEventListener('submit', saveSource); $('#investigationForm').addEventListener('submit', submitRun);
   $('#sourceForm').addEventListener('input', event => {
     if (!event.target.closest('#sourceReadinessPanel')) markSourceDirty();
@@ -859,6 +993,22 @@
     const expanded = !$('#evidencePanel').hidden;
     $('#toggleEvidence').setAttribute('aria-expanded', String(expanded));
     $('#toggleEvidence').textContent = `${expanded ? 'Hide' : 'Show'} captured records (${$('#toggleEvidence').dataset.count || '0'})`;
+  });
+  $('#openReport').addEventListener('click', event => { if (!state.run) { return; }
+    resetReport(); $('#reportForm').reset(); state.reportRunId = state.run.id; openDrawer('reportDrawer', event.currentTarget); });
+  $('#reportForm').addEventListener('submit', generateReport);
+  $('#reportForm').addEventListener('change', resetReport);
+  $('#confirmReportReview').addEventListener('change', () => { $('#downloadReport').disabled = !shareableReport(); $('#copyReport').disabled = !shareableReport(); });
+  $('#downloadReport').addEventListener('click', () => {
+    if (!shareableReport()) return;
+    const url = URL.createObjectURL(new Blob([state.report.markdown], { type: 'text/markdown;charset=utf-8' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = state.report.filename; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  });
+  $('#copyReport').addEventListener('click', async () => {
+    if (!shareableReport()) return;
+    const token = state.reportToken;
+    try { await navigator.clipboard.writeText(state.report.markdown); if (token === state.reportToken) $('#reportStatus').textContent = 'Selected report copied. Review its destination before sharing.'; }
+    catch { if (token === state.reportToken) notice('#reportError', 'Clipboard access failed. Download the report or select and copy the preview text.'); }
   });
   $('#exportEvidence').addEventListener('click', async () => { if (!state.run) return; try { download(`${state.run.id}.json`, await api(`/api/runs/${encodeURIComponent(state.run.id)}/export`)); } catch (error) { notice('#runError', error.message); } });
   $('#exportAudit').addEventListener('click', async () => { try { download('opsgraph-audit.json', await api('/api/audit')); } catch (error) { notice('#globalError', error.message); } });

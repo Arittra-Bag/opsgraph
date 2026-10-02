@@ -128,3 +128,93 @@ def test_role_guide_api_rejects_identifier_injection(guidance_api, body):
 
     assert response.status_code == 422
     assert len(runtime.audit.entries) == before
+
+
+def test_hosting_catalog_covers_all_routes_without_network(guidance_api, monkeypatch):
+    _, client, _, headers = guidance_api
+    monkeypatch.setattr(
+        "psycopg.connect", lambda *_args, **_kwargs: pytest.fail("network attempted")
+    )
+    assert client.get("/api/postgres/hosting-guides").status_code == 401
+    response = client.get("/api/postgres/hosting-guides", headers=headers)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    profiles = response.json()["profiles"]
+    assert {item["id"] for item in profiles} == {
+        "local",
+        "self_hosted",
+        "supabase",
+        "neon",
+        "aws_rds",
+        "google_cloud_sql",
+        "azure",
+        "digitalocean",
+    }
+    assert all(
+        item["steps"] and item["checks"] and "Guidance available" in item["validation"]
+        for item in profiles
+    )
+
+
+def test_source_hosting_is_validated_and_retained_as_guidance(guidance_api):
+    _, client, _, headers = guidance_api
+    body = {
+        "id": "hosted-test",
+        "name": "Hosted test",
+        "secret_ref": "OPSGRAPH_SOURCE_DSN",
+        "allowed_schemas": ["public"],
+        "allowed_tables": ["public.jobs"],
+    }
+    for profile in ["supabase", "neon", "aws_rds", "google_cloud_sql", "azure", "digitalocean"]:
+        response = client.post(
+            "/api/sources", headers=headers, json={**body, "hosting_profile": profile}
+        )
+        assert response.status_code == 200
+        assert response.json()["hosting_profile"] == profile
+        assert response.json()["status"] != "ready"
+    assert (
+        client.post(
+            "/api/sources", headers=headers, json={**body, "hosting_profile": "unknown"}
+        ).status_code
+        == 422
+    )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "authentication_failed",
+        "tls_verification",
+        "schema_too_large",
+        "scope_metadata_incomplete",
+        "network_unavailable",
+    ],
+)
+def test_inspection_returns_fixed_diagnostics_and_audit_without_driver_content(
+    guidance_api, monkeypatch, code
+):
+    from opsgraph.brokers import ConnectorUnavailable
+
+    module, client, runtime, headers = guidance_api
+    monkeypatch.setenv("OPSGRAPH_SOURCE_DSN", "private-test-connection")
+
+    def unavailable(*_args, **_kwargs):
+        raise ConnectorUnavailable("private-driver-marker", diagnostic_code=code)
+
+    monkeypatch.setattr(module, "PsycopgReadOnlyExecutor", unavailable)
+    body = {
+        "id": "diagnostic-source",
+        "name": "Test",
+        "secret_ref": "OPSGRAPH_SOURCE_DSN",
+        "allowed_schemas": ["public"],
+        "allowed_tables": ["public.jobs"],
+    }
+    assert client.post("/api/sources", headers=headers, json=body).status_code == 200
+    response = client.post("/api/sources/diagnostic-source/inspect", headers=headers)
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], str)
+    assert response.json()["diagnostic"]["code"] == code
+    assert response.json()["diagnostic"]["steps"]
+    assert "private-driver-marker" not in response.text
+    assert "private-test-connection" not in response.text
+    assert runtime.audit.entries[-1].details == {"reason": code}
