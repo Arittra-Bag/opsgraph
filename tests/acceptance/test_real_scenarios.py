@@ -312,6 +312,15 @@ def prepare(live, scenario, record):
     require(source["id"] == source_id, "Source identity differs")
     inspection = payload(live.client.post(f"/api/sources/{source_id}/inspect"))
     require(inspection["status"] == "ready", "Source inspection did not become ready")
+    record["phase"] = "source_readiness"
+    readiness = payload(
+        live.client.post(
+            f"/api/sources/{source_id}/readiness",
+            json={"table": scenario.tables[0], "confirm_bounded_read": True},
+        )
+    )
+    require(readiness["status"] == "ready", "Bounded source readiness did not pass")
+    require(readiness["source_values_returned"] == 0, "Readiness retained a source value")
     return source_id, inspection
 
 
@@ -506,6 +515,13 @@ def test_real_schema_change_blocks_before_planning(scenario_context):
         record["phase"] = "restored_fixture_verification"
         restored = payload(live.client.post(f"/api/sources/{source_id}/inspect"))
         require(restored["fingerprint"] == before["fingerprint"], "Restored schema differs")
+        readiness = payload(
+            live.client.post(
+                f"/api/sources/{source_id}/readiness",
+                json={"table": DRIFT.tables[0], "confirm_bounded_read": True},
+            )
+        )
+        require(readiness["status"] == "ready", "Restored source readiness did not pass")
         verify_fixture(live, DRIFT)
         record["fixture_restored_verified"] = True
 

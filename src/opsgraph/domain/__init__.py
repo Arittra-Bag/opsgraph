@@ -1,4 +1,4 @@
-"""Typed domain records shared across the alpha."""
+"""Typed domain records shared across OpsGraph."""
 
 from .investigation import Evidence, Finding, InvestigationResult, TraceStep
 from .models import (

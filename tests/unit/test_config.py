@@ -46,6 +46,13 @@ def test_postgres_schema_allowlist_defaults_to_public_and_parses_explicit_scope(
     )
 
 
+def test_insecure_remote_postgres_override_is_disabled_unless_explicit(monkeypatch):
+    monkeypatch.delenv("OPSGRAPH_ALLOW_INSECURE_REMOTE_POSTGRES", raising=False)
+    assert Settings(api_key="k" * 24, _env_file=None).allow_insecure_remote_postgres is False
+    monkeypatch.setenv("OPSGRAPH_ALLOW_INSECURE_REMOTE_POSTGRES", "true")
+    assert Settings(api_key="k" * 24, _env_file=None).allow_insecure_remote_postgres is True
+
+
 @pytest.mark.parametrize("scope", ["", "*", "public.*", "Private", "x;select", "x" * 64])
 def test_postgres_schema_allowlist_rejects_empty_or_unsupported_identifiers(scope):
     with pytest.raises(ValidationError, match="PostgreSQL"):

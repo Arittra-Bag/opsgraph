@@ -1,4 +1,4 @@
-# Migration from the replay alpha
+# Migration to OpsGraph 1.0
 
 Back up private configuration and state before upgrading. Keep an untouched
 copy and validate the new version against a separate state copy first. No
@@ -21,11 +21,42 @@ installation. Edit an existing file privately after reviewing these changes:
 - Select explicit schema-qualified tables and inspect the source. The general
   read-only playbook needs no specialist evidence bindings; specialist
   playbooks still enforce their source-owned mappings.
+- Remote PostgreSQL now requires `sslmode=verify-full` unless the deployment
+  explicitly sets `OPSGRAPH_ALLOW_INSECURE_REMOTE_POSTGRES=true`. Prefer fixing
+  certificates and hostnames instead of carrying that compatibility override.
+- Provider configuration now separates the protocol preset, adapter, exact model,
+  output profile, reasoning option, timeout, and output-token bound. Open each
+  saved configuration in Settings, verify the endpoint and model, save it, and
+  run the actual structured probe again.
 
 A sample/offline configuration must display setup guidance and block live
 execution until explicitly updated. It must never start querying stored
 credentials automatically. Public `POST /api/investigations/sample` now returns
 `410 Gone`; deterministic runner helpers remain available for automated tests.
+
+## Saved provider settings before startup
+
+Stop OpsGraph and take a complete private backup first. Beta settings saved through
+Settings may lack an audit revision. The new backend refuses to trust these
+implicitly and cannot open Settings until they are re-attested. Privately review
+`<state database>.provider/settings.env` (endpoint, model, credential, and egress
+choice), then run from the workspace directory containing `.env`:
+
+```sh
+opsgraph provider-reattest --confirm
+```
+
+This explicit offline command requires the coordinator to be stopped, verifies the
+existing audit chain, and writes a new receipt before activating the settings. It
+makes no database or model calls and prints no credentials. Corrupt audit chains
+still require backup recovery; this command does not repair or bypass them.
+
+Provider receipt binding now uses a private per-install secret stored alongside
+provider settings and included in normal workspace backups. Workspace API-key
+rotation therefore leaves saved provider settings valid. Existing audited settings
+migrate after their old receipt verifies; start once before rotating the old key,
+or use the same explicit offline re-attestation if it was already rotated.
+After startup, review Settings and run the structured model probe again.
 
 ## Existing records and new runs
 
@@ -46,6 +77,17 @@ retry, follow-up links and export. A reconnect attaches to an existing run;
 a retry creates a separate attempt and collects fresh evidence. Queued work
 can survive restart. Previously active work becomes interrupted, preserving
 completed captures without automatically repeating queries.
+
+Every existing source must be inspected again after upgrading. Then approve the
+new bounded readiness read for an exact table. Old inspection metadata does not
+silently satisfy this gate: the approval binds to the current source revision,
+schema fingerprint, and deployment policy. The readiness query records whether
+the configured route can read; it returns and retains no selected source value.
+
+Run-store schema changes are forward-only. Startup stops with an actionable
+error when the local state schema is unsupported instead of partially upgrading
+or guessing. Back up the complete workspace first and test the upgrade against
+a copy.
 
 Run only one backend coordinator per state file. Prepare rollback by retaining
 the previous wheel and dependency lock together with the pre-upgrade backup.

@@ -12,6 +12,31 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 ProviderKind = Literal["deterministic", "anthropic", "openai_compatible"]
+ProviderPreset = Literal[
+    "ollama",
+    "openai",
+    "openrouter",
+    "groq",
+    "together",
+    "mistral",
+    "lm_studio",
+    "vllm",
+    "anthropic",
+    "custom_openai",
+]
+PROVIDER_DEFAULT_ENDPOINTS: dict[ProviderPreset, str | None] = {
+    "ollama": "http://127.0.0.1:11434/v1",
+    "openai": "https://api.openai.com/v1",
+    "openrouter": "https://openrouter.ai/api/v1",
+    "groq": "https://api.groq.com/openai/v1",
+    "together": "https://api.together.xyz/v1",
+    "mistral": "https://api.mistral.ai/v1",
+    "lm_studio": "http://127.0.0.1:1234/v1",
+    "vllm": "http://127.0.0.1:8000/v1",
+    "anthropic": None,
+    "custom_openai": None,
+}
+FIXED_HOSTED_PRESETS = frozenset({"openai", "openrouter", "groq", "together", "mistral"})
 
 
 class ProviderConfig(BaseModel):
@@ -20,6 +45,7 @@ class ProviderConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: ProviderKind
+    provider_preset: ProviderPreset | None = None
     model: str = Field(min_length=1, max_length=256)
     allowed_models: tuple[str, ...] = ()
     api_key: SecretStr | None = Field(default=None, repr=False)
@@ -51,6 +77,19 @@ class ProviderConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_provider_shape(self) -> ProviderConfig:
+        if self.provider_preset == "anthropic" and self.kind != "anthropic":
+            raise ValueError("Anthropic preset requires the Anthropic adapter")
+        if (
+            self.provider_preset is not None
+            and self.provider_preset != "anthropic"
+            and self.kind != "openai_compatible"
+        ):
+            raise ValueError("OpenAI-compatible presets require the OpenAI-compatible adapter")
+        if (
+            self.provider_preset in FIXED_HOSTED_PRESETS
+            and self.base_url != PROVIDER_DEFAULT_ENDPOINTS[self.provider_preset]
+        ):
+            raise ValueError("Hosted provider presets require their official endpoint")
         if self.schema_profile != "standard" and self.kind != "openai_compatible":
             raise ValueError("schema_profile is only supported by OpenAI-compatible adapters")
         if self.reasoning_effort is not None and self.kind != "openai_compatible":

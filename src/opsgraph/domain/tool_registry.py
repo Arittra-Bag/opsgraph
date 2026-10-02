@@ -17,7 +17,7 @@ class ToolDefinition:
 
 
 class ToolRegistry:
-    """In-process alpha registry; native tools cannot be replaced or removed."""
+    """In-process registry; native tools cannot be replaced or removed."""
 
     def __init__(self, schema_inspector: Callable[..., object]) -> None:
         self._tools: dict[str, ToolDefinition] = {

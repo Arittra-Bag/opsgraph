@@ -11,6 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 TERMINAL = frozenset({"completed", "failed", "blocked", "interrupted", "cancelled"})
+RUN_SCHEMA_VERSION = 1
 
 
 def timestamp() -> str:
@@ -21,26 +22,52 @@ class QueueFull(ValueError):
     pass
 
 
+class RunSchemaMigrationError(RuntimeError):
+    """The run database requires an explicit, operator-controlled migration."""
+
+
 class RunStore:
     def __init__(self, path: Path | str):
         self.path = Path(path).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.connect() as db:
-            db.executescript("""
-                CREATE TABLE IF NOT EXISTS runs (
-                    workspace_id TEXT NOT NULL, id TEXT NOT NULL,
-                    request_id TEXT, status TEXT NOT NULL, value TEXT NOT NULL,
-                    PRIMARY KEY(workspace_id, id), UNIQUE(workspace_id, request_id)
-                );
-                CREATE TABLE IF NOT EXISTS run_events (
-                    workspace_id TEXT NOT NULL, run_id TEXT NOT NULL,
-                    sequence INTEGER NOT NULL, value TEXT NOT NULL,
-                    PRIMARY KEY(workspace_id, run_id, sequence)
-                );
-                CREATE TABLE IF NOT EXISTS run_schema_version (version INTEGER PRIMARY KEY);
-                INSERT OR IGNORE INTO run_schema_version VALUES (1);
-            """)
+        try:
+            with self.connect() as db:
+                self._initialize_schema(db)
+        except RunSchemaMigrationError:
+            raise
+        except sqlite3.DatabaseError:
+            raise RunSchemaMigrationError(
+                "Run history schema could not be initialized safely. Preserve the state "
+                "database and use a compatible release or an explicit migration."
+            ) from None
         self.import_legacy()
+
+    @staticmethod
+    def _initialize_schema(db: sqlite3.Connection) -> None:
+        db.execute("BEGIN IMMEDIATE")
+        db.execute("CREATE TABLE IF NOT EXISTS run_schema_version (version INTEGER PRIMARY KEY)")
+        versions = db.execute("SELECT version FROM run_schema_version").fetchall()
+        if not versions:
+            db.execute("INSERT INTO run_schema_version(version) VALUES (?)", (RUN_SCHEMA_VERSION,))
+        elif versions != [(RUN_SCHEMA_VERSION,)]:
+            raise RunSchemaMigrationError(
+                "Run history schema is not supported by this OpsGraph build. Preserve the "
+                "state database and use a compatible release or an explicit migration."
+            )
+        db.execute(
+            """CREATE TABLE IF NOT EXISTS runs (
+                workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+                request_id TEXT, status TEXT NOT NULL, value TEXT NOT NULL,
+                PRIMARY KEY(workspace_id, id), UNIQUE(workspace_id, request_id)
+            )"""
+        )
+        db.execute(
+            """CREATE TABLE IF NOT EXISTS run_events (
+                workspace_id TEXT NOT NULL, run_id TEXT NOT NULL,
+                sequence INTEGER NOT NULL, value TEXT NOT NULL,
+                PRIMARY KEY(workspace_id, run_id, sequence)
+            )"""
+        )
 
     @contextmanager
     def connect(self):
@@ -109,6 +136,9 @@ class RunStore:
                     "answer": record["answer"],
                     "configuration": None,
                     "last_event_id": 0,
+                    # Legacy terminal records predate terminal audit tracking. Do not
+                    # manufacture new audit events for historical imports on restart.
+                    "terminal_audited": True,
                     "legacy_provenance": True,
                 }
                 db.execute(
@@ -167,6 +197,7 @@ class RunStore:
                 answer=None,
                 configuration=None,
                 last_event_id=0,
+                terminal_audited=False,
             )
             db.execute(
                 "INSERT INTO runs VALUES(?,?,?,?,?)",
@@ -215,12 +246,16 @@ class RunStore:
             if value["status"] == "cancelling" and changes.get("status") != "cancelled":
                 return value
             value.update(changes)
+            if changes.get("status") in TERMINAL:
+                value["terminal_audited"] = False
             if kind == "evidence_captured":
                 value["evidence"].append(data["evidence"])
             value["partial_evidence"] = bool(value["evidence"]) and value["status"] != "completed"
             return self._event(db, workspace, value, kind, data or {})
 
-    def cancel(self, workspace: str, run_id: str):
+    def cancel_with_transition(self, workspace: str, run_id: str):
+        """Cancel a run and report whether this call created a terminal transition."""
+
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
@@ -230,12 +265,20 @@ class RunStore:
                 raise KeyError("run not found")
             value = json.loads(row[0])
             if value["status"] in TERMINAL or value["status"] == "cancelling":
-                return value
+                return value, False
             value["status"] = "cancelled" if value["status"] == "queued" else "cancelling"
             if value["status"] == "cancelled":
                 value["finished_at"] = timestamp()
+                value["terminal_audited"] = False
             value["partial_evidence"] = bool(value["evidence"])
-            return self._event(db, workspace, value, value["status"], {})
+            return (
+                self._event(db, workspace, value, value["status"], {}),
+                value["status"] == "cancelled",
+            )
+
+    def cancel(self, workspace: str, run_id: str):
+        value, _ = self.cancel_with_transition(workspace, run_id)
+        return value
 
     def claim(self, workspace: str):
         with self.connect() as db:
@@ -266,6 +309,7 @@ class RunStore:
                     status="interrupted",
                     finished_at=timestamp(),
                     partial_evidence=bool(value["evidence"]),
+                    terminal_audited=False,
                     error={
                         "code": "backend_interrupted",
                         "message": (
@@ -275,6 +319,41 @@ class RunStore:
                     },
                 )
                 self._event(db, workspace, value, "interrupted", {})
+
+    def pending_terminal_audits(self, workspace: str):
+        """Return new terminal transitions whose audit callback has not completed."""
+
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT value FROM runs WHERE workspace_id=? AND status IN "
+                "('completed','failed','blocked','interrupted','cancelled') ORDER BY rowid",
+                (workspace,),
+            ).fetchall()
+        values = [json.loads(row[0]) for row in rows]
+        # Missing means the record predates this contract. Explicit False is the
+        # durable retry marker for transitions created by this release.
+        return [value for value in values if value.get("terminal_audited") is False]
+
+    def mark_terminal_audited(self, workspace: str, run_id: str) -> None:
+        """Durably acknowledge one terminal callback without adding a progress event."""
+
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT value FROM runs WHERE workspace_id=? AND id=?", (workspace, run_id)
+            ).fetchone()
+            if row is None:
+                raise KeyError("run not found")
+            value = json.loads(row[0])
+            if value["status"] not in TERMINAL:
+                raise ValueError("run is not terminal")
+            if value.get("terminal_audited") is True:
+                return
+            value["terminal_audited"] = True
+            db.execute(
+                "UPDATE runs SET value=? WHERE workspace_id=? AND id=?",
+                (json.dumps(value), workspace, run_id),
+            )
 
     @staticmethod
     def _event(db, workspace, value, kind, data):

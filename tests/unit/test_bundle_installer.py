@@ -532,7 +532,16 @@ def test_repository_docs_require_explicit_distribution_review(builder):
     actual = {
         path.relative_to(root).as_posix() for path in (root / "docs").rglob("*") if path.is_file()
     }
-    assert actual == builder.PUBLIC_DOCS
+    historical_beta_docs = {
+        "docs/release/beta-distribution.md",
+        "docs/release/notices/beta-native-provenance.json",
+        "docs/release/notices/beta-wheel-inventory.json",
+        "docs/release/notices/dependency-record-current.json",
+        "docs/release/notices/provenance.json",
+        "docs/release/notices/wheel-license-inventory.json",
+        "docs/release/release-notes-0.1.0b1.md",
+    }
+    assert actual - historical_beta_docs == builder.PUBLIC_DOCS
 
 
 @pytest.mark.parametrize(

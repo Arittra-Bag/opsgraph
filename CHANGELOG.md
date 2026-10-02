@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.0 — first stable release
+
+- Guided first-run checks for workspace access, exact PostgreSQL scope, a real
+  model probe, and an operator-approved bounded database readiness read.
+- Least-privilege PostgreSQL role guidance, remote certificate verification,
+  effective privilege checks, read-only repeatable-read execution, and schema
+  revision binding.
+- Durable investigation state with explicit recovery, terminal-state and audit
+  failures, plus linked follow-ups, fresh retries, cancellation, and export.
+- Backend-held provider configuration for local and hosted adapters, with exact
+  model, endpoint, profile, reasoning, timeout, output-token, and egress control.
+- Tag-bound release gates for a connected PostgreSQL control path, native
+  Linux/macOS/Windows bundles, matching source material, and multiarchitecture
+  Linux container images.
+
+See [1.0 release notes](docs/release/release-notes-1.0.0.md), the
+[support matrix](docs/release/support-matrix.md), and the
+[stable distribution contract](docs/release/distribution.md).
+
 ## 0.1.0b1 — 2026-09-13 (beta prerelease)
 
 - Investigation workspace documentation with a real full-page screenshot,
@@ -18,6 +37,6 @@
 - Public documentation curated for users and contributors. Installer and source
   archives include only explicitly approved documentation and required notices.
 
-See [beta notes](docs/release/release-notes-0.1.0b1.md) and the
+See the [Beta 1 release](https://github.com/Arittra-Bag/opsgraph/releases/tag/v0.1.0b1) and the
 [support matrix](docs/release/support-matrix.md) for tested capabilities and limits.
 Own source remains Apache-2.0; bundled dependencies retain their own licenses.

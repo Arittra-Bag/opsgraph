@@ -4,6 +4,7 @@ from .postgres import (
     ConnectorUnavailable,
     PsycopgReadOnlyExecutor,
     QueryExecutionFailed,
+    SourceSchemaChanged,
     UnsafeDatabaseRole,
 )
 from .query import (
@@ -21,6 +22,7 @@ __all__ = [
     "PsycopgReadOnlyExecutor",
     "QueryBroker",
     "QueryExecutionFailed",
+    "SourceSchemaChanged",
     "QueryResult",
     "ReadOnlyExecutor",
     "SelectOnlyValidator",

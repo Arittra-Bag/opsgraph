@@ -49,5 +49,41 @@ test('normal API calls prohibit redirects and retain workspace authentication', 
   await api('/api/runs', {redirect: 'follow'});
   assert.equal(request.url, origin + '/api/runs');
   assert.equal(request.options.redirect, 'error');
+  assert.equal(request.options.cache, 'no-store');
   assert.equal(request.options.headers['X-OpsGraph-Key'], 'fixture-key');
+});
+test('workspace-key validation prohibits redirects and caching', async () => {
+  const helper = source.slice(source.indexOf('  async function connectWorkspace('), source.indexOf('  function clearWorkspace('));
+  const nodes = new Map([
+    ['#workspaceKey', {value: 'fixture-key'}],
+    ['#saveCredential', {disabled: false}],
+  ]);
+  let request;
+  const storage = new Map();
+  const connectWorkspace = vm.runInNewContext(`(${helper.trim()})`, {
+    $: selector => nodes.get(selector) || {value: '', disabled: false},
+    state: {authEpoch: 0},
+    guardAsyncFocus: () => () => {},
+    notice: () => {},
+    validWorkspaceKey: guards.validWorkspaceKey,
+    apiPath: guards.apiPath,
+    fetch: async (url, options) => {
+      request = {url, options};
+      return {ok: true, status: 200};
+    },
+    sessionStorage: {
+      setItem: (key, value) => storage.set(key, value),
+      getItem: key => storage.get(key),
+    },
+    loadWorkspace: async () => {},
+    closeDrawer: () => {},
+    openRun: async () => {},
+    readiness: () => {},
+  });
+  await connectWorkspace({preventDefault() {}});
+  assert.equal(request.url, origin + '/api/sources');
+  assert.equal(request.options.redirect, 'error');
+  assert.equal(request.options.cache, 'no-store');
+  assert.equal(request.options.headers['X-OpsGraph-Key'], 'fixture-key');
+  assert.equal(storage.get('opsgraph.workspaceKey'), 'fixture-key');
 });

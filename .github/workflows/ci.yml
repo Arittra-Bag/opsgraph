@@ -59,6 +59,41 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  connected-control-path:
+    name: Connected control path — PostgreSQL + model protocol fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.7-bookworm
+        env:
+          POSTGRES_DB: opsgraph_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ github.run_id }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=postgres --dbname=opsgraph_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.9.26"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv lock --check
+      - run: uv sync --locked --all-extras --no-build --no-install-project
+      - name: Exercise the connected read-only control path
+        env:
+          OPSGRAPH_CI_POSTGRES_OWNER_DSN: >-
+            postgresql://postgres:${{ github.run_id }}@127.0.0.1:5432/opsgraph_ci
+        run: uv run --locked --no-sync --no-build python scripts/ci_connected_smoke.py
+
   fixture-compatibility:
     name: Fixture compatibility — ${{ matrix.label }} — no live PostgreSQL/model
     runs-on: ${{ matrix.os }}
@@ -129,6 +164,16 @@ jobs:
         with:
           version: "0.9.26"
           enable-cache: true
+      - name: Read project version
+        id: project
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import tomllib
+
+          with open("pyproject.toml", "rb") as source:
+              print(f"version={tomllib.load(source)['project']['version']}")
+          PY
       - name: Build current application wheel
         run: >-
           uv build --wheel
@@ -147,15 +192,15 @@ jobs:
         run: >-
           python scripts/ci_bundle_acceptance.py
           --platform ${{ matrix.target }}
-          --wheel dist/opsgraph-0.1.0b1-py3-none-any.whl
+          --wheel dist/opsgraph-${{ steps.project.outputs.version }}-py3-none-any.whl
           --wheelhouse ci-wheelhouse
-          --output ci-artifacts/opsgraph-0.1.0b1-${{ matrix.target }}.zip
+          --output ci-artifacts/opsgraph-${{ steps.project.outputs.version }}-${{ matrix.target }}.zip
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: opsgraph-${{ matrix.target }}-${{ github.sha }}
           path: |
-            ci-artifacts/opsgraph-0.1.0b1-${{ matrix.target }}.zip
-            ci-artifacts/opsgraph-0.1.0b1-${{ matrix.target }}.zip.sha256
+            ci-artifacts/opsgraph-${{ steps.project.outputs.version }}-${{ matrix.target }}.zip
+            ci-artifacts/opsgraph-${{ steps.project.outputs.version }}-${{ matrix.target }}.zip.sha256
           if-no-files-found: error
           retention-days: 3
 
@@ -168,21 +213,21 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: Build beta container
-        run: docker build --tag opsgraph-beta:ci --file deploy/container/Dockerfile .
+      - name: Build container
+        run: docker build --tag opsgraph-ci --file deploy/container/Dockerfile .
       - name: Start and verify configuration-only container
         run: |
           docker volume create opsgraph-ci-state >/dev/null
-          docker run --detach --name opsgraph-beta-ci \
+          docker run --detach --name opsgraph-ci \
             --publish 127.0.0.1:8000:8000 \
             --read-only --cap-drop ALL --security-opt no-new-privileges \
             --tmpfs /tmp:size=64m,mode=1770,uid=10001,gid=10001 \
             --mount type=volume,source=opsgraph-ci-state,target=/data \
             --env OPSGRAPH_API_KEY=ci-key-with-at-least-24-chars \
-            opsgraph-beta:ci
+            opsgraph-ci
           for attempt in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8000/api/health; then break; fi
-            if [ "$attempt" = 20 ]; then docker logs opsgraph-beta-ci; exit 1; fi
+            if [ "$attempt" = 20 ]; then docker logs opsgraph-ci; exit 1; fi
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:8000/assets/static/app.js >/dev/null
@@ -193,9 +238,9 @@ jobs:
           docker compose -f deploy/compose.yaml config >/dev/null
       - name: Show container logs on failure
         if: failure()
-        run: docker logs opsgraph-beta-ci || true
+        run: docker logs opsgraph-ci || true
       - name: Stop configuration-only container
         if: always()
         run: |
-          docker rm --force opsgraph-beta-ci || true
+          docker rm --force opsgraph-ci || true
           docker volume rm opsgraph-ci-state || true

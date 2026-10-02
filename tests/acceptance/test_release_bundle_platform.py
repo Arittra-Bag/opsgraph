@@ -443,3 +443,89 @@ def test_accept_rejects_noncanonical_target_before_external_work(target, tmp_pat
     monkeypatch.setattr(acceptance, "_validate_host", lambda _: pytest.fail("invalid target"))
     with pytest.raises(acceptance.AcceptanceError, match="unsupported platform target"):
         acceptance.accept(tmp_path, tmp_path, tmp_path, tmp_path, target)
+
+
+def test_acceptance_receipt_binds_candidate_and_host_without_private_paths(tmp_path, monkeypatch):
+    receipt = tmp_path / "receipt.json"
+    archive = tmp_path / "opsgraph-1.0.0-ubuntu-x64-cp311.zip"
+    identity = {
+        "source_base_commit": "a" * 40,
+        "source_inventory_sha256": "b" * 64,
+        "wheel": {
+            "path": "opsgraph-1.0.0-py3-none-any.whl",
+            "size": 123,
+            "sha256": "e" * 64,
+        },
+    }
+    monkeypatch.setattr(acceptance.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(acceptance.platform, "release", lambda: "fixture-release")
+    monkeypatch.setattr(acceptance.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(acceptance.platform, "python_version", lambda: "3.11.14")
+
+    acceptance._write_receipt(
+        receipt,
+        target="ubuntu-x64-cp311",
+        host="Ubuntu 24.04 x64",
+        identity=identity,
+        build_id="c" * 64,
+        archive=archive,
+        archive_hash="d" * 64,
+        application_wheel_hash="e" * 64,
+    )
+
+    value = json.loads(receipt.read_text())
+    assert value["result"] == "pass"
+    assert value["source_base_commit"] == "a" * 40
+    assert value["source_inventory_sha256"] == "b" * 64
+    assert value["application_wheel_sha256"] == "e" * 64
+    assert value["build_id"] == "c" * 64
+    assert value["archive_sha256"] == "d" * 64
+    assert value["host"] == "Ubuntu 24.04 x64"
+    assert value["host_system"] == "Linux"
+    assert value["archive"] == archive.name
+    assert str(tmp_path) not in receipt.read_text()
+    with pytest.raises(FileExistsError):
+        acceptance._write_receipt(
+            receipt,
+            target="ubuntu-x64-cp311",
+            host="Ubuntu 24.04 x64",
+            identity=identity,
+            build_id="c" * 64,
+            archive=archive,
+            archive_hash="d" * 64,
+            application_wheel_hash="e" * 64,
+        )
+
+
+def test_acceptance_receipt_rejects_unbound_identity(tmp_path):
+    with pytest.raises(acceptance.AcceptanceError, match="cannot produce"):
+        acceptance._write_receipt(
+            tmp_path / "receipt.json",
+            target="ubuntu-x64-cp311",
+            host="Ubuntu 24.04 x64",
+            identity={"source_base_commit": "not-a-commit"},
+            build_id="c" * 64,
+            archive=tmp_path / "candidate.zip",
+            archive_hash="d" * 64,
+            application_wheel_hash="e" * 64,
+        )
+
+
+def test_acceptance_receipt_rejects_a_different_input_wheel(tmp_path):
+    identity = {
+        "source_base_commit": "a" * 40,
+        "source_inventory_sha256": "b" * 64,
+        "wheel": {"sha256": "e" * 64},
+    }
+
+    with pytest.raises(acceptance.AcceptanceError, match="cannot produce"):
+        acceptance._write_receipt(
+            tmp_path / "receipt.json",
+            target="ubuntu-x64-cp311",
+            host="Ubuntu 24.04 x64",
+            identity=identity,
+            build_id="c" * 64,
+            archive=tmp_path / "candidate.zip",
+            archive_hash="d" * 64,
+            application_wheel_hash="f" * 64,
+        )

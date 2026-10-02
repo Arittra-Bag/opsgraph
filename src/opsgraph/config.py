@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     postgres_allowed_schemas: Annotated[tuple[str, ...], NoDecode] = Field(
         default=("public",), alias="OPSGRAPH_POSTGRES_ALLOWED_SCHEMAS"
     )
+    allow_insecure_remote_postgres: bool = Field(
+        default=False, alias="OPSGRAPH_ALLOW_INSECURE_REMOTE_POSTGRES"
+    )
     web_root: Path = Path(__file__).resolve().parent / "web"
 
     @field_validator("state_path")
@@ -116,7 +119,7 @@ class Settings(BaseSettings):
     @field_validator("mode", mode="before")
     @classmethod
     def map_demo_mode(cls, value: object) -> object:
-        """Treat the legacy demo's offline mode as the alpha's sample mode."""
+        """Map the legacy demo's offline mode to the supported sample mode."""
 
         return "sample" if value == "offline" else value
 

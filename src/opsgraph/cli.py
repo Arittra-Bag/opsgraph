@@ -39,6 +39,10 @@ def _parser() -> argparse.ArgumentParser:
     restore = commands.add_parser("restore", help="restore a backup into a new workspace directory")
     restore.add_argument("--directory", type=Path, required=True)
     restore.add_argument("--backup", type=Path, required=True)
+    reattest = commands.add_parser(
+        "provider-reattest", help="attest reviewed private provider settings while stopped"
+    )
+    reattest.add_argument("--confirm", action="store_true", required=True)
     return parser
 
 
@@ -175,6 +179,19 @@ def main() -> None:
         )
     # Includes DSN/provider variables not modeled by Settings; shell values win.
     load_dotenv(Path.cwd() / ".env", override=False)
+    if args.command == "provider-reattest":
+        from opsgraph.config import get_settings
+        from opsgraph.provider_settings import reattest_provider_config
+
+        try:
+            reattest_provider_config(get_settings())
+        except Exception:
+            print(
+                "Provider re-attestation failed. Check private configuration and audit integrity."
+            )
+            raise SystemExit(1) from None
+        print("Provider settings re-attested. No database or model request made.")
+        raise SystemExit(0)
     if args.command == "doctor":
         raise SystemExit(_doctor())
     if args.command == "init":

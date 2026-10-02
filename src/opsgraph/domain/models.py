@@ -1,7 +1,7 @@
 """Typed, deterministic contracts for authorization, querying, and evidence.
 
-The public alpha is single-tenant at deployment level. Every persisted or
-authorized object still carries a workspace identifier so accidental
+The supported deployment is single-operator at the instance level. Every
+persisted or authorized object still carries a workspace identifier so accidental
 cross-workspace access fails closed and a later tenancy boundary is explicit.
 """
 

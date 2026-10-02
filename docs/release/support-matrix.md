@@ -1,52 +1,82 @@
-# Beta 0.1.0b1 support matrix
+# OpsGraph 1.0 support matrix
 
-OpsGraph is beta software. Use an artifact built for your exact operating system,
-architecture and CPython version. A package installing successfully does not by
-itself prove that a PostgreSQL and model workflow works on that platform.
+OpsGraph 1.0 has a deliberately narrow stable boundary: one trusted operator,
+one private self-hosted instance, PostgreSQL sources, and bounded read-only
+investigations. “Stable” identifies this versioned contract. It does not imply
+an SLA, multi-user identity, tenant isolation, managed hosting, or certified
+compatibility with every PostgreSQL deployment and model.
 
-| Environment | Status | Scope |
+Use an artifact built for the exact operating system, architecture, and CPython
+version listed below. Installing a package proves less than exercising a real
+database and model path; the evidence level is stated separately.
+
+| Environment | 1.0 release evidence | Boundary |
 | --- | --- | --- |
-| macOS 26.2 arm64, CPython 3.11 | Beta-tested configuration | Offline bundle lifecycle and an actual PostgreSQL 16 plus Ollama 0.34 / `qwen3:8b` investigation, export, retry and follow-up were exercised locally. |
-| Ubuntu 24.04 x64 | Package compatibility only | Installation and lifecycle checks passed in a hosted Ubuntu environment. A complete native PostgreSQL/local-model workflow remains unverified. |
-| Windows Server 2025 x64 | Package compatibility only | Installation and lifecycle checks passed in a hosted Windows Server environment. This does not establish Windows 11 support. |
-| Windows 11 x64 | Unverified | No complete native PostgreSQL/local-model workflow has been recorded. |
-| Container deployment | Configuration checked | Image configuration and health checks passed. The complete PostgreSQL/model workflow for the current image remains unverified. |
-| Other systems | Unverified | No support claim is made without an exact artifact and complete workflow check. |
+| Ubuntu 24.04 x64, CPython 3.11 | Native bundle install, launch, maintenance, and uninstall lifecycle. The release gate also exercises PostgreSQL 17.7 through a dedicated SELECT-only role and a local deterministic OpenAI-compatible protocol fixture. | The protocol fixture proves the control path, not real-model answer quality. |
+| Windows Server 2025 x64, CPython 3.11 | Native bundle install, launch, maintenance, and uninstall lifecycle. | No complete native PostgreSQL/model workflow is claimed. This does not certify Windows 11. |
+| macOS 26 arm64, CPython 3.11 | Native bundle install, launch, maintenance, and uninstall lifecycle. | No exact-tag live PostgreSQL/model workflow is claimed by CI. |
+| Linux container, amd64 | Image labels, architecture, hardened startup, and `/api/ready` are checked natively on Ubuntu before publication. | PostgreSQL and the model remain external services. |
+| Linux container, arm64 | The same image checks run under QEMU on Ubuntu before publication. | Emulation is recorded; it is not native arm64 hardware evidence. |
+| Other systems or architectures | Unverified. | No support claim is made without an exact artifact and recorded evidence. |
 
-## What CI covers
+Docker Desktop on macOS or Windows can run the published Linux image through its
+Linux container environment. That does not make the image a macOS or Windows
+container and does not replace the native bundle evidence.
 
-The [CI workflow](../../.github/workflows/ci.yml) runs fixture tests on Linux,
-macOS and Windows Server. Python 3.11 is covered on all three; Python 3.13 is
-also checked on Ubuntu, macOS and Windows Server. Offline bundle lifecycle
-jobs use CPython 3.11 on each of those platforms. These jobs exercise package
-installation and launcher/maintenance behavior without live PostgreSQL or model
-services. Docker has a separate image build and health check.
+## What CI and the release gate cover
 
-The live macOS result above is separate acceptance evidence. CI compatibility
-checks should not be described as full native database/model validation.
+The [CI workflow](../../.github/workflows/ci.yml) runs the Python and frontend
+suites on Linux, macOS, and Windows Server. It checks supported Python versions,
+package installation, source and wheel contents, and the native offline-bundle
+lifecycle. Container jobs build and start the Linux image with the documented
+hardening flags.
+
+The [stable release workflow](../../.github/workflows/release.yml) adds stronger
+tag-bound gates. It requires:
+
+- one clean annotated tag contained in `main` and matching the package version;
+- the full test suite and exact source artifacts;
+- a real loopback PostgreSQL service with a dedicated SELECT-only role;
+- source inspection, bounded readiness, investigation, evidence export, write
+  denial, restart persistence, and audit-chain checks;
+- one deterministic local model-protocol fixture for probe, plan, and answer;
+- native bundle receipts for Ubuntu, Windows Server, and macOS; and
+- accepted Linux amd64 and arm64 container images with recorded hashes and
+  publication digests.
+
+The GitHub release is created only after those gates pass. The generated
+receipts bind the evidence to the exact source commit and artifacts. They do not
+prove correctness for an untested external database, provider, schema, or model.
 
 ## Model providers
 
-- **Ollama 0.34 / `qwen3:8b`**, through the OpenAI-compatible adapter with the
-  Ollama schema profile and reasoning disabled, completed the local workflow
-  above. Latency and feasibility depend on the machine, schema and question.
-- **Anthropic** configuration, structured-schema handling and errors have
-  automated coverage. A live hosted Anthropic model was not tested for this beta.
-- **Other OpenAI-compatible endpoints** have adapter and configuration coverage.
-  Each endpoint/model combination still needs its own real structured probe.
+OpsGraph exposes presets for Ollama, LM Studio, vLLM, OpenAI, Anthropic,
+OpenRouter, Groq, Together, Mistral, and a manual OpenAI-compatible endpoint.
+Presets select protocol defaults; they do not discover models or guarantee that
+an account/model supports structured responses.
 
-A successful model probe checks response compatibility. It does not guarantee
-correct interpretation of arbitrary schemas. Valid SQL, citations and evidence
-hashes establish different properties and do not prove that a conclusion is true.
-OpsGraph never switches providers automatically to obtain a result.
+Automated tests cover configuration, schema handling, bounded errors, and the
+OpenAI-compatible and Anthropic adapters. The tag-bound connected smoke uses a
+deterministic local protocol fixture. A successful operator-run model probe
+checks the exact configured endpoint and model; it still does not guarantee the
+interpretation of arbitrary schemas or questions. OpsGraph never switches
+providers automatically to obtain a result.
 
-## Support expectations
+## PostgreSQL and product limits
 
-This beta supports one operator per instance, PostgreSQL sources and bounded
-read-only investigations. It has no SLA or stable/production-ready claim. Report
-reproducible problems with the OpsGraph version, platform, Python version, model
-provider/model and sanitized diagnostics. Never attach credentials, workspace
-configuration, source records or unredacted exports.
+- PostgreSQL is the only source connector in 1.0.
+- Remote PostgreSQL requires `sslmode=verify-full` by default.
+- The effective role must be read-only and limited to the configured tables;
+  database grants remain the column-level enforcement boundary.
+- Source inspection records physical schema, not business meaning, units,
+  status semantics, relationships, completeness, or truth.
+- Citations and evidence hashes identify recorded bytes. They do not prove that
+  a conclusion is correct.
+- External inference requires both deployment-level and source-level opt-in.
 
-OpsGraph source is Apache-2.0. Bundled dependencies retain their own licenses and
-distribution obligations; see [beta distribution](beta-distribution.md).
+Report reproducible problems with the OpsGraph version, artifact, platform,
+Python version, provider/model, and sanitized diagnostics. Never attach
+credentials, workspace configuration, source records, or unredacted exports.
+
+OpsGraph source is Apache-2.0. Bundled dependencies retain their own licenses
+and distribution obligations; see the [stable distribution](distribution.md).

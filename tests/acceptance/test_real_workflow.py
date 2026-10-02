@@ -222,6 +222,15 @@ def actual_workflow(live, record):
     )
     assert source["id"] == source_id
     payload(client.post(f"/api/sources/{source_id}/inspect"))
+    record["phase"] = "source_readiness"
+    readiness = payload(
+        client.post(
+            f"/api/sources/{source_id}/readiness",
+            json={"table": table, "confirm_bounded_read": True},
+        )
+    )
+    require(readiness["status"] == "ready", "Bounded source readiness did not pass")
+    require(readiness["source_values_returned"] == 0, "Readiness retained a source value")
     record["phase"] = "first_investigation"
     request = {
         "source_id": source_id,

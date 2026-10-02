@@ -26,6 +26,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import TextIO
 
@@ -559,6 +560,63 @@ def _candidate_build_id(bundle: Path, target: str) -> str:
     return build_id
 
 
+def _write_receipt(
+    path: Path,
+    *,
+    target: str,
+    host: str,
+    identity: dict[str, object],
+    build_id: str,
+    archive: Path,
+    archive_hash: str,
+    application_wheel_hash: str,
+) -> None:
+    """Write one immutable, public, secret-free native acceptance receipt."""
+
+    source_commit = identity.get("source_base_commit")
+    source_inventory = identity.get("source_inventory_sha256")
+    application_wheel = identity.get("wheel")
+    identity_wheel_hash = (
+        application_wheel.get("sha256") if isinstance(application_wheel, dict) else None
+    )
+    if (
+        target not in TARGETS
+        or not isinstance(source_commit, str)
+        or re.fullmatch(r"[0-9a-f]{40}", source_commit) is None
+        or not isinstance(source_inventory, str)
+        or re.fullmatch(r"[0-9a-f]{64}", source_inventory) is None
+        or not isinstance(identity_wheel_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", identity_wheel_hash) is None
+        or re.fullmatch(r"[0-9a-f]{64}", application_wheel_hash) is None
+        or identity_wheel_hash != application_wheel_hash
+        or re.fullmatch(r"[0-9a-f]{64}", build_id) is None
+        or re.fullmatch(r"[0-9a-f]{64}", archive_hash) is None
+        or archive.name != archive.name.replace("/", "").replace("\\", "")
+    ):
+        raise AcceptanceError("candidate identity cannot produce an acceptance receipt")
+    record = {
+        "schema_version": 1,
+        "result": "pass",
+        "validated_at": datetime.now(UTC).isoformat(),
+        "target": target,
+        "host": host,
+        "host_system": platform.system(),
+        "host_release": platform.release(),
+        "host_machine": platform.machine(),
+        "python": platform.python_version(),
+        "source_base_commit": source_commit,
+        "source_inventory_sha256": source_inventory,
+        "application_wheel_sha256": application_wheel_hash,
+        "build_id": build_id,
+        "archive": archive.name,
+        "archive_sha256": archive_hash,
+        "boundary": "native bundle lifecycle only; no PostgreSQL or model call was made",
+    }
+    with path.open("x", encoding="utf-8", newline="\n") as stream:  # NOSONAR - CI output
+        json.dump(record, stream, sort_keys=True, indent=2)
+        stream.write("\n")
+
+
 def _request_json(url: str, *, key: str | None = None) -> object:
     headers = {"Accept": "application/json"}
     if key:
@@ -715,6 +773,7 @@ def accept(
     output: Path,
     target: str,
     *,
+    receipt: Path | None = None,
     error_paths: list[Path] | None = None,
 ) -> None:
     # Enforce the same target boundary for programmatic callers as for the CLI.
@@ -724,6 +783,11 @@ def accept(
     if not wheelhouse.is_dir() or not any(wheelhouse.glob("*.whl")):
         raise AcceptanceError("wheelhouse must contain host-selected locked dependency wheels")
     output.parent.mkdir(parents=True, exist_ok=True)
+    if receipt is not None:
+        receipt = receipt.absolute()
+        if receipt.exists():
+            raise AcceptanceError("acceptance receipt already exists")
+        receipt.parent.mkdir(parents=True, exist_ok=True)
     # macOS exposes /var and /tmp through symlinks. Maintenance correctly rejects
     # those ancestors, so keep private lifecycle fixtures beside the real checkout.
     with tempfile.TemporaryDirectory(
@@ -873,6 +937,18 @@ def accept(
             "hosted Windows Server evidence does not certify Windows 11.",
             flush=True,
         )
+        if receipt is not None:
+            identity = json.loads((bundle / "build-identity.json").read_text(encoding="utf-8"))
+            _write_receipt(
+                receipt,
+                target=target,
+                host=host,
+                identity=identity,
+                build_id=build_id,
+                archive=output,
+                archive_hash=archive_hash,
+                application_wheel_hash=_sha256(wheel),
+            )
 
 
 def main() -> None:
@@ -882,6 +958,7 @@ def main() -> None:
     parser.add_argument("--wheel", type=Path)
     parser.add_argument("--wheelhouse", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--receipt", type=Path)
     args = parser.parse_args()
     error_paths = [
         Path.cwd().absolute(),
@@ -891,12 +968,22 @@ def main() -> None:
     ]
     if args.wheel is not None:
         error_paths.append(args.wheel.absolute())
+    if args.receipt is not None:
+        error_paths.append(args.receipt.absolute())
     try:
         source = args.source.resolve(strict=True)
         wheel = _resolve_wheel(source, args.wheel)
         wheelhouse = args.wheelhouse.resolve(strict=True)
         output = args.output.absolute()
-        accept(source, wheel, wheelhouse, output, args.platform, error_paths=error_paths)
+        accept(
+            source,
+            wheel,
+            wheelhouse,
+            output,
+            args.platform,
+            receipt=args.receipt,
+            error_paths=error_paths,
+        )
     except (
         AcceptanceError,
         FileNotFoundError,

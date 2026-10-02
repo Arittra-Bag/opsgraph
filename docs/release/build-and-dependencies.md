@@ -1,4 +1,4 @@
-# Reproducible maintainer builds — 0.1.0b1
+# Reproducible maintainer builds — 1.0.0
 
 These instructions prepare unsigned artifacts; they do not publish them or
 establish platform support. Record the source revision, source inventory, tool
@@ -48,7 +48,7 @@ Use a new output directory and a dedicated, already populated build cache.
 failure, not permission to fetch a new backend silently.
 
 ```sh
-OPSGRAPH_RELEASE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/opsgraph-0.1.0b1.XXXXXX")"
+OPSGRAPH_RELEASE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/opsgraph-1.0.0.XXXXXX")"
 mkdir "$OPSGRAPH_RELEASE_DIR/dist" "$OPSGRAPH_RELEASE_DIR/wheelhouse"
 mkdir "$OPSGRAPH_RELEASE_DIR/repeat"
 python3.11 --version
@@ -81,21 +81,22 @@ of them creates a new candidate requiring review.
 Build both distribution forms with the same source epoch and constrained tools:
 
 ```sh
-SOURCE_DATE_EPOCH=1789171200 uv build --offline --no-python-downloads \
+SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
+uv build --offline --no-python-downloads \
   --cache-dir "${OPSGRAPH_BUILD_CACHE:?Set the dedicated populated build-cache path}" \
   --python python3.11 --build-constraints requirements-build.lock \
   --require-hashes \
   --wheel --sdist --out-dir "$OPSGRAPH_RELEASE_DIR/dist"
 
 python3.11 scripts/build_release.py \
-  --wheel "$OPSGRAPH_RELEASE_DIR/dist/opsgraph-0.1.0b1-py3-none-any.whl" \
+  --wheel "$OPSGRAPH_RELEASE_DIR/dist/opsgraph-1.0.0-py3-none-any.whl" \
   --wheelhouse "$OPSGRAPH_RELEASE_DIR/wheelhouse" \
-  --output "$OPSGRAPH_RELEASE_DIR/opsgraph-0.1.0b1-macos-arm64-cp311.zip" \
+  --output "$OPSGRAPH_RELEASE_DIR/opsgraph-1.0.0-macos-arm64-cp311.zip" \
   --platform macos-arm64-cp311
 ```
 
-Expected distribution names are `opsgraph-0.1.0b1-py3-none-any.whl` and
-`opsgraph-0.1.0b1.tar.gz`. Confirm the actual names and embedded version. The
+Expected distribution names are `opsgraph-1.0.0-py3-none-any.whl` and
+`opsgraph-1.0.0.tar.gz`. Confirm the actual names and embedded version. The
 builder checks that the wheel's `opsgraph/` package bytes match the inventoried
 `src/opsgraph/` exactly. It also rejects dependency wheels whose bytes are not
 among the lock's approved SHA-256 values. It does not install dependencies or
@@ -110,6 +111,7 @@ wheel, dependency wheelhouse, lock, license/docs, installer and launchers:
 | --- | --- |
 | `source-inventory.json` | The scoped source path/size/hash inventory and base commit. |
 | `build-identity.json` | Inventory hash, exact application/dependency wheels, Python/platform target and derived build ID. `validation` starts as `not_assessed`. |
+| `dependency-inventory.json` | Exact application/dependency wheel hashes, package metadata, declared licenses, and observed license/notice/SBOM member hashes for this platform. |
 | `manifest.json` | Installer contract and hashes/sizes for its listed payload files. |
 | `SHA256SUMS` | Checksums for delivered payload and manifest; excludes itself. |
 | Adjacent `*.zip.sha256` | Checksum of the complete ZIP bytes. |
@@ -147,33 +149,33 @@ Generate the record from the **actual application wheel and selected wheelhouse*
 not package names inferred from project metadata. Inspect each wheel as a ZIP
 without executing it or extracting arbitrary paths. For every artifact record:
 
-1. Filename, SHA-256, Python/platform tags and its `*.dist-info/METADATA` path.
-2. Declared `Name`, `Version`, `Requires-Dist`, `License-Expression`, legacy
-   `License`, license classifiers and every `License-File` header.
+1. Wheel path inside the bundle, byte size and SHA-256.
+2. Declared `Name`, `Version`, `License-Expression` and every `License-File`
+   header. Fields absent from this generated inventory remain available in the
+   retained wheel's `*.dist-info/METADATA`; the inventory does not infer them.
 3. Actual license/notice members, including `*.dist-info/licenses/`, `LICENSE*`,
    `COPYING*` and `NOTICE*`; record member paths and content hashes. Retain the
    original wheel, where these texts remain available.
-4. Manual review status, reviewer/date and unresolved questions. Disclose missing
-   metadata, missing declared files, ambiguous legacy values or conflicting
-   declarations as **unknown/unresolved**. Preserve original declarations instead
-   of inventing SPDX identifiers or silently treating a classifier as complete.
+4. Embedded SBOM members and native-library members by path, size and SHA-256.
+   Preserve the original wheel for fields and declarations outside this bounded
+   generated record.
 
 Use this record schema for each selected artifact:
 
 ```json
 {
-  "artifact": "<exact wheel filename>",
+  "path": "<wheel path inside the bundle>",
+  "size": 123,
   "sha256": "<artifact SHA-256>",
-  "distribution": "<METADATA Name or unknown>",
-  "version": "<METADATA Version or unknown>",
-  "metadata_path": "<member path or null>",
-  "declared_license_expression": null,
-  "declared_legacy_license": null,
-  "declared_license_classifiers": [],
+  "package": {
+    "name": "<METADATA Name>",
+    "version": "<METADATA Version>",
+    "license_expression": null
+  },
   "declared_license_files": [],
-  "observed_license_members": [{"path": "<member path>", "sha256": "<content SHA-256>"}],
-  "review_status": "unreviewed",
-  "unresolved": ["Populate from inspection; absence is not a permissive grant"]
+  "license_notice_members": [{"path": "<member path>", "size": 123, "sha256": "<content SHA-256>"}],
+  "sbom_members": [],
+  "native_library_members": []
 }
 ```
 
@@ -223,7 +225,8 @@ PIP_CONFIG_FILE=/dev/null build-env/bin/python -I -m pip --isolated \
 ```
 
 From the extracted source directory, invoke that environment's Python with
-`SOURCE_DATE_EPOCH=1789171200` and `-m hatchling build -t sdist -t wheel -d OUTPUT`.
+the tag commit timestamp in `SOURCE_DATE_EPOCH` and
+`-m hatchling build -t sdist -t wheel -d OUTPUT`.
 Use an absolute executable/output path. The Hatchling CLI uses the same pinned
 backend; no dependency or Python download is needed. Compare both outputs with
 the packet before claiming byte reproducibility.
@@ -256,22 +259,24 @@ rules](https://github.com/pypa/hatch/blob/master/docs/config/build.md).
 
 Supply the matching application source archive and checksums alongside binary
 artifacts. Include the applicable third-party source supplement and notices as
-described in [beta distribution](beta-distribution.md). Preserve original license
+described in [stable distribution](distribution.md). Preserve original license
 files inside dependency wheels; OpsGraph's Apache-2.0 grant does not replace
 third-party licenses. A successfully built ZIP alone does not establish complete
 source, notice or license compliance.
 
-## Beta 1 source supplement
+## 1.0 source supplement
 
-Use `docs/release/notices/beta-source-manifest.json` to fetch each original
+Use `docs/release/notices/source-manifest-1.0.0.json` to fetch each original
 archive or build file from its recorded URL and verify its SHA-256 before use.
 The manifest uses direct archive or raw-content URLs, not HTML file views.
-Keep the archives unchanged under `sources/`; retain the original wheel notice
-and SBOM members under `wheel-notices/<platform>/<wheel>/`, and copy the release
-notice/provenance records under `notices/`. Include the upstream image manifest
-and configuration used to trace libxcrypt, plus a `SHA256SUMS` over packet files.
+Keep the archives unchanged under `sources/`, copy the manifest-listed
+supplemental files under `notices/`, and include the stable source manifest at
+the archive root. The builder adds an internal `SHA256SUMS` over every other
+packet member. Original wheel notice and SBOM members remain inside the wheels
+in each native bundle; their paths and hashes are recorded in that bundle's
+generated `dependency-inventory.json`.
 
-Package that directory as `opsgraph-0.1.0b1-third-party-sources.tar.gz` and publish
+Package that directory as `opsgraph-1.0.0-third-party-sources.tar.gz` and publish
 it beside the application wheel, matching application source and native bundles.
 The source RPMs contain downstream patches and build recipes; do not install them
 as runtime dependencies. Upstream build scripts are supplied as source, not run

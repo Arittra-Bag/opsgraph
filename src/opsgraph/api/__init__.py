@@ -1,1 +1,1 @@
-"""HTTP transport for the OpsGraph alpha."""
+"""HTTP transport for OpsGraph."""

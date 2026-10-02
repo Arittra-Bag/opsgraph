@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from opsgraph.api.dependencies import require_principal, require_workspace
-from opsgraph.brokers import PsycopgReadOnlyExecutor
+from opsgraph.brokers import PsycopgReadOnlyExecutor, SourceSchemaChanged
 from opsgraph.brokers.query import intersect_obligations
 from opsgraph.domain import EvidenceBinding, Obligation, Principal
 from opsgraph.domain.models import stable_hash
@@ -29,6 +29,7 @@ from opsgraph.providers import (
     ProviderTimeoutError,
     StructuredRequest,
 )
+from opsgraph.readiness import source_readiness_basis
 from opsgraph.schema_service import SchemaSnapshot
 from opsgraph.skills import SkillRepository
 
@@ -51,6 +52,7 @@ class RunAPI:
             self.execute,
             self.completed,
             workspace_id=runtime.settings.workspace_id,
+            on_terminal=self.terminal,
         )
         self.router = APIRouter()
         self._routes()
@@ -102,7 +104,12 @@ class RunAPI:
         if workspace != runtime.settings.workspace_id:
             raise RunBlocked("Investigation does not belong to the configured workspace.")
         principal = Principal(subject="local-operator", workspace_id=workspace, roles={"analyst"})
-        policy_actions = ("core.investigation.connected", "core.query.read", "core.schema.inspect")
+        policy_actions = (
+            "core.investigation.connected",
+            "core.query.read",
+            "core.schema.inspect",
+            "core.source.readiness",
+        )
         try:
             policy_obligations = {
                 action: self.authorize(principal, action, run["source_id"])
@@ -130,6 +137,16 @@ class RunAPI:
             )
         if source.get("status") != "ready":
             raise RunBlocked("Inspect the source before starting an investigation.")
+        readiness = source.get("readiness") or {}
+        if (
+            readiness.get("status") != "ready"
+            or readiness.get("source_revision") != source_readiness_basis(source)
+            or readiness.get("policy_revision")
+            != stable_hash(policy_obligations["core.source.readiness"].model_dump(mode="json"))
+        ):
+            raise RunBlocked(
+                "Run and review this source's bounded readiness check before investigating."
+            )
         tables = tuple(source.get("allowed_tables", ()))
         if not tables:
             raise RunBlocked("Select an explicit table allowlist for this source.")
@@ -257,7 +274,13 @@ class RunAPI:
                         "note": "Parent context exceeds 32 KiB; query fresh evidence.",
                     }
                 )
-        executor = PsycopgReadOnlyExecutor(dsn)
+        executor = PsycopgReadOnlyExecutor(
+            dsn,
+            allow_insecure_remote=runtime.settings.allow_insecure_remote_postgres,
+            allowed_tables=tables,
+            allowed_schemas=obligations.allowed_schemas,
+            expected_schema_fingerprint=snapshot.fingerprint,
+        )
         coordinator.bind_cancellation(workspace, run["id"], executor.cancel)
 
         def authorized_check():
@@ -336,30 +359,60 @@ class RunAPI:
 
         check_schema()
 
-        result = run_connected(
-            question=run["question"],
-            provider=runtime.provider,
-            principal=principal,
-            obligations=obligations,
-            skills=frozen_skills,
-            executor=executor,
-            snapshot=snapshot,
-            skill_id=skill.id,
-            evidence_bindings=tuple(
-                binding.model_copy(update={"source_tables": permitted})
-                for value in source.get("evidence_bindings", ())
-                if (binding := EvidenceBinding.model_validate(value))
-                and (
-                    permitted := tuple(table for table in binding.source_tables if table in tables)
+        try:
+            return run_connected(
+                question=run["question"],
+                provider=runtime.provider,
+                principal=principal,
+                obligations=obligations,
+                skills=frozen_skills,
+                executor=executor,
+                snapshot=snapshot,
+                skill_id=skill.id,
+                evidence_bindings=tuple(
+                    binding.model_copy(update={"source_tables": permitted})
+                    for value in source.get("evidence_bindings", ())
+                    if (binding := EvidenceBinding.model_validate(value))
+                    and (
+                        permitted := tuple(
+                            table for table in binding.source_tables if table in tables
+                        )
+                    )
+                ),
+                observe=observe,
+                check=authorized_check,
+                provenance=configuration,
+                parent_context=parent_context,
+                before_query=authorized_check,
+            )
+        except SourceSchemaChanged as exc:
+            current_record = runtime.store.get(
+                workspace_id=workspace, record_id=f"source:{source['id']}"
+            )
+            current = current_record.value
+            if stable_hash(current) == source_revision:
+                runtime.store.put_if_unchanged(
+                    current_record,
+                    (
+                        WorkspaceRecord(
+                            workspace,
+                            f"source:{source['id']}",
+                            {
+                                **current,
+                                "status": "stale",
+                                "readiness": {
+                                    "status": "pending",
+                                    "reason": "Inspect and rerun readiness after schema changes.",
+                                },
+                            },
+                        ),
+                    ),
                 )
-            ),
-            observe=observe,
-            check=authorized_check,
-            provenance=configuration,
-            parent_context=parent_context,
-            before_query=check_schema,
-        )
-        return result
+            raise RunBlocked(
+                "Source schema or SELECT-visible columns changed before query execution. "
+                "Inspect and review the source again, rerun readiness, and explicitly retry. "
+                "Earlier captures are preserved."
+            ) from exc
 
     def completed(self, workspace, run):
         legacy = {
@@ -370,13 +423,35 @@ class RunAPI:
             },
         }
         self.runtime.store.put(WorkspaceRecord(workspace, f"investigation:{run['id']}", legacy))
+
+    def terminal(self, workspace, run_id, status, code):
+        """Audit one terminal transition without exception text or captured data."""
+
+        # The durable run marker is written after this callback. If a process exits
+        # between those operations, startup replays the callback. A prior entry for
+        # this globally unique run makes that replay idempotent.
+        if any(
+            entry.workspace_id == workspace
+            and entry.action == "core.investigation.connected"
+            and entry.resource == run_id
+            for entry in self.runtime.audit.entries
+        ):
+            return
+        run = self.store.get(workspace, run_id)
+        outcome = "allowed" if status == "completed" else "rejected"
+        details = {
+            "source_id": run["source_id"],
+            "evidence_count": len(run["evidence"]),
+        }
+        if status != "completed":
+            details = {"status": status, "code": code or status, **details}
         self.runtime.audit.append(
             workspace_id=workspace,
             actor="local-operator",
             action="core.investigation.connected",
-            resource=run["id"],
-            outcome="allowed",
-            details={"source_id": run["source_id"], "evidence_count": len(run["evidence"])},
+            resource=run_id,
+            outcome=outcome,
+            details=details,
         )
 
     def _routes(self):
@@ -409,7 +484,20 @@ class RunAPI:
         def cancel(run_id: str, principal: Annotated[Principal, Depends(require_principal)]):
             run = self.get(principal.workspace_id, run_id)
             self.authorize(principal, "core.investigation.connected", run["source_id"])
-            value = self.store.cancel(principal.workspace_id, run_id)
+            value, terminal_transition = self.store.cancel_with_transition(
+                principal.workspace_id, run_id
+            )
+            if terminal_transition:
+                try:
+                    self.coordinator.notify_terminal(
+                        principal.workspace_id,
+                        run_id,
+                        value["status"],
+                        value["status"],
+                    )
+                except RuntimeError as exc:
+                    raise HTTPException(503, str(exc)) from None
+                value = self.store.get(principal.workspace_id, run_id)
             if value["status"] == "cancelling":
                 self.coordinator.request_cancel(principal.workspace_id, run_id)
             self.coordinator.notify()
@@ -467,10 +555,28 @@ class RunAPI:
         @router.post("/api/providers/current/test")
         def probe(principal: Annotated[Principal, Depends(require_principal)]):
             self.authorize(principal, "core.provider.test", "current-provider")
+            started = time.monotonic()
+
+            def audit(outcome: str, reason: str, provider):
+                self.runtime.audit.append(
+                    workspace_id=principal.workspace_id,
+                    actor=principal.subject,
+                    action="core.provider.test",
+                    resource="current-provider",
+                    outcome=outcome,
+                    details={
+                        "reason": reason,
+                        "adapter": provider.config.kind,
+                        "preset": provider.config.provider_preset,
+                        "duration_ms": round((time.monotonic() - started) * 1_000),
+                    },
+                )
+
             with self.runtime.provider_lock:
                 provider = self.runtime.provider
                 configuration_revision = self.runtime.provider_revision
             if provider.config.kind == "deterministic":
+                audit("rejected", "provider_not_configured", provider)
                 raise HTTPException(409, "Configure a real local or hosted model provider.")
             try:
                 response = provider.invoke_structured(
@@ -499,6 +605,7 @@ class RunAPI:
                         "Choose a model/endpoint with structured JSON-schema support."
                     )
             except ProviderTimeoutError as exc:
+                audit("rejected", "timeout", provider)
                 raise HTTPException(
                     504,
                     "Model test timed out. Warm or choose a smaller model; "
@@ -506,8 +613,10 @@ class RunAPI:
                 ) from exc
             except ProviderError as exc:
                 # Adapter errors are sanitized at their boundary; never expose SDK bodies.
+                audit("rejected", "provider_error", provider)
                 raise HTTPException(422, f"Model test failed. {exc}") from None
             except Exception as exc:
+                audit("rejected", "invalid_probe_response", provider)
                 raise HTTPException(
                     422,
                     "Model test failed. Verify model availability, structured-output support "
@@ -515,9 +624,11 @@ class RunAPI:
                 ) from exc
             with self.runtime.provider_lock:
                 if self.runtime.provider is not provider:
+                    audit("rejected", "configuration_changed", provider)
                     raise HTTPException(
                         409, "Model configuration changed during this test. Test again."
                     )
+            audit("allowed", "structured_probe_succeeded", provider)
             return {
                 "ok": True,
                 "configuration_revision": configuration_revision,
