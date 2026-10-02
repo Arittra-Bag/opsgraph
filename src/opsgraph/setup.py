@@ -604,6 +604,7 @@ def run_setup(
         )
         output_fn("Workspace key: generated or preserved privately. It is never printed.")
         output_fn("Saving does not test connectivity or prove answer quality.")
+        output_fn("Browser model settings take precedence. Change providers in Settings.")
         decision = prompt(
             "Save configuration? save / cancel (default save)",
             "save",
