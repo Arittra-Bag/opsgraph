@@ -105,15 +105,15 @@ def test_anthropic_projects_investigation_schema_and_preserves_local_limits() ->
         @staticmethod
         def create(**kwargs):
             calls.append(kwargs)
-            return SimpleNamespace(
-                content=[SimpleNamespace(type="text", text=json.dumps(output))]
-            )
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(output))])
 
     canonical = InvestigationPlan.model_json_schema()
     original = json.loads(json.dumps(canonical))
     provider = create_provider(
         ProviderConfig(
-            kind="anthropic", model="claude-test", api_key=SecretStr("test-key"),
+            kind="anthropic",
+            model="claude-test",
+            api_key=SecretStr("test-key"),
             egress_enabled=True,
         ),
         client_factory=lambda _: SimpleNamespace(messages=Messages()),
