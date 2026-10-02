@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../../src/opsgraph/web/static/app.js'), 'utf8');
-const helper = source.match(/  async function startWorkspace\(\) \{[\s\S]*?(?=\n  readiness\(\); loadBootstrap)/)?.[0];
+const helper = source.match(/  async function startWorkspace\(\) \{[\s\S]*?(?=\n  readiness\(\);)/)?.[0];
 assert.ok(helper);
 function fixture() {
   const state = { authEpoch: 0 }, items = new Map(), calls = [];
