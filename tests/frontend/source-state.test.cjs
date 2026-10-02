@@ -24,7 +24,7 @@ function fixture() {
     $, state,
     notice: (selector, value = '') => { $(selector).textContent = value; },
     guardAsyncFocus: () => () => { focusRestored++; },
-    readiness() {}, invalidateRoleGuide() { state.roleGuideToken++; }, renderInspection() {}, loadSources: async () => {},
+    sourceDiagnostic() {}, updateSourceContinue() {}, readiness() {}, invalidateRoleGuide() { state.roleGuideToken++; }, renderInspection() {}, loadSources: async () => {},
     stamp: value => value,
     api: async () => ({}),
   });
@@ -144,4 +144,20 @@ test('readiness inputs do not invalidate source settings while source edits do',
   assert.equal(dirty, 0);
   listener({ target: { closest: () => null } });
   assert.equal(dirty, 1);
+});
+
+test('source setup selects hosting guidance after form reset, including associated controls', () => {
+  const f = fixture(); f.state.hostingDefault = 'neon';
+  f.state.policy = { obligations: { allowed_schemas: ['public'] } };
+  f.$('#sourceForm').reset = () => { f.$('#sourceHosting').value = 'local'; };
+  f.$('#inspectedTables').replaceChildren = () => {};
+  f.$('#sourceSetupTitle').focus = () => {};
+  let rendered;
+  f.context.renderHostingGuide = () => { rendered = f.$('#sourceHosting').value; };
+  f.context.showView = () => {}; f.context.crypto = { getRandomValues: value => value };
+  const begin = source.indexOf('  function sourceSetup(');
+  const end = source.indexOf('  function markSourceDirty()', begin);
+  vm.runInContext(source.slice(begin, end), f.context);
+  f.context.sourceSetup();
+  assert.equal(f.$('#sourceHosting').value, 'neon'); assert.equal(rendered, 'neon');
 });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="OpsGraph — self-hosted, evidence-first PostgreSQL investigations.">
+  <meta name="description" content="OpsGraph: private PostgreSQL investigations with inspectable evidence.">
   <meta name="color-scheme" content="dark">
   <title>OpsGraph · Investigations</title>
   <link rel="icon" href="/assets/static/favicon.svg" type="image/svg+xml">
@@ -56,7 +56,7 @@
               </ol>
             </section>
             <section id="runWorkspace" hidden>
-              <header class="run-toolbar"><div class="run-toolbar-meta"><span>Investigation · <b id="runIdentity"></b></span><span class="run-state-badge" id="runState" aria-live="polite"></span><details class="run-scope"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details></div><div class="case-actions"><button class="secondary" id="exportEvidence">Export investigation</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry as new attempt</button></div></header>
+              <header class="run-toolbar"><div class="run-toolbar-meta"><span>Investigation · <b id="runIdentity"></b></span><span class="run-state-badge" id="runState" aria-live="polite"></span><details class="run-scope"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details></div><div class="case-actions"><button class="primary" id="openReport">Create report</button><button class="secondary" id="exportEvidence">Export JSON</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry as new attempt</button></div></header>
               <div class="canvas-scroll conversation">
                 <section class="previous-turn" id="previousTurn" aria-label="Previous conversation turn" hidden></section>
                 <article class="conversation-message operator-message" aria-labelledby="caseTitle">
@@ -92,15 +92,19 @@
       </section>
       <section class="view catalog-view" data-view-panel="sources" aria-labelledby="sourcesTitle" hidden>
         <header class="page-header"><div><p class="eyebrow">Your data</p><h1 id="sourcesTitle">Sources</h1><p>Connect an approved PostgreSQL source with a dedicated read-only role.</p></div><button class="primary" id="addSource">Add source</button></header>
+        <div class="hosting-intro"><div><span class="section-number" aria-hidden="true">01</span><h2>PostgreSQL, wherever you run it.</h2><p>Local or hosted. One connector, explicit scope, verified access.</p></div><p class="helper">Choosing a host changes setup guidance. Your connection must pass actual inspection and a bounded readiness check.</p></div>
         <div class="source-grid" id="sourceCatalog"><p class="helper">Connect workspace to load sources.</p></div>
         <section class="source-setup" id="sourceSetup" hidden>
-          <div><h2 id="sourceSetupTitle" tabindex="-1">Configure PostgreSQL</h2><p>The guided launcher stores your connection privately on the <strong>OpsGraph backend host</strong>. Choose the exact tables below, then inspect their actual columns.</p><p>If the connection is missing, stop the launcher and run it again with <code>--configure</code>. Advanced installations may use an approved environment-variable reference. Never paste a connection URL here.</p><p>Use a dedicated read-only role. Source inspection works even when your model is unavailable.</p>
+          <div class="source-guide-column"><p class="eyebrow">Connection route</p><h2 id="sourceSetupTitle" tabindex="-1">Configure PostgreSQL</h2>
+            <label for="sourceHosting">Where is your database hosted?</label><select id="sourceHosting" form="sourceForm"><option value="local">Local PostgreSQL</option><option value="self_hosted">Remote or self-hosted</option><option value="supabase">Supabase</option><option value="neon">Neon</option><option value="aws_rds">AWS RDS PostgreSQL</option><option value="google_cloud_sql">Google Cloud SQL</option><option value="azure">Azure Database for PostgreSQL</option><option value="digitalocean">DigitalOcean Managed PostgreSQL</option></select>
+            <div id="hostingGuide" class="hosting-guide" aria-live="polite"><p class="helper">Connect your workspace to load hosting guidance.</p></div><div class="notice error" id="hostingError" role="alert" hidden></div><button class="secondary" id="retryHostingGuides" type="button" hidden>Reload hosting guidance</button>
+            <details class="connection-storage"><summary>Configure your private connection</summary><p>The launcher stores your connection privately on the <strong>OpsGraph backend host</strong>. If it is missing, stop the launcher and run <code>opsgraph launch --configure</code>. Choose your hosting option when prompted.</p><p>Advanced installations use an approved environment-variable reference. Never paste a connection URL into browser source fields.</p><p>Source inspection works even when your model is unavailable.</p></details>
             <details class="role-guide"><summary>Create a least-privilege login</summary><p>Enter the exact tables in the source form, then generate a policy-bounded script for a PostgreSQL administrator to review. OpsGraph does not connect with administrator credentials and never executes this script.</p><div class="role-guide-controls"><label for="roleGuideName">Role name</label><input id="roleGuideName" value="opsgraph_reader" pattern="[a-z_][a-z0-9_]{0,62}" maxlength="63"><label for="roleGuideDatabase">Database name (optional)</label><input id="roleGuideDatabase" pattern="[a-z_][a-z0-9_]{0,62}" maxlength="63" placeholder="operations"><button class="secondary" id="generateRoleGuide" type="button">Generate reviewed scope</button></div><div class="notice error" id="roleGuideError" role="alert" hidden></div><p id="roleGuideStatus" class="helper" role="status">No script generated.</p><pre id="roleGuideOutput" hidden><code></code></pre><button class="secondary" id="copyRoleGuide" type="button" hidden>Copy script</button><ul id="roleGuideNotes" class="helper" hidden></ul><p>Passwords are set interactively with <code>createuser --pwprompt</code> or <code>\password</code>, never placed in generated SQL. Remote connections must verify the database certificate.</p></details>
           </div>
-          <form id="sourceForm" class="credential-form">
-            <label for="sourceId">Source ID</label><input id="sourceId" required pattern="[a-z][a-z0-9\-]{1,63}" placeholder="staging-readonly">
+          <form id="sourceForm" class="credential-form"><fieldset id="sourceFields">
+            <p class="eyebrow">Approved scope</p><h2>Choose what can be read.</h2><p class="helper">Save and inspect checks the actual connection and physical schema. It does not query source records or contact your model.</p>
             <label for="sourceName">Display name</label><input id="sourceName" required placeholder="Staging PostgreSQL">
-            <label for="sourceSecretRef">DSN environment variable name</label><input id="sourceSecretRef" required pattern="[A-Z][A-Z0-9_]{2,127}" placeholder="OPSGRAPH_SOURCE_DSN"><small>Must be approved by OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS. Never enter the connection URL.</small>
+            <details class="source-advanced"><summary>Connection reference and source identity</summary><label for="sourceId">Source ID</label><input id="sourceId" required pattern="[a-z][a-z0-9\-]{1,63}" placeholder="staging-readonly"><label for="sourceSecretRef">DSN environment variable name</label><input id="sourceSecretRef" required pattern="[A-Z][A-Z0-9_]{2,127}" placeholder="OPSGRAPH_SOURCE_DSN"><small>Must be approved by OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS. Never enter the connection URL.</small></details>
             <label for="sourceSchemas">Allowed schemas</label><input id="sourceSchemas" required value="public">
             <label for="sourceTables">Explicit allowed tables</label><input id="sourceTables" required placeholder="public.jobs, public.queues">
             <div id="inspectedTables" hidden></div>
@@ -114,7 +118,7 @@
             </section>
             <label for="sourceEvidenceBindings">Playbook evidence mappings (optional)</label><textarea id="sourceEvidenceBindings" rows="3" placeholder="job_status=public.jobs&#10;queue_state=public.queues"></textarea><small>Required only for specialist playbooks that declare these evidence types. Map each to an allowed table. This is an evidence-coverage binding; it does not define column meanings, units, statuses or relationships. General read-only investigations do not require these mappings.</small>
             <label class="checkbox-label"><input id="sourceExternalEgress" type="checkbox"><span>Permit bounded evidence and schema metadata to reach an external model provider. Keep off for local inference.</span></label>
-            <div class="notice error" id="sourceError" role="alert" hidden></div><p id="sourceStatus" role="status"></p><button class="primary" id="saveSource" type="submit">Save and inspect source</button>
+            <div class="notice error" id="sourceError" role="alert" hidden></div><section class="connection-diagnostic" id="sourceDiagnostic" aria-labelledby="sourceDiagnosticTitle" hidden><p class="eyebrow">Connection needs attention</p><h3 id="sourceDiagnosticTitle"></h3><ol id="sourceDiagnosticSteps"></ol><p class="helper">No credentials or raw driver output are shown. Correct the configuration, then explicitly run the check again.</p></section><p id="sourceStatus" role="status"></p><button class="primary" id="saveSource" type="submit">Save and inspect source</button><button class="secondary" id="sourceContinue" type="button" hidden>Continue to investigation →</button></fieldset>
           </form>
         </section>
       </section>
@@ -153,6 +157,23 @@
     <form class="drawer-body credential-form" id="credentialForm"><p>The packaged launcher connects its browser automatically using a one-use handoff. For a separate browser, use the private workspace key generated during setup or by <code>opsgraph init</code>. The key stays in this browser tab's session storage.</p><label for="workspaceKey">Workspace key</label><input id="workspaceKey" type="password" autocomplete="off" required spellcheck="false"><div class="notice error" id="credentialError" role="alert" hidden></div><button class="primary" id="saveCredential" type="submit">Connect workspace</button><button class="secondary" id="clearCredential" type="button">Forget key and clear this view</button><p class="helper">Requests send the key only to this origin in the X-OpsGraph-Key header.</p></form>
   </aside>
   <aside class="drawer evidence-drawer" id="evidenceDrawer" role="dialog" aria-modal="true" aria-labelledby="evidenceDrawerTitle" aria-hidden="true"><header><div><p class="eyebrow">Captured evidence</p><h2 id="evidenceDrawerTitle">Evidence detail</h2></div><button class="drawer-close" aria-label="Close evidence detail">×</button></header><div class="drawer-body" id="evidenceDetail"></div></aside>
+  <aside class="drawer report-drawer" id="reportDrawer" role="dialog" aria-modal="true" aria-labelledby="reportDrawerTitle" aria-hidden="true">
+    <header><div><p class="eyebrow">Evidence handoff</p><h2 id="reportDrawerTitle">Create an incident report</h2></div><button class="drawer-close" aria-label="Close incident report">×</button></header>
+    <div class="drawer-body">
+      <p>Build a readable Markdown brief from this saved attempt. No new database or model request is made. Failed and incomplete attempts keep their recorded state.</p>
+      <form id="reportForm"><fieldset class="report-options"><legend>Choose content to include</legend>
+        <label><input type="checkbox" id="reportQuestion" checked><span><b>Question</b><small>Your original investigation request</small></span></label>
+        <label><input type="checkbox" id="reportFindings" checked><span><b>Findings and limitations</b><small>Model assessments, references and recorded failures</small></span></label>
+        <label><input type="checkbox" id="reportScope" checked><span><b>Execution scope</b><small>Recorded tables, bounds and configuration revisions</small></span></label>
+        <label><input type="checkbox" id="reportSql"><span><b>Executed SQL</b><small>May contain sensitive identifiers or literals</small></span></label>
+        <label><input type="checkbox" id="reportRows"><span><b>Captured records</b><small>May contain sensitive source values</small></span></label>
+      </fieldset><p class="helper">All included content can be sensitive. This report does not automatically redact it. Review the preview before sharing.</p><button class="secondary" id="previewReport" type="submit">Generate preview</button></form>
+      <p id="reportStatus" role="status"></p><div class="notice error" id="reportError" role="alert" hidden></div>
+      <section id="reportPreviewPanel" hidden aria-labelledby="reportPreviewTitle"><div class="report-preview-heading"><h3 id="reportPreviewTitle">Report preview</h3><span id="reportSnapshot"></span></div><article id="reportDocument" class="report-document" aria-label="Readable incident report"></article><details class="report-markdown"><summary>View and select Markdown</summary><pre id="reportPreview" tabindex="0" aria-label="Incident report Markdown preview"></pre></details></section>
+      <label class="checkbox-label"><input type="checkbox" id="confirmReportReview" disabled><span>I reviewed this preview and its selected content for sharing.</span></label>
+      <div class="report-actions"><button class="primary" id="downloadReport" disabled>Download Markdown</button><button class="secondary" id="copyReport" disabled>Copy report</button></div><p class="helper">Downloads stay local. OpsGraph does not send this report to another service.</p>
+    </div>
+  </aside>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/assets/static/events.js"></script>
   <script src="/assets/static/view-state.js"></script>

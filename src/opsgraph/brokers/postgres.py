@@ -13,6 +13,7 @@ from typing import Any
 from psycopg.conninfo import conninfo_to_dict
 
 from opsgraph.domain.models import stable_hash
+from opsgraph.postgres_diagnostics import classify_postgres_failure
 from opsgraph.schema_service import ColumnSchema, SchemaSnapshot, TableSchema
 
 from .query import QueryResult
@@ -20,6 +21,10 @@ from .query import QueryResult
 
 class ConnectorUnavailable(RuntimeError):
     """Raised without driver/DSN details when the connector cannot operate."""
+
+    def __init__(self, message: str, *, diagnostic_code: str = "connection_failed") -> None:
+        super().__init__(message)
+        self.diagnostic_code = diagnostic_code
 
 
 class QueryExecutionFailed(ConnectorUnavailable):
@@ -138,7 +143,10 @@ class PsycopgReadOnlyExecutor:
                     "Inspect the recorded query's joins, columns, grouping and value types. "
                     "Clarify the question or source definitions before a fresh retry."
                 ) from None
-            raise ConnectorUnavailable("read-only database operation failed") from None
+            raise ConnectorUnavailable(
+                "read-only database operation failed",
+                diagnostic_code=classify_postgres_failure(exc),
+            ) from None
         finally:
             with self._lock:
                 self._active = None
@@ -168,8 +176,10 @@ class PsycopgReadOnlyExecutor:
             return tuple(str(row[0]) for row in cursor.fetchall())
         except (UnsafeDatabaseRole, ConnectorUnavailable):
             raise
-        except Exception:
-            raise ConnectorUnavailable("schema discovery failed") from None
+        except Exception as exc:
+            raise ConnectorUnavailable(
+                "schema discovery failed", diagnostic_code=classify_postgres_failure(exc)
+            ) from None
         finally:
             with self._lock:
                 self._active = None
@@ -215,8 +225,10 @@ class PsycopgReadOnlyExecutor:
             )
         except (UnsafeDatabaseRole, ConnectorUnavailable):
             raise
-        except Exception:
-            raise ConnectorUnavailable("schema discovery failed") from None
+        except Exception as exc:
+            raise ConnectorUnavailable(
+                "schema discovery failed", diagnostic_code=classify_postgres_failure(exc)
+            ) from None
         finally:
             with self._lock:
                 self._active = None
@@ -251,7 +263,10 @@ class PsycopgReadOnlyExecutor:
         grouped: dict[tuple[str, str], list[ColumnSchema]] = {}
         metadata_rows = cursor.fetchall()
         if len(metadata_rows) > 10_000:
-            raise ConnectorUnavailable("schema metadata is too large; select fewer tables")
+            raise ConnectorUnavailable(
+                "schema metadata is too large; select fewer tables",
+                diagnostic_code="schema_too_large",
+            )
         for schema, table, column, data_type, nullable, default in metadata_rows:
             grouped.setdefault((str(schema), str(table)), []).append(
                 ColumnSchema(
@@ -308,7 +323,10 @@ class PsycopgReadOnlyExecutor:
             ) in cursor.fetchall()
         }
         if set(relation_metadata) != set(grouped):
-            raise ConnectorUnavailable("schema relation metadata is incomplete")
+            raise ConnectorUnavailable(
+                "schema relation metadata is incomplete",
+                diagnostic_code="scope_metadata_incomplete",
+            )
         tables = tuple(
             TableSchema(
                 schema_name=schema,
@@ -338,8 +356,11 @@ class PsycopgReadOnlyExecutor:
                 connect_timeout=self._connect_timeout_seconds,
                 application_name="opsgraph-readonly",
             )
-        except Exception:
-            raise ConnectorUnavailable("PostgreSQL connection failed") from None
+        except Exception as exc:
+            raise ConnectorUnavailable(
+                "PostgreSQL connection failed",
+                diagnostic_code=classify_postgres_failure(exc, connecting=True),
+            ) from None
 
     @staticmethod
     def _validate_transport(dsn: str, *, allow_insecure_remote: bool) -> None:
@@ -348,7 +369,10 @@ class PsycopgReadOnlyExecutor:
         try:
             params = conninfo_to_dict(dsn)
         except Exception:
-            raise ConnectorUnavailable("PostgreSQL connection settings are invalid") from None
+            raise ConnectorUnavailable(
+                "PostgreSQL connection settings are invalid",
+                diagnostic_code="invalid_configuration",
+            ) from None
         if allow_insecure_remote:
             return
 
@@ -374,7 +398,8 @@ class PsycopgReadOnlyExecutor:
         if remote and str(sslmode).casefold() != "verify-full":
             raise ConnectorUnavailable(
                 "Remote PostgreSQL requires sslmode=verify-full; an explicit deployment "
-                "override is required to allow insecure remote transport"
+                "override is required to allow insecure remote transport",
+                diagnostic_code="tls_required",
             )
 
     @staticmethod

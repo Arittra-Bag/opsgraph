@@ -162,3 +162,11 @@ and never automatically replayed; cancellation waits for active calls to exit.
 Persistent errors identify the failed operation and next action. See
 [troubleshooting](installation.md#errors-and-recovery) and
 [backup, restore, upgrade and uninstall](maintenance.md).
+
+## Guided connections and readable reports
+
+Choose a PostgreSQL hosting route in Sources, follow its private connection
+guide, then inspect and approve a bounded readiness check. See
+[hosted PostgreSQL onboarding](hosted-postgresql.md).
+Saved investigations can produce a selectable Markdown report with a reviewed
+preview. See [incident reports](incident-reports.md).

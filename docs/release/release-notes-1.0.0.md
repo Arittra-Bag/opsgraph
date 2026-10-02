@@ -71,3 +71,21 @@ scopes, source/notice relationship, receipts, and container tag contract.
 
 The final tag gate is recorded in
 [production readiness](../production-readiness.md#evidence-required-before-publishing-v100).
+
+## Guided PostgreSQL investigations
+
+- First-class connection guidance for local PostgreSQL, remote or self-hosted
+  servers, Supabase, Neon, AWS RDS, Google Cloud SQL, Azure, and DigitalOcean.
+  All routes share the existing read-only connector and require actual inspection
+  and readiness checks.
+- Safe connection diagnostics explain recoverable categories and next steps
+  without returning credentials or raw driver errors.
+- Selectable incident reports use saved evidence and recorded execution scope.
+  Preview, review confirmation, local Markdown download, and copy are available.
+  SQL and source records remain excluded until explicitly selected.
+- Partial captures remain visible when an investigation ends without a model
+  assessment. Report previews are invalidated when their saved snapshot changes.
+
+Managed-service guidance is not provider certification. Network routes, database
+grants, certificate trust, cloud resources, and token renewal remain separately
+managed by the operator. Model assessments still require evidence review.

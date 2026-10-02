@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from opsgraph import __version__
 from opsgraph.api.dependencies import require_principal, require_workspace
+from opsgraph.api.postgres_errors import PostgresHTTPError, postgres_error_response
 from opsgraph.audit import AuditChain, AuditIntegrityError, SQLiteAuditChain
 from opsgraph.brokers import (
     ConnectorUnavailable,
@@ -26,6 +27,7 @@ from opsgraph.persistence import WorkspaceRecord
 from opsgraph.persistence.runs import RUN_SCHEMA_VERSION, timestamp
 from opsgraph.policy import ActionRequest
 from opsgraph.postgres_guidance import build_postgres_role_guide, intersect_policy_tables
+from opsgraph.postgres_hosting import HOSTING_GUIDES, PostgresHosting
 from opsgraph.readiness import source_readiness_basis
 from opsgraph.runtime import get_runtime
 from opsgraph.schema_service import SchemaParseError, SchemaSnapshot
@@ -35,6 +37,7 @@ runtime = get_runtime()
 WEB = runtime.settings.web_root
 
 app = FastAPI(title="OpsGraph", version=__version__)
+app.add_exception_handler(PostgresHTTPError, postgres_error_response)
 
 
 @app.middleware("http")
@@ -79,6 +82,7 @@ class SourceRequest(BaseModel):
     allowed_tables: tuple[str, ...] = ()
     evidence_bindings: tuple[EvidenceBinding, ...] = ()
     allow_external_egress: bool = False
+    hosting_profile: PostgresHosting = "self_hosted"
 
     @field_validator("allowed_schemas")
     @classmethod
@@ -204,6 +208,15 @@ def save_audited_source(*, records, expected=None, conflict_message="Source chan
 @app.get("/")
 def index():
     return FileResponse(WEB / "index.html")
+
+
+@app.get("/api/postgres/hosting-guides")
+def postgres_hosting_guides(principal: Annotated[Principal, Depends(require_principal)]):
+    """Return documentation only. This never connects to a database or provider."""
+    return {
+        "default_profile": runtime.settings.postgres_hosting,
+        "profiles": [guide.as_dict() for guide in HOSTING_GUIDES],
+    }
 
 
 @app.get("/api/health")
@@ -515,6 +528,7 @@ def create_source(
         "workspace_id": principal.workspace_id,
         "name": body.name,
         "kind": "postgresql",
+        "hosting_profile": body.hosting_profile,
         "secret_ref": body.secret_ref,
         "allowed_schemas": list(body.allowed_schemas),
         "allowed_tables": list(body.allowed_tables),
@@ -567,7 +581,7 @@ def inspect_source(
         stored = stale
     allowed_tables = tuple(stored.get("allowed_tables", ()))
     if not allowed_tables:
-        raise HTTPException(422, "Select at least one explicit allowed table before inspection.")
+        raise PostgresHTTPError("scope_unavailable")
     try:
         inspection_scope = intersect_obligations(
             policy_obligations,
@@ -596,10 +610,7 @@ def inspect_source(
         raise HTTPException(422, "Source credential reference is no longer approved.")
     dsn = os.getenv(secret_ref)
     if not dsn:
-        raise HTTPException(
-            status_code=409,
-            detail=f"secret reference is not configured: {secret_ref}",
-        )
+        raise PostgresHTTPError("credential_missing", status_code=409)
     try:
         snapshot = PsycopgReadOnlyExecutor(
             dsn,
@@ -610,23 +621,22 @@ def inspect_source(
             timeout_ms=inspection_scope.timeout_ms,
         )
     except (ConnectorUnavailable, UnsafeDatabaseRole) as exc:
+        diagnostic_code = (
+            "unsafe_role" if isinstance(exc, UnsafeDatabaseRole) else exc.diagnostic_code
+        )
         runtime.audit.append(
             workspace_id=principal.workspace_id,
             actor=principal.subject,
             action="core.schema.inspect",
             resource=source_id,
             outcome="rejected",
-            details={"reason": str(exc)},
+            details={"reason": diagnostic_code},
         )
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise PostgresHTTPError(diagnostic_code) from None
     discovered = {f"{table.schema_name}.{table.table_name}" for table in snapshot.tables}
     missing_tables = set(allowed_tables).difference(discovered)
     if missing_tables:
-        raise HTTPException(
-            status_code=422,
-            detail="Configured table is absent or has no SELECT-visible columns: "
-            f"{sorted(missing_tables)[0]}. Check schema USAGE and column/table SELECT grants.",
-        )
+        raise PostgresHTTPError("scope_unavailable")
     bindings = tuple(
         EvidenceBinding.model_validate(value) for value in stored.get("evidence_bindings", ())
     )
@@ -738,7 +748,7 @@ def check_source_readiness(
         raise HTTPException(422, "Source credential reference is no longer approved.")
     dsn = os.getenv(secret_ref)
     if not dsn:
-        raise HTTPException(409, "Source credential reference is not configured on the server.")
+        raise PostgresHTTPError("credential_missing", status_code=409)
     sql = f"SELECT 1 AS opsgraph_readiness FROM {body.table} LIMIT 1"  # noqa: S608
     try:
         plan = query_validator.validate(
@@ -777,15 +787,22 @@ def check_source_readiness(
         )
         raise HTTPException(409, str(exc)) from exc
     except (ConnectorUnavailable, UnsafeDatabaseRole, UnsafeQuery) as exc:
+        diagnostic_code = (
+            "unsafe_role"
+            if isinstance(exc, UnsafeDatabaseRole)
+            else "scope_unavailable"
+            if isinstance(exc, UnsafeQuery)
+            else exc.diagnostic_code
+        )
         runtime.audit.append(
             workspace_id=principal.workspace_id,
             actor=principal.subject,
             action="core.source.readiness",
             resource=source_id,
             outcome="rejected",
-            details={"table": body.table, "reason": str(exc)},
+            details={"table": body.table, "reason": diagnostic_code},
         )
-        raise HTTPException(422, str(exc)) from exc
+        raise PostgresHTTPError(diagnostic_code) from None
     current_policy = authorize(principal, "core.source.readiness", source_id)
     if current_policy != policy_obligations:
         raise HTTPException(409, "Deployment policy changed during readiness. Run it again.")

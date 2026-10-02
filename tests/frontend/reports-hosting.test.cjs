@@ -1,0 +1,121 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('src/opsgraph/web/static/app.js', 'utf8');
+function fixture() {
+  const nodes = new Map();
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, { value: '', checked: false, hidden: false, disabled: false, textContent: '', innerHTML: '', children: [], setAttribute() {}, replaceChildren() { this.children = []; }, append(item) { this.children.push(item); } });
+    return nodes.get(id);
+  };
+  const state = { authenticated: true, authEpoch: 0, hostingToken: 0, hostingGuides: [], sourceDirty: false, reportToken: 0, reportRunId: 'run-a', run: { id: 'run-a', updated_at: 'saved-time' }, activeDrawer: { id: 'reportDrawer' } };
+  const context = vm.createContext({ $, state, URL, document: { createElement: tag => ({ tag, textContent: '', children: [], append(...items) { this.children.push(...items); } }) }, esc: value => String(value).replace(/</g, '&lt;'), stamp: value => value, runId: value => value, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, value = '') => { $(id).textContent = value; }, api: async () => ({}) });
+  vm.runInContext(source.slice(source.indexOf('  function renderHostingGuide()'), source.indexOf('  async function loadSources()')), context);
+  return { $, state, context };
+}
+const report = { run_id: 'run-a', snapshot_updated_at: 'saved-time', run_status: 'completed', markdown: '<img onerror=alert(1)>', filename: 'run-a-report.md' };
+
+test('report preview renders as text and requires explicit review', async () => {
+  const f = fixture(); let request;
+  f.$('#reportQuestion').checked = true;
+  f.context.api = async (path, options) => { request = { path, body: JSON.parse(options.body) }; return report; };
+  await f.context.generateReport({ preventDefault() {} });
+  assert.equal(request.path, '/api/runs/run-a/report');
+  assert.equal(request.body.include_question, true); assert.equal(request.body.include_rows, false);
+  assert.equal(f.$('#reportPreview').textContent, report.markdown);
+  assert.equal(f.$('#reportPreviewPanel').hidden, false);
+  assert.equal(f.$('#downloadReport').disabled, true);
+  assert.equal(f.context.shareableReport(), false);
+  f.$('#confirmReportReview').checked = true;
+  assert.equal(Boolean(f.context.shareableReport()), true);
+});
+
+test('editing selections clears sensitive preview and invalidates sharing', async () => {
+  const f = fixture(); f.context.api = async () => report;
+  await f.context.generateReport(); f.$('#confirmReportReview').checked = true;
+  f.context.resetReport();
+  assert.equal(f.state.report, null); assert.equal(f.$('#reportPreview').textContent, '');
+  assert.equal(f.$('#confirmReportReview').checked, false);
+  assert.equal(f.$('#downloadReport').disabled, true);
+});
+
+for (const change of ['selection', 'workspace', 'run', 'drawer']) test(`late report response is discarded after ${change} changes`, async () => {
+  const f = fixture(); let resolve;
+  f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.generateReport();
+  if (change === 'selection') f.context.resetReport();
+  if (change === 'workspace') f.state.authEpoch++;
+  if (change === 'run') f.state.run.id = 'run-b';
+  if (change === 'drawer') f.state.activeDrawer = null;
+  resolve(report); await pending;
+  assert.equal(f.state.report, null); assert.equal(f.$('#reportPreview').textContent, '');
+});
+
+test('changed saved snapshot cannot be shared through a reviewed old preview', async () => {
+  const f = fixture(); f.context.api = async () => report;
+  await f.context.generateReport(); f.$('#confirmReportReview').checked = true;
+  f.state.run.updated_at = 'new-time'; assert.equal(f.context.shareableReport(), false);
+});
+
+test('report failure allows explicit retry without exposing an earlier preview', async () => {
+  const f = fixture(); f.context.api = async () => { throw new Error('Safe unavailable message'); };
+  await f.context.generateReport();
+  assert.match(f.$('#reportError').textContent, /Safe unavailable/);
+  assert.equal(f.$('#previewReport').disabled, false); assert.equal(f.state.report, null);
+  f.context.api = async () => report; await f.context.generateReport();
+  assert.equal(f.state.report, report);
+});
+
+test('safe diagnostics use text nodes and can be cleared for a new check', () => {
+  const f = fixture(); f.context.sourceDiagnostic({ diagnostic: { title: '<unsafe>', steps: ['<script>'] } });
+  assert.equal(f.$('#sourceDiagnosticTitle').textContent, '<unsafe>');
+  assert.equal(f.$('#sourceDiagnosticSteps').children[0].textContent, '<script>');
+  f.context.sourceDiagnostic(); assert.equal(f.$('#sourceDiagnostic').hidden, true);
+  assert.equal(f.$('#sourceDiagnosticSteps').children.length, 0);
+});
+
+test('hosting guidance failure retains a visible retry and discards stale workspace response', async () => {
+  const f = fixture(); f.context.api = async () => { throw new Error('Connection lost'); };
+  await f.context.loadHostingGuides();
+  assert.equal(f.$('#retryHostingGuides').hidden, false);
+  let resolve; f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.loadHostingGuides(); f.state.authEpoch++;
+  resolve({ profiles: [{ id: 'neon' }], default_profile: 'neon' }); await pending;
+  assert.equal(f.state.hostingGuides.length, 0);
+});
+
+test('source continuation remains unavailable for unsaved source changes', () => {
+  const f = fixture(); f.state.sourceDirty = true;
+  f.context.updateSourceContinue({ readiness: { status: 'ready' } });
+  assert.equal(f.$('#sourceContinue').hidden, true);
+});
+
+test('readable report renders headings and code using text nodes, never active HTML', () => {
+  const f = fixture();
+  f.context.renderReportDocument('# Report\n\n## Question\n\n&lt;img src=x onerror=alert(1)&gt;\n\n````sql\n```\n<script>\n````\n');
+  const children = f.$('#reportDocument').children;
+  assert.equal(children[0].tag, 'h2'); assert.equal(children[1].tag, 'h3');
+  assert.equal(children[2].tag, 'p'); assert.equal(children[2].textContent, '<img src=x onerror=alert(1)>');
+  assert.equal(children[3].tag, 'pre'); assert.equal(children[3].children[0].textContent, '```\n<script>\n');
+  assert.equal(children.some(node => node.tag === 'img' || node.tag === 'script'), false);
+});
+
+test('failed runs expose retained captures without fabricating a completed assessment', () => {
+  const f = fixture(); f.state.runs = [];
+  const original = f.context.$;
+  f.context.$ = selector => { const node = original(selector); node.dataset ||= {}; node.options ||= []; node.insertAdjacentHTML = () => {}; return node; };
+  f.context.viewState = { focusBookmark: () => ({}), currentOperation: () => 'Failed', captureStatus: () => 'Partial evidence' };
+  f.context.document = {};
+  f.context.sessionStorage = { setItem() {} };
+  f.context.terminal = () => true;
+  f.context.renderExecutionProgress = () => {};
+  f.context.renderHistory = () => {};
+  f.context.readiness = () => {};
+  vm.runInContext(source.slice(source.indexOf('  function renderRun('), source.indexOf('  function evidenceMarkup(')), f.context);
+  f.context.renderRun({ id: 'run-a', source_id: 'source-a', status: 'failed', question: 'A bounded question', evidence: [{ evidence_hash: 'digest', rows: [[1]] }], error: { code: 'model_failed', message: 'Model unavailable' } });
+  assert.equal(f.$('#answerThread').hidden, false); assert.equal(f.$('#conclusionCard').hidden, true);
+  assert.equal(f.$('#evidenceSection').hidden, false); assert.match(f.$('#limitations').innerHTML, /No completed model assessment/);
+  assert.match(f.$('#evidenceLedger').innerHTML, /Partial evidence/);
+});

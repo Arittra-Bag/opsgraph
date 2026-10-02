@@ -22,6 +22,10 @@ from urllib.parse import urlsplit
 from dotenv.parser import parse_stream
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
+from opsgraph.brokers.postgres import ConnectorUnavailable, PsycopgReadOnlyExecutor
+from opsgraph.postgres_diagnostics import connection_diagnostic
+from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide
+
 ConfigValues = dict[str, str | None]
 _IDENTIFIER = re.compile(r"[a-z_][a-z0-9_]{0,62}\Z")
 _ENV_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
@@ -196,11 +200,17 @@ def normalize_guided_dsn(value: str) -> str:
         raise SetupError("Enter an explicit PostgreSQL port between 1 and 65535.")
     parameters["passfile"] = os.devnull
     try:
-        return make_conninfo(**dict(sorted(parameters.items())))
+        normalized = make_conninfo(**dict(sorted(parameters.items())))
     except Exception:
         raise SetupError(
             "PostgreSQL connection syntax is invalid. Re-enter the complete DSN."
         ) from None
+    try:
+        PsycopgReadOnlyExecutor(normalized)
+    except ConnectorUnavailable as error:
+        diagnostic = connection_diagnostic(error.diagnostic_code)
+        raise SetupError(" ".join((diagnostic.message, *diagnostic.steps))) from None
+    return normalized
 
 
 def _model_url(value: str, *, allow_remote: bool = False) -> str:
@@ -309,6 +319,22 @@ def run_setup(
                     return validate(value)
                 except SetupError as error:
                     output_fn(str(error))
+
+        output_fn("PostgreSQL hosting options:")
+        for guide in HOSTING_GUIDES:
+            output_fn(f"  {guide.id}: {guide.name}")
+        selected_hosting = prompt(
+            "PostgreSQL hosting",
+            existing.get("OPSGRAPH_POSTGRES_HOSTING") or "self_hosted",
+            lambda value: _choice(value, {guide.id for guide in HOSTING_GUIDES}),
+        )
+        guide = hosting_guide(selected_hosting)
+        for line in (guide.endpoint, guide.network, guide.tls, *guide.steps, *guide.checks):
+            output_fn(line)
+        output_fn(f"Provider instructions: {guide.documentation}")
+        output_fn(
+            "Choosing a hosting option configures guidance only. Connection checks run later."
+        )
 
         while True:
             with warnings.catch_warnings():
@@ -460,6 +486,7 @@ def run_setup(
                 "OPSGRAPH_STATE_PATH": existing.get("OPSGRAPH_STATE_PATH")
                 or str(state / "state.db"),
                 "OPSGRAPH_POSTGRES_SECRET_REF": "OPSGRAPH_SOURCE_DSN",
+                "OPSGRAPH_POSTGRES_HOSTING": selected_hosting,
                 "OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS": ",".join(refs),
                 "OPSGRAPH_POSTGRES_ALLOWED_SCHEMAS": schemas,
                 "OPSGRAPH_SOURCE_DSN": dsn,

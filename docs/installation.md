@@ -293,3 +293,11 @@ Python version. The [support matrix](release/support-matrix.md) distinguishes
 complete database/model workflow evidence from package installation checks.
 Compatibility observed on a hosted runner or in a container does not establish
 native support for another operating system.
+
+## Guided connections and readable reports
+
+Choose a PostgreSQL hosting route in Sources, follow its private connection
+guide, then inspect and approve a bounded readiness check. See
+[hosted PostgreSQL onboarding](hosted-postgresql.md).
+Saved investigations can produce a selectable Markdown report with a reviewed
+preview. See [incident reports](incident-reports.md).

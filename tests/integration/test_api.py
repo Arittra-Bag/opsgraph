@@ -128,7 +128,8 @@ def test_source_metadata_uses_secret_reference_and_fails_closed_without_secret()
 
     inspect = client.post("/api/sources/test-readonly/inspect", headers=auth())
     assert inspect.status_code == 409
-    assert "OPSGRAPH_SOURCE_DSN" in inspect.json()["detail"]
+    assert inspect.json()["diagnostic"]["code"] == "credential_missing"
+    assert isinstance(inspect.json()["detail"], str)
 
     invalid = client.post(
         "/api/sources",

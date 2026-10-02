@@ -4,6 +4,10 @@
 
 - Guided first-run checks for workspace access, exact PostgreSQL scope, a real
   model probe, and an operator-approved bounded database readiness read.
+- Hosting guidance for local, self-hosted, Supabase, Neon, RDS, Cloud SQL,
+  Azure, and DigitalOcean PostgreSQL, with safe actionable connection diagnostics.
+- Reviewed Markdown incident reports from saved snapshots, selectable sensitive
+  sections, readable previews, and visible partial evidence after failed attempts.
 - Least-privilege PostgreSQL role guidance, remote certificate verification,
   effective privilege checks, read-only repeatable-read execution, and schema
   revision binding.
