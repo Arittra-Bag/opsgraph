@@ -118,9 +118,9 @@ def _child_count_target_conflict(stmt, metric, question):
     child_relation = stmt.fromClause[0].rarg
     child_alias = child_relation.alias.aliasname if child_relation.alias else child_relation.relname
     for target in stmt.targetList or ():
-        row_count = (metric is None or target.name == metric.casefold()) and _synthetic_row_count(
-            target.val
-        )
+        row_count = (
+            metric is None or (target.name or "").casefold() == metric.casefold()
+        ) and _synthetic_row_count(target.val)
         if row_count or _missing_child_count(target.val, child_alias, question):
             return True
     return False

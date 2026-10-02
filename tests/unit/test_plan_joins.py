@@ -219,3 +219,11 @@ def test_missing_measurement_count_does_not_include_the_empty_parent_placeholder
     assert row_check(query, ROW_QUESTION) is None
     assert row_check(query.replace("o.amount", "c.amount"), question) is None
     assert row_check(query.replace("-", "+"), question) is None
+
+
+def test_metric_alias_matching_handles_quoted_case_and_absent_alias():
+    assert row_check(ROW_BAD.replace("AS order_count", 'AS "Order_Count"'))
+    assert row_check(ROW_BAD.replace("AS order_count", 'AS "ORDER_COUNT"'))
+    assert row_check(ROW_BAD.replace("AS order_count", "")) is None
+    unnamed = ROW_QUESTION.replace("order_count counts", "Count")
+    assert row_check(ROW_BAD.replace("AS order_count", ""), unnamed)
