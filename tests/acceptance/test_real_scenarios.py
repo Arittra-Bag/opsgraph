@@ -28,6 +28,7 @@ from opsgraph_acceptance_checks import (
     completed,
     observed_stage,
     require,
+    run_pending,
     safe_run_id,
 )
 from psycopg.conninfo import conninfo_to_dict
@@ -344,10 +345,7 @@ def submit(live, source_id, scenario):
 
 def blocked(live, run, record, *, deadline_seconds=RUN_DEADLINE_SECONDS):
     started = time.monotonic()
-    while (
-        run["status"] in {"queued", "running", "cancelling"}
-        and time.monotonic() - started < deadline_seconds
-    ):
+    while run_pending(run) and time.monotonic() - started < deadline_seconds:
         time.sleep(0.5)
         run = payload(live.client.get(f"/api/runs/{run['id']}", timeout=10.0))
     code = (run.get("error") or {}).get("code")
@@ -360,10 +358,11 @@ def blocked(live, run, record, *, deadline_seconds=RUN_DEADLINE_SECONDS):
             "stage": observed_stage(live.client, run),
             "captures": len(run.get("evidence", [])),
             "elapsed_seconds": round(time.monotonic() - started, 2),
-            "harness_deadline_reached": run["status"] in {"queued", "running", "cancelling"},
+            "harness_deadline_reached": run_pending(run),
         }
     )
     require(run["status"] == "blocked", "Expected a durable blocked result")
+    require(run.get("terminal_audited") is True, "Terminal audit acknowledgement did not finish")
     require(not run["evidence"], "Blocked-before-query scenario captured unexpected evidence")
     require(run["plan"] is None and run["answer"] is None, "Blocked result retained a plan/answer")
     return run
