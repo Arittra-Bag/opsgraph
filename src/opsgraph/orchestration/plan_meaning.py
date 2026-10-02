@@ -1,8 +1,8 @@
-"""Narrow checks for a planner's explicit admission of an unsupported unit assumption.
+"""Narrow checks for explicitly unavailable measurement units.
 
-This is not semantic inference: uncertain wording deliberately produces no match.
-The operator must declare missing definitions, and the planner must both admit
-missing units and positively assume the requested unit before this check acts.
+These are not semantic inference: uncertain wording deliberately produces no match.
+Checks use an operator-declared measurement threshold gap or a planner's explicit
+admission that it assumed an unavailable source unit.
 """
 
 import re
@@ -39,6 +39,33 @@ _EXPLICIT_UNIT = re.compile(
 
 def _unquoted(value: str) -> str:
     return re.sub(r"\s+", " ", _QUOTED.sub(" ", value)).lower()
+
+
+def explicit_missing_requested_unit(question: str) -> str | None:
+    """Enforce an operator-declared unit gap for a literal measurement threshold.
+
+    This recognizes common measurement units, not arbitrary trailing nouns or
+    undeclared ambiguity. Explicit source-unit definitions retain precedence.
+    """
+    unquoted = _unquoted(question)
+    if _EXPLICIT_UNIT.search(question.lower()) or _EXPLICIT_UNIT.search(unquoted):
+        return None
+    if not (_MISSING_UNIT.search(unquoted) or _MISSING_DEFINITIONS.search(unquoted)):
+        return None
+    threshold = re.search(
+        r"(?:\b(?:greater than|less than|above|below|exceeds?|over|under)|[<>]=?)"
+        r"\s+\d+(?:\.\d+)?\s+"
+        r"(?:kwh|wh|mwh|mv|kv|v|ma|a|kg|mg|g|metres?|meters?|cm|mm|km|"
+        r"seconds?|minutes?|hours?|ms|celsius|fahrenheit|°c|°f|g/l|kg/m\^2)"
+        r"(?=[\s,.;!?)]|$)",
+        unquoted,
+    )
+    if not threshold:
+        return None
+    return (
+        "What unit are the source values stored in, and what conversion, if any, "
+        "should be used for the requested unit?"
+    )
 
 
 def missing_unit_clarification(question: str, rationale: str) -> str | None:

@@ -133,6 +133,70 @@ def test_empty_parent_replan_runs_only_a_corrected_query(corrected):
     assert events.count("plan_validation_retry") == 1
 
 
+@pytest.mark.parametrize("corrected", [True, False])
+def test_optional_child_row_count_replans_before_any_query(corrected):
+    calls, executed, events = [], [], []
+
+    class Provider(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            if request.response_schema.get("title") == "InvestigationPlan":
+                calls.append(request)
+                query = (
+                    "SELECT j.id, j.status, COUNT(*) AS queue_count FROM public.jobs j "
+                    "LEFT JOIN public.queues q ON q.job_id = j.id GROUP BY j.id, j.status"
+                )
+                response.output["queries"][0]["sql"] = (
+                    query.replace("COUNT(*)", "COUNT(q.id)")
+                    if corrected and len(calls) == 2
+                    else query
+                )
+            return response
+
+    class Executor(StubExecutor):
+        def execute_readonly(self, sql, *, timeout_ms):
+            executed.append(sql)
+            assert "COUNT(q.id)" in sql
+            return QueryResult(columns=("id", "status", "queue_count"), rows=((1, "failed", 0),))
+
+    def run():
+        return run_connected(
+            question=(
+                "For each job, including jobs without queues, return id, status, queue_count. "
+                "queue_count counts queue rows. queues.job_id references jobs.id."
+            ),
+            provider=Provider(),
+            principal=Principal(subject="tester", workspace_id="workspace", roles={"analyst"}),
+            obligations=Obligation(allowed_schemas=("public",)),
+            skills=skills(),
+            executor=Executor(),
+            snapshot=SchemaSnapshot(
+                tables=tuple(
+                    TableSchema(
+                        schema_name="public",
+                        table_name=name,
+                        columns=(ColumnSchema(name="id", data_type="bigint"),),
+                    )
+                    for name in ("jobs", "queues")
+                ),
+                fingerprint="fixture",
+            ),
+            evidence_bindings=bindings(),
+            observe=lambda kind, data: events.append((kind, data)),
+        )
+
+    if corrected:
+        assert len(run()["evidence"]) == len(executed) == 1
+    else:
+        with pytest.raises(ModelOutputInvalidError, match="No query executed"):
+            run()
+        assert executed == []
+    assert len(calls) == 2
+    assert [data for kind, data in events if kind == "plan_validation_retry"] == [
+        {"reason": "outer_join_row_count_conflict"}
+    ]
+
+
 def test_admitted_unsupplied_unit_assumption_clarifies_without_query():
     class Provider(StubProvider):
         def invoke_structured(self, request):
@@ -152,6 +216,29 @@ def test_admitted_unsupplied_unit_assumption_clarifies_without_query():
             question="Which values exceed 20 kg? All other definitions are unavailable.",
             skill_id="failed-jobs",
             provider=Provider(),
+            principal=Principal(subject="tester", workspace_id="workspace", roles={"analyst"}),
+            obligations=Obligation(allowed_schemas=("public",)),
+            skills=skills(),
+            executor=NoQuery(),
+            snapshot=SchemaSnapshot(tables=(), fingerprint="fixture"),
+            evidence_bindings=bindings(),
+        )
+
+
+def test_declared_unknown_threshold_units_stop_before_inference_or_query():
+    class NoInference(StubProvider):
+        def invoke_structured(self, request):
+            pytest.fail("An explicitly unavailable source unit must not be assumed by a model")
+
+    class NoQuery(StubExecutor):
+        def execute_readonly(self, *args, **kwargs):
+            pytest.fail("No evidence query is permitted for this declared missing unit")
+
+    with pytest.raises(ClarificationRequired, match="source values stored in"):
+        run_connected(
+            question="Which values exceed 20 kWh? All other definitions are unavailable.",
+            skill_id="failed-jobs",
+            provider=NoInference(),
             principal=Principal(subject="tester", workspace_id="workspace", roles={"analyst"}),
             obligations=Obligation(allowed_schemas=("public",)),
             skills=skills(),

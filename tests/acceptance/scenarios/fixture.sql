@@ -89,7 +89,7 @@ CREATE TABLE acceptance_metering.readings (
     recorded_local timestamp without time zone NOT NULL,
     reading_state text NOT NULL
 );
-INSERT INTO acceptance_metering.probes VALUES (1, 'P-A'), (2, 'P-B'), (3, 'P-C');
+INSERT INTO acceptance_metering.probes VALUES (1, 'P-A'), (2, 'P-B'), (3, 'P-C'), (4, 'P-D');
 INSERT INTO acceptance_metering.readings VALUES
     (1, 1, 12.3400, '2026-09-10T23:55:00', 'q'),
     (2, 1, 13.1000, '2026-09-11T00:05:00', 'r'),
