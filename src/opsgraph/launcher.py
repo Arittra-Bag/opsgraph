@@ -93,7 +93,9 @@ def bind_loopback(port: int) -> socket.socket:
     return listener
 
 
-def launch(directory: Path | None, port: int, *, configure: bool, browser: bool) -> int:
+def launch(
+    directory: Path | None, port: int, *, configure: bool, browser: bool, flow: str = "choose"
+) -> int:
     from opsgraph.config import StatePathError, get_settings, resolve_state_path
     from opsgraph.setup import default_workspace_directory, read_private_config, run_setup
 
@@ -115,7 +117,7 @@ def launch(directory: Path | None, port: int, *, configure: bool, browser: bool)
         return 2
     try:
         if configure or not (workspace / ".env").exists():
-            if run_setup(workspace) != 0:
+            if run_setup(workspace, flow=flow) != 0:
                 return 2
         values = read_private_config(workspace / ".env")
         # A launcher has one explicit config directory. Ambient app credentials

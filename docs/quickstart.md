@@ -5,7 +5,22 @@ workspace. Start with an authorized, non-sensitive source while learning the
 workflow. The bundle does not create a database,
 install a model, download an ISO, or transmit your source records during setup.
 
-## Before installing
+## Start from a source checkout
+
+After cloning and entering the repository, run `python3 Start.py` on macOS/Linux
+or `py Start.py` on Windows. The installer explains downloads and prepares the
+locked application runtime. Choose Quick for recommended defaults, or Advanced
+to configure schema scope, endpoint and inference options. Review before saving.
+The workspace key is generated privately and the browser connects automatically.
+
+For hosted inference, choose the provider, supply its exact structured-output
+model identifier and hidden API key, and approve external model egress. Questions,
+scoped schema and bounded evidence may be sent to that provider. For local inference,
+install a model runtime and download a model separately. These are alternative
+inference paths, not simultaneous requirements. The browser workflow below applies
+to both. See [installation](installation.md) for prerequisites and recovery.
+
+## Before installing an offline bundle
 
 - A matching CPython 3.11 bundle for a platform/architecture listed in the
   [support matrix](release/support-matrix.md). Do not infer support
@@ -31,7 +46,8 @@ configuration. Our local adapter uses [Ollama's OpenAI-compatible endpoint](http
 
 ## Install once, launch whenever needed
 
-Download the matching bundle from the [latest release](https://github.com/Arittra-Bag/opsgraph/releases/latest).
+Download a version-matched bundle from [releases](https://github.com/Arittra-Bag/opsgraph/releases)
+when that version is published. Do not mix source and bundle versions.
 Alternatively, use the [source checkout instructions](../README.md#get-started);
 the browser steps below are the same. Read the platform limits in the
 [support matrix](release/support-matrix.md) before installing.
@@ -58,8 +74,9 @@ the browser steps below are the same. Read the platform limits in the
 
    macOS also provides `Install.command` and `Launch.command`. Follow your
    organization's policy if an unsigned downloaded launcher is blocked.
-3. On first launch, enter the hidden read-only DSN, approved schemas and model
-   settings. A DSN is your database connection string; request a dedicated
+3. On first launch, choose Quick or Advanced setup, enter the hidden read-only
+   DSN and model settings, and review before saving. Advanced also asks for the
+   approved schema ceiling. A DSN is your database connection string; request a dedicated
    read-only login from whoever manages the database. Pressing Enter at an empty
    DSN skips database setup, so source inspection will not work until configured.
    Port occupied? Add `--port 8010` to the launch command.

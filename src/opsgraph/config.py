@@ -8,6 +8,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from opsgraph.postgres_hosting import PostgresHosting
+from opsgraph.providers.models import ProviderPreset
 
 
 class StatePathError(ValueError):
@@ -63,6 +64,7 @@ class Settings(BaseSettings):
     model_provider: Literal["deterministic", "anthropic", "openai_compatible"] = Field(
         default="openai_compatible", alias="OPSGRAPH_MODEL_PROVIDER"
     )
+    model_preset: ProviderPreset | None = Field(default=None, alias="OPSGRAPH_MODEL_PRESET")
     provider_timeout_seconds: float = Field(
         default=30.0, ge=0.1, le=600.0, alias="OPSGRAPH_PROVIDER_TIMEOUT_SECONDS"
     )

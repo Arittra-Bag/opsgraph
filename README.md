@@ -51,32 +51,44 @@ cannot express before acting on an answer.
 
 You need:
 
-- Python 3.11–3.13, [uv](https://docs.astral.sh/uv/getting-started/installation/),
-  Git, and a modern browser.
+- Python 3.9 or newer to run the source installer, Git, and a modern browser.
+  The installer uses or downloads Python 3.11–3.13 for OpsGraph.
 - A PostgreSQL database you are authorized to inspect, the exact tables you
   intend to expose, and a dedicated login restricted to those tables.
 - A structured-output-capable model. For a private local path, install
   [Ollama](https://docs.ollama.com/quickstart) and deliberately download a model,
   for example `ollama pull qwen3:8b`. OpsGraph never downloads a model for you.
 
-Run these commands in Terminal on macOS/Linux or PowerShell on Windows:
+Clone the repository, then run the single source installer in Terminal on macOS/Linux:
 
 ```sh
 git clone https://github.com/Arittra-Bag/opsgraph.git
 cd opsgraph
-uv sync --locked --all-extras
-uv run opsgraph launch --configure
+python3 Start.py
 ```
 
-Guided setup creates a private workspace key and asks for the backend-held
-database reference, schema ceiling, and initial model settings. The launcher
-opens a connected browser; it does not place the database password or workspace
-key in the URL.
+On Windows, run `py Start.py` from the cloned directory in PowerShell. No shell
+activation or execution-policy change is needed.
 
-To stop, press **Ctrl+C**. To return later, run `uv run opsgraph launch` from the
-same checkout. Your workspace and history are preserved. Add `--port 8010` when
-port 8000 is occupied. See [installation](docs/installation.md) for offline
-bundles, native wheel setup, private workspace locations, and troubleshooting.
+The installer explains and asks before dependency or Python downloads. If uv is
+missing, it installs a pinned copy in the checkout's private `.bootstrap` folder.
+Locked runtime dependencies and the application live in `.venv`. It does not
+install PostgreSQL, a model runtime, or model weights.
+
+Choose **Quick setup** for recommended defaults or **Advanced setup** for schema,
+endpoint, output-profile and timeout controls. Both keep credentials hidden, ask
+before external model egress, and show a credential-free review before saving.
+The private workspace key is generated automatically. The launcher opens a
+connected browser without placing that key or the database password in the URL.
+If you do not have a read-only database login yet, skip the DSN and use the
+administrator role guide in Sources. Saving configuration does not test it.
+
+To stop, press **Ctrl+C**. To return later, run `python3 Start.py` again, or use
+`uv run --locked --no-sync opsgraph launch` when already installed. Existing
+configuration and history are preserved. Add `--configure` to review settings,
+`--flow advanced` for advanced setup, or `--port 8010` when port 8000 is occupied.
+See [installation](docs/installation.md) for recovery, offline bundles, private
+workspace locations, and the direct uv path.
 
 ### First-run checklist
 

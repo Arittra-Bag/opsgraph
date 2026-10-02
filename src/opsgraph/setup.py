@@ -25,6 +25,7 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from opsgraph.brokers.postgres import ConnectorUnavailable, PsycopgReadOnlyExecutor
 from opsgraph.postgres_diagnostics import connection_diagnostic
 from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide
+from opsgraph.providers.models import FIXED_HOSTED_PRESETS, PROVIDER_DEFAULT_ENDPOINTS
 
 ConfigValues = dict[str, str | None]
 _IDENTIFIER = re.compile(r"[a-z_][a-z0-9_]{0,62}\Z")
@@ -217,7 +218,8 @@ def _model_url(value: str, *, allow_remote: bool = False) -> str:
     try:
         parsed = urlsplit(value)
         valid = (
-            parsed.scheme in {"http", "https"}
+            len(value) <= 2_048
+            and parsed.scheme in {"http", "https"}
             and (
                 parsed.hostname in {"127.0.0.1", "::1"}
                 or (allow_remote and parsed.scheme == "https" and bool(parsed.hostname))
@@ -260,6 +262,13 @@ def _choice(value: str, choices: set[str]) -> str:
     return value
 
 
+def _menu_choice(value: str, choices: tuple[str, ...]) -> str:
+    """Accept a displayed number or case-insensitive configuration name."""
+    if len(value) <= 3 and value.isascii() and value.isdigit() and 1 <= int(value) <= len(choices):
+        return choices[int(value) - 1]
+    return _choice(value.lower(), set(choices))
+
+
 def _timeout(value: str) -> str:
     try:
         seconds = float(value)
@@ -273,6 +282,7 @@ def _timeout(value: str) -> str:
 def run_setup(
     directory: Path | None = None,
     *,
+    flow: str = "advanced",
     input_fn: Callable[[str], str] | None = None,
     secret_fn: Callable[[str], str] | None = None,
     output_fn: Callable[[str], object] = print,
@@ -320,15 +330,32 @@ def run_setup(
                 except SetupError as error:
                     output_fn(str(error))
 
+        if flow == "choose":
+            output_fn("\n## Choose your setup")
+            output_fn("  1. Quick: Recommended defaults, with your database and model choices.")
+            output_fn(
+                "  2. Advanced: Also configure schema scope, endpoint, output profile and timeout."
+            )
+            flow = prompt(
+                "Setup: quick / advanced (default quick)",
+                "quick",
+                lambda value: _menu_choice(value, ("quick", "advanced")),
+            )
+        if flow not in {"quick", "advanced"}:
+            raise SetupError("Choose quick or advanced setup.")
+        output_fn("\n## 1. PostgreSQL connection")
+        output_fn(
+            "No read-only login yet? Skip the DSN now. Sources has an administrator role guide."
+        )
         output_fn("PostgreSQL hosting options:")
-        for guide in HOSTING_GUIDES:
-            output_fn(f"  {guide.id}: {guide.name}")
+        for index, guide in enumerate(HOSTING_GUIDES, 1):
+            output_fn(f"  {index}. {guide.name} ({guide.id})")
         known_hosting = {guide.id for guide in HOSTING_GUIDES}
         stored_hosting = existing.get("OPSGRAPH_POSTGRES_HOSTING")
         selected_hosting = prompt(
             "PostgreSQL hosting",
             stored_hosting if stored_hosting in known_hosting else "self_hosted",
-            lambda value: _choice(value, known_hosting),
+            lambda value: _menu_choice(value, tuple(guide.id for guide in HOSTING_GUIDES)),
         )
         guide = hosting_guide(selected_hosting)
         for line in (guide.endpoint, guide.network, guide.tls, *guide.steps, *guide.checks):
@@ -353,11 +380,17 @@ def run_setup(
                     output_fn(str(error))
                     continue
             break
-        schemas = prompt(
-            "Approved schemas, comma-separated (default public)",
-            existing.get("OPSGRAPH_POSTGRES_ALLOWED_SCHEMAS") or "public",
-            _schemas,
-        )
+        schemas = existing.get("OPSGRAPH_POSTGRES_ALLOWED_SCHEMAS") or "public"
+        if flow == "advanced":
+            schemas = prompt(
+                "Approved schemas, comma-separated (default public)", schemas, _schemas
+            )
+        else:
+            schemas = _schemas(schemas)
+            output_fn(
+                "Quick setup keeps the existing schema ceiling, or public for a new workspace."
+            )
+        output_fn("\n## 2. Model connection")
         if existing.get("OPSGRAPH_MODEL_PROVIDER") in {"anthropic", "external"}:
             provider_default = "anthropic"
         elif existing.get("OPSGRAPH_LOCAL_SCHEMA_PROFILE", "ollama") == "ollama" and _loopback_url(
@@ -366,11 +399,36 @@ def run_setup(
             provider_default = "ollama"
         else:
             provider_default = "openai_compatible"
-        selected = prompt(
-            f"Provider: ollama / openai_compatible / anthropic (default {provider_default})",
-            provider_default,
-            lambda value: _choice(value, {"ollama", "openai_compatible", "anthropic"}),
-        )
+        if flow == "quick":
+            if provider_default != "anthropic":
+                saved_endpoint = existing.get("OPSGRAPH_LOCAL_MODEL_URL")
+                provider_default = next(
+                    (
+                        name
+                        for name, url in PROVIDER_DEFAULT_ENDPOINTS.items()
+                        if url is not None and url == saved_endpoint
+                    ),
+                    "custom_openai" if saved_endpoint else "ollama",
+                )
+            output_fn("Providers (choose a number or name):")
+            for index, name in enumerate(PROVIDER_DEFAULT_ENDPOINTS, 1):
+                output_fn(f"  {index}. {name}")
+            selected = prompt(
+                f"Provider (default {provider_default})",
+                provider_default,
+                lambda value: _menu_choice(value, tuple(PROVIDER_DEFAULT_ENDPOINTS)),
+            )
+        else:
+            selected = prompt(
+                "Provider: "
+                + " / ".join(PROVIDER_DEFAULT_ENDPOINTS)
+                + " / openai_compatible "
+                + f"(default {provider_default})",
+                provider_default,
+                lambda value: _menu_choice(
+                    value, (*PROVIDER_DEFAULT_ENDPOINTS, "openai_compatible")
+                ),
+            )
         reasoning = None
         if selected == "anthropic":
             output_fn("Anthropic uses its official API endpoint, https://api.anthropic.com.")
@@ -383,16 +441,28 @@ def run_setup(
             remote = True
         else:
             same_selection = selected == provider_default
-            endpoint = prompt(
-                "Model API URL (Ollama default http://127.0.0.1:11434/v1)",
+            endpoint_default = (
                 (existing.get("OPSGRAPH_LOCAL_MODEL_URL") if same_selection else None)
-                or (
-                    "http://127.0.0.1:11434/v1"
-                    if selected == "ollama"
-                    else "https://api.openai.com/v1"
-                ),
-                lambda value: _model_url(value, allow_remote=selected != "ollama"),
+                or PROVIDER_DEFAULT_ENDPOINTS.get(selected)
+                or ("https://api.openai.com/v1" if selected == "openai_compatible" else "")
             )
+            endpoint = (
+                endpoint_default
+                if selected in FIXED_HOSTED_PRESETS
+                else prompt(
+                    "Model API URL (default "
+                    + (PROVIDER_DEFAULT_ENDPOINTS.get(selected) or "enter URL")
+                    + ")",
+                    endpoint_default,
+                    lambda value: _model_url(value, allow_remote=selected != "ollama"),
+                )
+            )
+            if selected == "ollama":
+                output_fn("Ollama must be running with an installed model. For the default, run:")
+                output_fn("  ollama pull qwen3:8b")
+                output_fn("Model downloads use several GB. Setup does not download them.")
+            elif selected == "vllm":
+                output_fn("Default vLLM uses port 8000. Launch OpsGraph with --port 8010.")
             model = prompt(
                 "Model identifier (Ollama default qwen3:8b; "
                 "compatible APIs require their model ID)",
@@ -400,18 +470,30 @@ def run_setup(
                 or ("qwen3:8b" if selected == "ollama" else ""),
                 _model_name,
             )
-            profile = prompt(
-                "Schema profile: ollama / standard",
-                (existing.get("OPSGRAPH_LOCAL_SCHEMA_PROFILE") if same_selection else None)
-                or ("ollama" if selected == "ollama" else "standard"),
-                lambda value: _choice(value, {"ollama", "standard"}),
-            )
-            reasoning = prompt(
-                "Reasoning effort: none / low / medium / high / omit",
-                (existing.get("OPSGRAPH_LOCAL_REASONING_EFFORT") if same_selection else None)
-                or ("none" if profile == "ollama" else "omit"),
-                lambda value: _choice(value, {"none", "low", "medium", "high", "omit"}),
-            )
+            if flow == "quick":
+                profile = (
+                    existing.get("OPSGRAPH_LOCAL_SCHEMA_PROFILE") if same_selection else None
+                ) or ("ollama" if selected == "ollama" else "standard")
+                profile = _choice(profile, {"ollama", "standard"})
+                reasoning = (
+                    existing.get("OPSGRAPH_LOCAL_REASONING_EFFORT") if same_selection else None
+                ) or "omit"
+                output_fn(
+                    "Quick setup keeps saved reasoning options and omits them for new providers."
+                )
+            else:
+                profile = prompt(
+                    "Schema profile: ollama / standard",
+                    (existing.get("OPSGRAPH_LOCAL_SCHEMA_PROFILE") if same_selection else None)
+                    or ("ollama" if selected == "ollama" else "standard"),
+                    lambda value: _choice(value, {"ollama", "standard"}),
+                )
+                reasoning = prompt(
+                    "Reasoning effort: none / low / medium / high / omit",
+                    (existing.get("OPSGRAPH_LOCAL_REASONING_EFFORT") if same_selection else None)
+                    or ("none" if profile == "ollama" else "omit"),
+                    lambda value: _choice(value, {"none", "low", "medium", "high", "omit"}),
+                )
             values.update(
                 {
                     "OPSGRAPH_LOCAL_MODEL_URL": endpoint,
@@ -456,10 +538,15 @@ def run_setup(
                 output_fn(
                     "Model credential skipped; authenticated providers require it before probing."
                 )
-        timeout = prompt(
-            "Model timeout in seconds (default 300)",
-            existing.get("OPSGRAPH_PROVIDER_TIMEOUT_SECONDS") or "300",
-            _timeout,
+        timeout_default = existing.get("OPSGRAPH_PROVIDER_TIMEOUT_SECONDS") or "300"
+        timeout = (
+            _timeout(timeout_default)
+            if flow == "quick"
+            else prompt(
+                "Model timeout in seconds (default 300)",
+                timeout_default,
+                _timeout,
+            )
         )
         state = ensure_private_directory(workspace / ".opsgraph")
         key = existing.get("OPSGRAPH_API_KEY") or ""
@@ -499,11 +586,44 @@ def run_setup(
             values.pop("OPSGRAPH_LOCAL_REASONING_EFFORT", None)
         elif reasoning is not None:
             values["OPSGRAPH_LOCAL_REASONING_EFFORT"] = reasoning
+        if selected in PROVIDER_DEFAULT_ENDPOINTS:
+            values["OPSGRAPH_MODEL_PRESET"] = selected
+        else:
+            values.pop("OPSGRAPH_MODEL_PRESET", None)
+        output_fn("\n## 3. Review before saving")
+        output_fn(f"Setup: {flow}. Hosting: {guide.name}.")
+        output_fn("Database credential: " + ("configured privately" if dsn else "deferred"))
+        output_fn(
+            "Model provider: "
+            + selected
+            + ". Credential: "
+            + ("configured privately" if values.get(credential_name) else "not configured")
+        )
+        output_fn(
+            "External model egress: " + ("enabled with your consent" if remote else "disabled")
+        )
+        output_fn("Workspace key: generated or preserved privately. It is never printed.")
+        output_fn("Saving does not test connectivity or prove answer quality.")
+        decision = prompt(
+            "Save configuration? save / cancel (default save)",
+            "save",
+            lambda value: _choice(value, {"save", "cancel"}),
+        )
+        if decision == "cancel":
+            output_fn("Setup cancelled. Existing configuration was not replaced.")
+            return 1
         write_private_config(path, values)
         output_fn(
             "Private configuration saved. Run opsgraph launch, select explicit tables in Sources, "
             "inspect actual access, and test the model in Settings."
         )
+        output_fn("\n## Next steps in the browser")
+        output_fn(
+            "1. Sources: choose exact tables, inspect access, and approve the readiness read."
+        )
+        output_fn("2. Settings: test the real model with the structured probe.")
+        output_fn("3. Ask a narrow question and review each finding against its captured evidence.")
+        output_fn("No model weights were installed. Use Settings to repair or change providers.")
         if not dsn:
             output_fn(
                 "PostgreSQL credential skipped. Run opsgraph setup again when it is available."

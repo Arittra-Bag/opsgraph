@@ -80,7 +80,7 @@ HOSTING_GUIDES = (
         "supabase",
         "Supabase",
         "Managed PostgreSQL with direct and pooled connection choices.",
-        "Use a direct endpoint when IPv6 is reachable, or the session "
+        "Use a direct endpoint when IPv6 or the project IPv4 add-on is available, or the session "
         "pooler for an IPv4-only backend.",
         "Check project network restrictions and the chosen endpoint's address family.",
         "Use sslmode=verify-full and the project CA where required. "
@@ -88,8 +88,9 @@ HOSTING_GUIDES = (
         (
             "Open the project's Connect panel and choose direct or session "
             "mode for this persistent application.",
-            "Provision a dedicated read-only role. Use the pooler's "
-            "required role and project username format.",
+            "Provision a dedicated read-only role. Shared pooler usernames use "
+            "ROLE.PROJECT-REF for custom roles. Copy the exact host from Connect, "
+            "rather than deriving it from the region.",
             "Configure the private connection, then inspect exact approved tables.",
         ),
         (
@@ -194,7 +195,9 @@ HOSTING_GUIDES = (
         "required CA or supported system trust.",
         (
             "Create a dedicated SELECT-only login, separate from the administrative account.",
-            "Review trusted sources, endpoint type, port and certificate settings.",
+            "In Connection Details, choose public or VPC networking, database and "
+            "your read-only user. Download the cluster CA to the backend and configure "
+            "sslrootcert with sslmode=verify-full.",
             "Enter the private DSN on the backend, then inspect and verify the approved scope.",
         ),
         (

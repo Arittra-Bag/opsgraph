@@ -33,12 +33,14 @@ jobs:
           version: "0.9.26"
           python-version: "3.13"
           enable-cache: true
+      - name: Verify guided source installer
+        run: python Start.py --yes --install-only
       - run: uv lock --check
       # Install only locked wheels; test imports use the configured src path.
       # Application packaging is a separate explicit, hash-constrained build.
       - run: uv sync --locked --all-extras --no-build --no-install-project
-      - run: uv run --locked --no-sync --no-build ruff check src tests scripts
-      - run: uv run --locked --no-sync --no-build ruff format --check src tests scripts
+      - run: uv run --locked --no-sync --no-build ruff check src tests scripts Start.py
+      - run: uv run --locked --no-sync --no-build ruff format --check src tests scripts Start.py
       - run: uv run --locked --no-sync --no-build python -m pytest -q -ra
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -126,6 +128,8 @@ jobs:
           version: "0.9.26"
           python-version: ${{ matrix.python }}
           enable-cache: true
+      - name: Verify guided source installer
+        run: python Start.py --yes --install-only
       - run: uv lock --check
       # Install only locked wheels; test imports use the configured src path.
       # Application packaging is a separate explicit, hash-constrained build.
