@@ -19,3 +19,5 @@ secrets/
 *.backup
 *.sql.gz
 *.zip
+
+.bootstrap/

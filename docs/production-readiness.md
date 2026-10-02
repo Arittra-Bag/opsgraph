@@ -141,3 +141,27 @@ additional database engines, a governed semantic layer, and signed/attested
 automated release publication require separate design and validation. They are
 valid future work; they are not hidden requirements for the supported 1.0
 single-operator deployment.
+
+## Data privacy and independent validation
+
+Read-only access prevents database mutation. It does not anonymize captured rows
+or make them safe to disclose. An approved external model can receive questions,
+scoped schema and bounded evidence, including personal or commercially sensitive
+values. Use a purpose-made view that exposes only needed columns and pre-redacted
+values, or use literal-loopback inference with external egress disabled. OpsGraph
+does not perform automatic PII detection, claim anonymization, or certify compliance.
+Report row and executed-SQL sections require deliberate selection before export.
+
+Workspace history, evidence and credentials are not encrypted by the application
+at rest. Use an encrypted, access-controlled volume and private backups if your
+organization requires disk encryption. Existing file-permission checks protect
+access, not confidentiality against an account or disk compromise. Audit records
+identify the workspace operator and approved scope, not distinct team members.
+
+The opt-in real-model scenario suite compares independently defined ledger,
+dispatch and metering facts, exact numeric results and ambiguous definitions.
+It is a validation harness, not a model leaderboard or a calibrated confidence
+score. Offline protocol fixtures do not count as real-model quality results.
+Review recommendations and citation relevance against the captured records.
+Hosted PostgreSQL guidance covers connection patterns, not certified testing of
+every provider, network arrangement or account configuration.

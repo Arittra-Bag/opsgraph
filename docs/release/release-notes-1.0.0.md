@@ -89,3 +89,17 @@ The final tag gate is recorded in
 Managed-service guidance is not provider certification. Network routes, database
 grants, certificate trust, cloud resources, and token renewal remain separately
 managed by the operator. Model assessments still require evidence review.
+
+## Guided first run from source
+
+- A single `python3 Start.py` command installs locked dependencies and opens the
+  private workspace. Windows uses `py Start.py`. Downloads require consent.
+- Quick setup uses recommended defaults. Advanced setup exposes schema, endpoint,
+  output-profile, reasoning and timeout controls. Both show a credential-free
+  review before saving and require explicit consent for external model egress.
+- Terminal setup offers the same named provider presets as browser Settings.
+  Source inspection, bounded readiness and real model probing remain mandatory.
+- Missing database credentials can be deferred to the browser's administrator
+  role guide. Cancelling or retrying setup preserves existing private configuration.
+- Hosted guidance clarifies Supabase address-family/pooler choices and DigitalOcean
+  networking, database/user selection and cluster-CA configuration.

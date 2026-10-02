@@ -6,17 +6,71 @@ accounts and automatic continuation of crashed queries are outside this version.
 Use Python 3.11–3.13 and a modern browser. Start with an authorized read-only
 source whose scope and business meaning you understand.
 
-## Guided bundle (recommended release path)
+## Guided source installation
 
-Download a matching bundle from the [latest release](https://github.com/Arittra-Bag/opsgraph/releases/latest),
-then follow [quick start](quickstart.md). The
-[source quickstart](../README.md#get-started) is also available.
-The versioned offline bundle includes
-launch scripts and exact locked dependency wheels; CPython and the model runtime
-remain explicit prerequisites. `opsgraph launch` stores configuration in a stable
-private directory, opens the connected browser and reuses history across launches.
-No source checkout or configuration-file editing is needed for the guided path.
-See [maintenance](maintenance.md) for safe backup/restore and uninstall.
+After cloning, run `python3 Start.py` on macOS/Linux or `py Start.py` on Windows.
+The source installer needs Python 3.9 or newer. It uses or downloads a supported
+Python 3.11–3.13 for the application. Git and a browser remain prerequisites.
+
+The installation plan is shown before any download. Accepting it installs pinned
+uv in `.bootstrap` only when uv is missing, synchronizes locked runtime/provider
+dependencies in `.venv`, and builds the application using hashed build constraints.
+It needs internet access to PyPI and, when Python is missing, uv's Python
+build distribution service. No administrator privileges, global Python package
+changes, shell activation, or execution-policy changes are required.
+Package-manager environment overrides are excluded so they cannot redirect the
+runtime or silently select another dependency index. The bootstrap uses standard
+PyPI. For a managed package mirror or an offline environment, use the explicit
+wheel/bundle installation path below.
+
+Quick setup uses the existing schema ceiling or `public`, a 300-second model
+timeout for a new workspace, and provider-specific endpoint/output defaults. It
+keeps explicitly saved reasoning options and omits them for a new provider.
+Advanced setup also asks for schema scope, endpoint, structured-output profile,
+reasoning and timeout. Both require explicit external-egress consent and a
+credential-free save review. Setup never opens a database connection or probes a
+model. Use Sources inspection/readiness and the Settings probe afterwards.
+
+```sh
+python3 Start.py --flow quick
+python3 Start.py --configure --flow advanced
+python3 Start.py --port 8010
+```
+
+Use `py` instead of `python3` on Windows. `--install-only` prepares dependencies
+without opening setup. `--yes` approves installation downloads only. It does not
+approve model egress, database access or a setup save. Installation errors suppress
+raw subprocess output, which can contain proxy credentials. Fix network,
+certificate or disk-space problems and rerun the same command. A failed install
+preserves private workspace configuration and history.
+
+If uv is already installed, the direct path remains available:
+
+```sh
+uv sync --locked --all-extras
+uv run --locked opsgraph launch
+```
+
+`opsgraph setup --flow quick` and `opsgraph launch --configure --flow advanced`
+work from an installed application, including offline bundles. Cancelling at the
+save review preserves the previous configuration. Rerun setup to change choices.
+If a read-only database login is not available, skip the hidden DSN prompt and
+use Sources' administrator role guide. It generates reviewable SQL and never
+executes it. Install a local model separately or choose a hosted provider and its
+exact model identifier. Provider presets do not guarantee model compatibility.
+
+## Guided offline bundle
+
+Use a version-matched bundle from [releases](https://github.com/Arittra-Bag/opsgraph/releases)
+when one is published for the version you need, then follow [quick start](quickstart.md).
+Check its release version, manifest and checksums. The latest published release
+may differ from the source checkout, so do not mix bundle components across versions.
+An offline bundle includes launch scripts and exact locked dependency wheels.
+CPython and the model runtime remain explicit prerequisites for that path.
+`opsgraph launch` stores configuration in a stable private directory, opens the
+connected browser and reuses history across launches. No source checkout or
+configuration-file editing is needed. See [maintenance](maintenance.md) for
+backup/restore and uninstall.
 
 ## Native installation (advanced wheel/source path)
 

@@ -14,7 +14,9 @@ def private_directory(tmp_path):
 
 def prompts(*answers):
     values = iter(answers)
-    return lambda label: "" if label.startswith("PostgreSQL hosting") else next(values)
+    return lambda label: (
+        "" if label.startswith(("PostgreSQL hosting", "Save configuration?")) else next(values)
+    )
 
 
 def test_fresh_setup_stores_hidden_literal_dsn_without_network(tmp_path, monkeypatch):

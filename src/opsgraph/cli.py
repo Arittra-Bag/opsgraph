@@ -26,10 +26,12 @@ def _parser() -> argparse.ArgumentParser:
         "setup", help="guide private source and model-provider configuration"
     )
     setup.add_argument("--directory", type=Path)
+    setup.add_argument("--flow", choices=("quick", "advanced"), default="choose")
     launch = commands.add_parser(
         "launch", help="launch your private workspace and open its browser"
     )
     launch.add_argument("--directory", type=Path)
+    launch.add_argument("--flow", choices=("quick", "advanced"), default="choose")
     launch.add_argument("--port", type=int, default=8000)
     launch.add_argument("--configure", action="store_true")
     launch.add_argument("--no-browser", action="store_true")
@@ -170,12 +172,18 @@ def main() -> None:
     if args.command == "setup":
         from opsgraph.setup import run_setup
 
-        raise SystemExit(run_setup(args.directory))
+        raise SystemExit(run_setup(args.directory, flow=args.flow))
     if args.command == "launch":
         from opsgraph.launcher import launch
 
         raise SystemExit(
-            launch(args.directory, args.port, configure=args.configure, browser=not args.no_browser)
+            launch(
+                args.directory,
+                args.port,
+                configure=args.configure,
+                browser=not args.no_browser,
+                flow=args.flow,
+            )
         )
     # Includes DSN/provider variables not modeled by Settings; shell values win.
     load_dotenv(Path.cwd() / ".env", override=False)
