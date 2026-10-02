@@ -94,6 +94,42 @@ def test_anthropic_contract_is_bounded_and_parses_structured_output() -> None:
     assert "anthropic-secret" not in repr(calls)
 
 
+def test_anthropic_projects_investigation_schema_and_preserves_local_limits() -> None:
+    from opsgraph.orchestration.connected import InvestigationPlan
+
+    calls: list[dict] = []
+    query = {"purpose": "Count payments", "sql": "SELECT count(*) FROM public.payments"}
+    output = {"rationale": "Count recorded payments", "clarification": None, "queries": [query]}
+
+    class Messages:
+        @staticmethod
+        def create(**kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(output))])
+
+    canonical = InvestigationPlan.model_json_schema()
+    original = json.loads(json.dumps(canonical))
+    provider = create_provider(
+        ProviderConfig(
+            kind="anthropic",
+            model="claude-test",
+            api_key=SecretStr("test-key"),
+            egress_enabled=True,
+        ),
+        client_factory=lambda _: SimpleNamespace(messages=Messages()),
+    )
+    response = provider.invoke_structured(
+        StructuredRequest(messages=REQUEST.messages, response_schema=canonical)
+    )
+    sent = calls[0]["output_config"]["format"]["schema"]
+    assert "maxItems" not in sent["properties"]["queries"]
+    assert canonical == original
+    assert canonical["properties"]["queries"]["maxItems"] == 3
+    assert len(InvestigationPlan.model_validate(response.output).queries) == 1
+    with pytest.raises(ValidationError):
+        InvestigationPlan.model_validate({**output, "queries": [query] * 4})
+
+
 def test_openai_compatible_contract_supports_custom_local_base_url() -> None:
     calls: list[dict] = []
 

@@ -137,6 +137,12 @@ class AnthropicProvider:
         require_external_egress(self.config)
         client = self._get_client()
         try:
+            from anthropic import transform_schema
+        except ImportError as exc:
+            raise ProviderUnavailableError(
+                "Anthropic structured output requires the optional 'anthropic' package"
+            ) from exc
+        try:
             response = client.messages.create(
                 model=self.config.model,
                 max_tokens=self.config.max_output_tokens,
@@ -146,7 +152,9 @@ class AnthropicProvider:
                     "effort": "low",
                     "format": {
                         "type": "json_schema",
-                        "schema": request.response_schema,
+                        # Translate unsupported wire constraints without changing the
+                        # canonical schema used by application validation.
+                        "schema": transform_schema(request.response_schema),
                     },
                 },
                 messages=[message.model_dump(mode="json") for message in request.messages],
