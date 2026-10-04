@@ -284,7 +284,10 @@ read-only login and explicit table selection in Sources.
 
 Terminal setup saves your private database connection and model settings. In Sources,
 select **Choose tables and check connection** to approve the exact tables that may be
-read. The saved connection is reused, so you do not need to paste it again. Table
+read. Setup automatically lists readable table names in the approved schemas when
+you open the new source form. Select the tables you want to use. No records are read
+and nothing is approved automatically. If discovery fails, retry or enter exact
+table names manually. The saved connection is reused, so you do not need to paste it again. Table
 approval and connection checks are separate from saving credentials.
 
 In Settings, your provider and model are already filled in. The key field stays blank

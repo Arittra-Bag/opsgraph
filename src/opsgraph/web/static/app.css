@@ -518,3 +518,6 @@ main { min-width: 0; overflow: visible; }
 dialog.report-drawer { margin: 0 0 0 auto; padding: 0; max-height: none; max-width: none; border: 0; border-left: 1px solid var(--line); color: var(--text); }
 #sourceStatus, #reportStatus { display: block; margin: 13px 0; color: var(--muted); font-size: 13px; }
 #reportPreview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 55vh; display: block; width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: #090d10; color: var(--text-2); padding: 13px; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+#tableChoices { max-height: 22rem; overflow-y: auto; margin: 12px 0; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; }
+#tableChoices .checkbox-label { overflow-wrap: anywhere; }

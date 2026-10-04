@@ -156,3 +156,50 @@ test('late saved connection metadata never crosses workspace boundaries', async 
   await pending;
   assert.equal(f.state.savedConnection, undefined);
 });
+
+function discoveryFixture() {
+  const f = fixture();
+  f.state.savedConnection = { secret_ref: 'OPSGRAPH_SOURCE_DSN' }; f.state.sourceSetupToken = 1;
+  f.$('#sourceSecretRef').value = 'OPSGRAPH_SOURCE_DSN';
+  f.context.markSourceDirty = () => { f.state.sourceDirty = true; };
+  f.context.document = {
+    createElement: tag => ({ tag, children: [], append(...items) { this.children.push(...items); }, addEventListener(type, handler) { this[type] = handler; } }),
+    createTextNode: text => ({ textContent: text }),
+  };
+  vm.runInContext(source.slice(source.indexOf('  async function discoverConnectionTables()'), source.indexOf('  function sourceSetup(')), f.context);
+  return f;
+}
+
+test('discovery lists names without granting access and preserves manual selections', async () => {
+  const f = discoveryFixture(); const requests = [];
+  f.$('#sourceTables').value = 'public.manual';
+  f.context.api = async (path, options) => { requests.push({ path, options }); return { tables: ['public.jobs'], truncated: false }; };
+  await f.context.discoverConnectionTables();
+  assert.equal(requests.length, 1); assert.equal(requests[0].path, '/api/postgres/discover-tables');
+  assert.equal(f.$('#sourceTables').value, 'public.manual');
+  const checkbox = f.$('#tableChoices').children[0].children[0];
+  assert.equal(checkbox.checked, false);
+  checkbox.checked = true; checkbox.change();
+  assert.equal(f.$('#sourceTables').value, 'public.manual, public.jobs');
+  assert.equal(f.state.sourceDirty, true);
+  assert.equal(f.$('#retryTableDiscovery').disabled, false);
+});
+
+for (const change of ['workspace', 'form']) test(`late table discovery discarded after ${change} changes`, async () => {
+  const f = discoveryFixture(); let resolve;
+  f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.discoverConnectionTables();
+  if (change === 'workspace') f.state.authEpoch++; else f.state.sourceSetupToken++;
+  resolve({ tables: ['public.old'] }); await pending;
+  assert.equal(f.$('#tableChoices').children.length, 0);
+});
+
+test('empty and failed table discovery allow manual entry and explicit retry', async () => {
+  const f = discoveryFixture(); f.context.api = async () => ({ tables: [], truncated: false });
+  await f.context.discoverConnectionTables();
+  assert.match(f.$('#tableDiscoveryStatus').textContent, /No readable tables/);
+  f.context.api = async () => { throw new Error('Connection unavailable'); };
+  await f.context.discoverConnectionTables();
+  assert.match(f.$('#tableDiscoveryStatus').textContent, /Retry or enter table names/);
+  assert.equal(f.$('#retryTableDiscovery').disabled, false);
+});

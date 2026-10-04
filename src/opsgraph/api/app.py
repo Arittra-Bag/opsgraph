@@ -228,6 +228,60 @@ def postgres_hosting_guides(principal: Annotated[Principal, Depends(require_prin
     }
 
 
+@app.post("/api/postgres/discover-tables")
+def discover_connection_tables(principal: Annotated[Principal, Depends(require_principal)]):
+    scope = authorize(principal, "core.schema.inspect", "configured-connection")
+    settings = runtime.settings
+    reference = settings.postgres_secret_ref
+    if not reference or reference not in settings.allowed_postgres_secret_refs:
+        raise PostgresHTTPError("credential_missing", status_code=409)
+    dsn = os.getenv(reference)
+    if not dsn:
+        raise PostgresHTTPError("credential_missing", status_code=409)
+    schemas = tuple(set(settings.postgres_allowed_schemas).intersection(scope.allowed_schemas))
+    if not schemas or scope.timeout_ms < 100:
+        raise PostgresHTTPError("scope_unavailable")
+    try:
+        tables, truncated = PsycopgReadOnlyExecutor(
+            dsn, allow_insecure_remote=settings.allow_insecure_remote_postgres
+        ).discover_tables(
+            allowed_schemas=schemas,
+            allowed_tables=scope.allowed_tables or None,
+            timeout_ms=min(scope.timeout_ms, 5000),
+        )
+    except (ConnectorUnavailable, UnsafeDatabaseRole) as exc:
+        code = "unsafe_role" if isinstance(exc, UnsafeDatabaseRole) else exc.diagnostic_code
+        runtime.audit.append(
+            workspace_id=principal.workspace_id,
+            actor=principal.subject,
+            action="core.schema.inspect",
+            resource="configured-connection",
+            outcome="rejected",
+            details={"reason": code},
+        )
+        raise PostgresHTTPError(code) from None
+    supported = []
+    unsupported = 0
+    for table in tables:
+        if scope.allowed_tables and table not in scope.allowed_tables:
+            continue
+        try:
+            SourceRequest.validate_allowed_tables((table,))
+        except ValueError:
+            unsupported += 1
+            continue
+        supported.append(table)
+    runtime.audit.append(
+        workspace_id=principal.workspace_id,
+        actor=principal.subject,
+        action="core.schema.inspect",
+        resource="configured-connection",
+        outcome="allowed",
+        details={"reason": "table_names_discovered", "table_count": len(supported)},
+    )
+    return {"tables": supported, "truncated": truncated, "unsupported_count": unsupported}
+
+
 @app.get("/api/health")
 def health():
     settings = runtime.settings

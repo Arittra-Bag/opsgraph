@@ -575,6 +575,7 @@
     if (rejected.some(item => item.reason.status === 401)) { state.authenticated = false; throw rejected.find(item => item.reason.status === 401).reason; }
     if (rejected.length) notice('#globalError', rejected.map(item => item.reason.message).join('\n'));
     readiness();
+    if (state.savedConnection && !state.sources.length && $('#sourceSetup').hidden) sourceSetup();
   }
   async function connectWorkspace(event) {
     const restoreFocus = guardAsyncFocus($('#saveCredential'), $('#workspace'));
@@ -596,7 +597,7 @@
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
   function clearWorkspace() {
-    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
+    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); $('#tableChoices').replaceChildren(); $('#tableDiscovery').hidden = true; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
     state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
@@ -608,6 +609,35 @@
     $('#providerTestStatus').textContent = 'Connect your workspace to view the current model connection check.'; $('#sourceSetup').hidden = true; $('#sourceForm').reset();
     ['#globalError', '#composerError', '#credentialError', '#sourceError', '#providerError', '#skillError'].forEach(id => notice(id));
     renderHistory(); readiness(); closeDrawer();
+  }
+  async function discoverConnectionTables() {
+    const token = state.sourceSetupToken; const epoch = state.authEpoch;
+    if (!state.savedConnection || $('#sourceSecretRef').value !== state.savedConnection.secret_ref) return;
+    $('#tableDiscovery').hidden = false; $('#retryTableDiscovery').disabled = true;
+    $('#tableDiscoveryStatus').textContent = 'Finding readable tables. Only table names are fetched, no records or model calls.';
+    $('#tableChoices').replaceChildren();
+    try {
+      const result = await api('/api/postgres/discover-tables', { method: 'POST' });
+      if (token !== state.sourceSetupToken || epoch !== state.authEpoch) return;
+      const selected = new Set($('#sourceTables').value.split(',').map(value => value.trim()).filter(Boolean));
+      for (const name of result.tables) {
+        const label = document.createElement('label'); const checkbox = document.createElement('input');
+        label.className = 'checkbox-label'; checkbox.type = 'checkbox'; checkbox.checked = selected.has(name);
+        checkbox.addEventListener('change', () => {
+          const choices = new Set($('#sourceTables').value.split(',').map(value => value.trim()).filter(Boolean));
+          if (checkbox.checked && choices.size >= 100 && !choices.has(name)) { checkbox.checked = false; $('#tableDiscoveryStatus').textContent = 'Select at most 100 tables per source. Create another source for additional tables.'; return; }
+          if (checkbox.checked) choices.add(name); else choices.delete(name);
+          $('#sourceTables').value = [...choices].join(', '); markSourceDirty();
+        });
+        label.append(checkbox, document.createTextNode(name)); $('#tableChoices').append(label);
+      }
+      $('#tableDiscoveryStatus').textContent = result.tables.length ? 'Select up to 100 tables, then save and check access. Nothing is approved automatically.' : 'No readable tables found in your approved database groups. Check the login permissions or enter table names below.';
+      if (result.truncated) $('#tableDiscoveryStatus').textContent += ' Showing the first 500 tables. You can enter other exact names below.';
+      if (result.unsupported_count) $('#tableDiscoveryStatus').textContent += ' Some names need quoted identifiers, which this version does not support.';
+    } catch (error) {
+      if (token !== state.sourceSetupToken || epoch !== state.authEpoch) return;
+      $('#tableDiscoveryStatus').textContent = `${error.message} Retry or enter table names below.`; sourceDiagnostic(error);
+    } finally { if (token === state.sourceSetupToken && epoch === state.authEpoch) $('#retryTableDiscovery').disabled = false; }
   }
   function sourceSetup(source = null) {
     const token = ++state.sourceSetupToken;
@@ -639,6 +669,8 @@
         if (error.status !== 404) notice('#sourceError', error.message);
       });
     }
+    $('#tableDiscovery').hidden = true; $('#tableChoices').replaceChildren();
+    if (state.savedConnection && (!source || source.secret_ref === state.savedConnection.secret_ref)) discoverConnectionTables();
     $('#sourceSetupTitle').focus();
   }
   function markSourceDirty() {
@@ -1010,6 +1042,7 @@
   $('#drawerBackdrop').addEventListener('click', () => closeDrawer());
   ['#openCredential', '#setupCredential'].forEach(id => $(id).addEventListener('click', event => openDrawer('credentialDrawer', event.currentTarget)));
   $('#credentialForm').addEventListener('submit', connectWorkspace); $('#clearCredential').addEventListener('click', clearWorkspace);
+  $('#retryTableDiscovery').addEventListener('click', discoverConnectionTables);
   $('#finishSavedConnection').addEventListener('click', () => sourceSetup());
   $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
   $('#setupReadiness').addEventListener('click', () => sourceSetup(sourceForReadinessSetup()));

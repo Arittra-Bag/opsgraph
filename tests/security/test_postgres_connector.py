@@ -538,3 +538,19 @@ def test_oversized_schema_metadata_preserves_scope_diagnostic():
             cursor, allowed_schemas=("public",), allowed_tables=("public.records",)
         )
     assert failure.value.diagnostic_code == "schema_too_large"
+
+
+def test_table_name_discovery_is_bounded_read_only_and_cleans_up():
+    connection = FakeConnection()
+    connection.cursor().fetchall = lambda: [("public", f"table_{index}") for index in range(501)]
+    executor = PsycopgReadOnlyExecutor(
+        "host=localhost", connector=lambda *args, **kwargs: connection
+    )
+    tables, truncated = executor.discover_tables(allowed_schemas=("public",))
+    assert len(tables) == 500
+    assert truncated is True
+    executed = connection.cursor().executed
+    assert ("BEGIN READ ONLY", None) in executed
+    assert any("LIMIT 501" in sql and "has_any_column_privilege" in sql for sql, _ in executed)
+    assert all(not sql.startswith("SELECT * FROM") for sql, _ in executed)
+    assert connection.closed

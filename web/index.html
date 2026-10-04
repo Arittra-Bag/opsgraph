@@ -107,6 +107,7 @@
             <label for="sourceName">Display name</label><input id="sourceName" required placeholder="Staging PostgreSQL">
             <details class="source-advanced"><summary>Connection reference and source identity</summary><label for="sourceId">Source ID</label><input id="sourceId" required pattern="[a-z][a-z0-9\-]{1,63}" placeholder="staging-readonly"><label for="sourceSecretRef">DSN environment variable name</label><input id="sourceSecretRef" required pattern="[A-Z][A-Z0-9_]{2,127}" placeholder="OPSGRAPH_SOURCE_DSN"><small>Must be approved by OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS. Never enter the connection URL.</small></details>
             <label for="sourceSchemas">Allowed schemas</label><input id="sourceSchemas" required value="public">
+            <section id="tableDiscovery" hidden><h3>Choose your tables</h3><p id="tableDiscoveryStatus" class="helper" role="status"></p><div id="tableChoices"></div><button class="secondary" id="retryTableDiscovery" type="button">Refresh table list</button></section>
             <label for="sourceTables">Explicit allowed tables</label><input id="sourceTables" required placeholder="public.jobs, public.queues">
             <div id="inspectedTables" hidden></div>
             <section class="readiness-panel" id="sourceReadinessPanel" aria-labelledby="sourceReadinessTitle" hidden>

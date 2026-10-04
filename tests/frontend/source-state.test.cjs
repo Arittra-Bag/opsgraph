@@ -11,7 +11,7 @@ function fixture() {
   const $ = selector => {
     if (!nodes.has(selector)) nodes.set(selector, {
       value: '', checked: false, textContent: '', innerHTML: '', hidden: false,
-      disabled: false, dataset: {},
+      disabled: false, dataset: {}, replaceChildren() {},
     });
     return nodes.get(selector);
   };
