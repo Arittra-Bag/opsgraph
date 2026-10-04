@@ -575,9 +575,9 @@
     if (!current()) return;
     state.skills = skills;
     const selected = state.run?.skill_id || $('#investigationSkill').value;
-    $('#investigationSkill').innerHTML = '<option value="">General read-only</option>' + state.skills.filter(skill => skill.id !== 'generic-readonly').map(skill => `<option value="${esc(skill.id)}">${esc(skill.name)} · ${esc(skill.version)}</option>`).join('');
+    $('#investigationSkill').innerHTML = '<option value="">General read-only</option>' + state.skills.filter(skill => skill.id !== 'generic-readonly').map(skill => `<option value="${esc(skill.id)}">${esc(skill.name)} · Playbook revision ${esc(skill.version)}</option>`).join('');
     if (selected) $('#investigationSkill').value = selected === 'generic-readonly' ? '' : selected;
-    $('#skillCatalog').innerHTML = state.skills.map(skill => `<article><p class="eyebrow">${esc(skill.id)} · ${esc(skill.version)}</p><h2>${esc(skill.name)}</h2><p>${esc(skill.purpose)}</p><p>Required evidence: ${esc((skill.required_evidence || []).join(', ') || 'No specialist evidence types')}</p><p>Tools: ${esc((skill.tools || []).map(binding => binding.tool).join(', '))}</p><button class="secondary" data-view="sources">Configure source mappings</button></article>`).join('') || '<p>No published playbooks available.</p>';
+    $('#skillCatalog').innerHTML = state.skills.map(skill => `<article><p class="eyebrow">${esc(skill.id)}</p><h2>${esc(skill.name)}</h2><p>Playbook revision: ${esc(skill.version)}</p><p>${esc(skill.purpose)}</p><p>Required evidence: ${esc((skill.required_evidence || []).join(', ') || 'No specialist evidence types')}</p><p>Tools: ${esc((skill.tools || []).map(binding => binding.tool).join(', '))}</p><button class="secondary" data-view="sources">Configure source mappings</button></article>`).join('') || '<p>No published playbooks available.</p>';
     renderComposerScope();
   }
   async function loadHistory() {

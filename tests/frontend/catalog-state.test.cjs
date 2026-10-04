@@ -157,3 +157,13 @@ test('a new draft save waits for the approved publication request to finish', as
   f.requests[1].resolve({}); await saving;
   assert.equal(f.state.savedSkill, 'same-playbook'); assert.match(f.$('#skillStatus').textContent, /Validated draft saved/);
 });
+
+test('playbook revisions are labelled separately from application releases', async () => {
+  const f = fixture();
+  f.context.api = async () => [{ id: 'schema-impact', name: 'Schema impact', version: '0.1.0', purpose: 'Inspect changes', tools: [] }];
+  await f.context.loadSkills();
+  assert.match(f.$('#skillCatalog').innerHTML, /Playbook revision: 0\.1\.0/);
+  assert.doesNotMatch(f.$('#skillCatalog').innerHTML, /schema-impact · 0\.1\.0/);
+  assert.match(f.$('#investigationSkill').innerHTML, /Playbook revision 0\.1\.0/);
+  assert.equal(f.state.skills[0].version, '0.1.0');
+});
