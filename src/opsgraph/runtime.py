@@ -16,6 +16,7 @@ from opsgraph.config import Settings, get_settings
 from opsgraph.domain import Obligation, ToolDefinition, ToolRegistry
 from opsgraph.persistence import SQLiteWorkspaceStore
 from opsgraph.policy import FailClosedPolicy, StaticPolicyEvaluator
+from opsgraph.provider_readiness import ProviderVerification
 from opsgraph.providers import ModelProvider, ProviderConfig, create_provider
 from opsgraph.schema_service import PostgresSchemaParser
 from opsgraph.setup import SetupError
@@ -38,8 +39,9 @@ class Runtime:
     tools: ToolRegistry
     skills: SkillRepository
     provider: ModelProvider
-    provider_lock: object = field(default_factory=RLock)
+    provider_lock: AbstractContextManager[bool] = field(default_factory=RLock)
     provider_revision: str = field(default_factory=lambda: uuid4().hex)
+    provider_verification: ProviderVerification = field(default_factory=ProviderVerification)
     skill_lock: AbstractContextManager[bool] = field(default_factory=RLock)
 
 

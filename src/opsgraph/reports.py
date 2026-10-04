@@ -38,8 +38,12 @@ def _clean(value: Any) -> str:
 
 def _text(value: Any) -> str:
     """Escape untrusted text so report prose cannot introduce links or HTML."""
-    value = html.escape(" ".join(_clean(value).split()), quote=True)
-    return re.sub(r"([\\`*_{}\[\]()#+.!|~\-])", r"\\\1", value)
+    value = html.escape(" ".join(_clean(value).split()), quote=False)
+    value = re.sub(r"([\\`*_{}\[\]|~])", r"\\\1", value)
+    # Ordinary punctuation stays readable. Only line-leading punctuation can
+    # introduce block structure after whitespace has been flattened.
+    value = re.sub(r"^([#+\-=])", r"\\\1", value)
+    return re.sub(r"^(\d{1,9})([.)])(?=\s)", r"\1\\\2", value)
 
 
 def _block(value: str, language: str = "text") -> str:

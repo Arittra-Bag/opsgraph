@@ -37,6 +37,9 @@ correct interpretation.
   the report, its provenance, or the truth of a conclusion.
 
 Untrusted prose is escaped and SQL or record blocks use bounded section fences.
+Quotes, timestamps, identifiers, and ordinary punctuation remain readable in
+the Markdown source. Escaping protects report structure without modifying the
+saved evidence or canonical JSON export.
 Reports contain no credential configuration, provider endpoints, or canonical
 hash-input dump. Source content can still contain secrets if a selected question,
 query, claim, or record contains them. Use the original JSON export for detailed

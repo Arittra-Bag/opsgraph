@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from opsgraph.api.dependencies import require_principal, require_workspace
 from opsgraph.domain import Principal
+from opsgraph.provider_readiness import ProviderVerification
 from opsgraph.provider_settings import (
     ProviderSettingsRequest,
     make_config,
@@ -151,6 +152,7 @@ def router_for(runtime, run_api):
                 ) from None
             runtime.provider = provider
             runtime.provider_revision = revision
+            runtime.provider_verification = ProviderVerification()
             runtime.settings.model_provider = config.kind
             runtime.settings.local_model = config.model
             runtime.settings.anthropic_model = config.model

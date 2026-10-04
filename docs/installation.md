@@ -127,6 +127,32 @@ user profile and verify inherited ACLs; POSIX mode bits are not a Windows ACL.
 
 ## Source and model setup
 
+### Model connection checks
+
+Saving model settings does not check whether the model exists or can answer.
+In Settings, run **Test actual model connection**. This sends a small structured
+request without database records, schema, or an investigation question.
+
+A passing check stays valid for 15 minutes in the running backend. A new check
+clears the earlier result immediately. Failure, expiry, saved configuration
+changes, and backend restarts require another check. Reloading the browser can
+reuse a still-valid check from the same backend. No check runs automatically.
+Source inspection and its approved readiness read remain separate requirements.
+A connection check does not qualify full investigation behavior or answer quality.
+
+For Ollama, run `ollama list` on the computer running the model service. If the
+selected model is absent, download that exact model with `ollama pull MODEL_NAME`,
+then repeat the connection check. Choose a model that fits the available RAM.
+OpsGraph does not install a model runtime or download model files.
+
+`GET /api/health` remains a liveness response. Its legacy `investigation_ready`
+field now means a configured real provider has a recent successful connection
+check. `readiness_scope` explicitly limits this to model connectivity. It does
+not establish that any selected source is approved or reachable. Authenticated
+`GET /api/providers/current` reports the connection check state, configuration
+revision, check time, expiry, and remaining validity without invoking the model.
+Use `/api/ready` for local service health, not model or database qualification.
+
 1. Provision a dedicated PostgreSQL login without elevated privileges, role
    inheritance granting write access, or ownership of target objects. Grant
    schema USAGE and SELECT only on the intended tables. Set its backend DSN in

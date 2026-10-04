@@ -28,6 +28,7 @@ def probe_api(tmp_path):
         ),
         invoke_structured=lambda request: calls.append(request),
         audit=runtime.audit,
+        runtime=runtime,
     )
     service = RunAPI(runtime, lambda *args: None)
     app = FastAPI()
@@ -81,7 +82,16 @@ def test_probe_calls_model_with_no_source_data_and_preserves_success_contract(pr
     audit = provider.audit.entries[-1]
     assert audit.action == "core.provider.test" and audit.outcome == "allowed"
     assert audit.details["reason"] == "structured_probe_succeeded"
-    assert set(audit.details) == {"reason", "adapter", "preset", "duration_ms"}
+    assert set(audit.details) == {
+        "reason",
+        "adapter",
+        "preset",
+        "duration_ms",
+        "configuration_revision",
+        "probe_generation",
+    }
+    assert audit.details["configuration_revision"] == response.json()["configuration_revision"]
+    assert response.json()["verification"]["status"] == "verified"
 
 
 @pytest.mark.parametrize(
@@ -109,3 +119,84 @@ def test_probe_requires_authentication_before_invocation(probe_api):
     _, client, _, calls = probe_api
     assert client.post("/api/providers/current/test").status_code == 401
     assert calls == []
+
+
+def test_new_check_clears_success_before_invocation_and_failure_keeps_it_cleared(probe_api):
+    provider, client, headers, _ = probe_api
+    runtime = provider.runtime
+    provider.invoke_structured = lambda _: StructuredResponse(
+        provider=provider.config.kind, model=provider.config.model, output={"ok": True}
+    )
+    assert client.post("/api/providers/current/test", headers=headers).status_code == 200
+
+    def fail(_):
+        assert (
+            runtime.provider_verification.public(runtime.provider_revision)["status"] == "checking"
+        )
+        raise ProviderTimeoutError("timed out")
+
+    provider.invoke_structured = fail
+    assert client.post("/api/providers/current/test", headers=headers).status_code == 504
+    assert runtime.provider_verification.public(runtime.provider_revision)["status"] == "failed"
+
+
+def test_older_success_cannot_replace_a_newer_check(probe_api):
+    provider, client, headers, _ = probe_api
+    runtime = provider.runtime
+
+    def newer_check(_):
+        generation = runtime.provider_verification.begin(runtime.provider_revision)
+        runtime.provider_verification.finish(runtime.provider_revision, generation, success=False)
+        return StructuredResponse(
+            provider=provider.config.kind, model=provider.config.model, output={"ok": True}
+        )
+
+    provider.invoke_structured = newer_check
+    assert client.post("/api/providers/current/test", headers=headers).status_code == 409
+    assert runtime.provider_verification.public(runtime.provider_revision)["status"] == "failed"
+
+
+def test_configuration_change_during_check_does_not_verify_new_configuration(probe_api):
+    provider, client, headers, _ = probe_api
+    runtime = provider.runtime
+
+    def change(_):
+        runtime.provider_revision = "replacement-revision"
+        return StructuredResponse(
+            provider=provider.config.kind, model=provider.config.model, output={"ok": True}
+        )
+
+    provider.invoke_structured = change
+    assert client.post("/api/providers/current/test", headers=headers).status_code == 409
+    assert runtime.provider_verification.public(runtime.provider_revision)["status"] == "untested"
+
+
+def test_audit_failure_never_leaves_success_or_exposes_storage_details(probe_api, monkeypatch):
+    provider, client, headers, _ = probe_api
+    runtime = provider.runtime
+    provider.invoke_structured = lambda _: StructuredResponse(
+        provider=provider.config.kind, model=provider.config.model, output={"ok": True}
+    )
+
+    def unavailable(**_):
+        raise OSError("private storage path and key")
+
+    monkeypatch.setattr(runtime.audit, "append", unavailable)
+    response = client.post("/api/providers/current/test", headers=headers)
+    assert response.status_code == 503
+    assert "private storage path" not in response.text
+    assert runtime.provider_verification.public(runtime.provider_revision)["status"] == "failed"
+
+
+def test_ollama_failure_explains_missing_model_recovery(probe_api):
+    provider, client, headers, _ = probe_api
+    provider.config = provider.config.model_copy(update={"provider_preset": "ollama"})
+
+    def missing(_):
+        raise ProviderInvocationError("model or API route not found")
+
+    provider.invoke_structured = missing
+    response = client.post("/api/providers/current/test", headers=headers)
+    assert response.status_code == 422
+    assert "ollama list" in response.text
+    assert "ollama pull" in response.text

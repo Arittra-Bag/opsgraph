@@ -113,6 +113,11 @@ uncertainty reviewable.
 
 ## Evidence required before publishing `v1.0.0`
 
+The version in the source tree identifies the intended package version, not a
+completed publication or qualification. As of October 4, 2026, the latest GitHub
+release is the beta prerelease. Do not describe main-branch packages as a published
+stable release until the exact-revision gates below are complete.
+
 The tag must point to the reviewed merge commit. From that exact revision:
 
 1. All required GitHub checks pass, including lint, formatting, the complete

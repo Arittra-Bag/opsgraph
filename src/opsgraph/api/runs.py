@@ -21,7 +21,7 @@ from opsgraph.domain.models import stable_hash
 from opsgraph.orchestration.connected import _effective_obligations, run_connected
 from opsgraph.orchestration.coordinator import RunBlocked, RunCoordinator
 from opsgraph.persistence import WorkspaceRecord
-from opsgraph.persistence.runs import TERMINAL, QueueFull, RunStore, timestamp
+from opsgraph.persistence.runs import TERMINAL, QueueFull, RunStore
 from opsgraph.providers import (
     ChatMessage,
     ProviderError,
@@ -570,25 +570,49 @@ class RunAPI:
         def probe(principal: Annotated[Principal, Depends(require_principal)]):
             self.authorize(principal, "core.provider.test", "current-provider")
             started = time.monotonic()
-
-            def audit(outcome: str, reason: str, provider):
-                self.runtime.audit.append(
-                    workspace_id=principal.workspace_id,
-                    actor=principal.subject,
-                    action="core.provider.test",
-                    resource="current-provider",
-                    outcome=outcome,
-                    details={
-                        "reason": reason,
-                        "adapter": provider.config.kind,
-                        "preset": provider.config.provider_preset,
-                        "duration_ms": round((time.monotonic() - started) * 1_000),
-                    },
-                )
-
             with self.runtime.provider_lock:
                 provider = self.runtime.provider
                 configuration_revision = self.runtime.provider_revision
+                generation = self.runtime.provider_verification.begin(configuration_revision)
+
+            def audit(outcome: str, reason: str, provider):
+                with self.runtime.provider_lock:
+                    current = (
+                        self.runtime.provider is provider
+                        and self.runtime.provider_revision == configuration_revision
+                    )
+                    try:
+                        self.runtime.audit.append(
+                            workspace_id=principal.workspace_id,
+                            actor=principal.subject,
+                            action="core.provider.test",
+                            resource="current-provider",
+                            outcome=outcome,
+                            details={
+                                "reason": reason,
+                                "adapter": provider.config.kind,
+                                "preset": provider.config.provider_preset,
+                                "configuration_revision": configuration_revision,
+                                "probe_generation": generation,
+                                "duration_ms": round((time.monotonic() - started) * 1_000),
+                            },
+                        )
+                    except Exception:
+                        if current:
+                            self.runtime.provider_verification.finish(
+                                configuration_revision, generation, success=False
+                            )
+                        raise HTTPException(
+                            503,
+                            "Model check could not be recorded. Check private workspace storage.",
+                        ) from None
+                    if current:
+                        self.runtime.provider_verification.finish(
+                            configuration_revision,
+                            generation,
+                            success=reason == "structured_probe_succeeded",
+                        )
+
             if provider.config.kind == "deterministic":
                 audit("rejected", "provider_not_configured", provider)
                 raise HTTPException(409, "Configure a real local or hosted model provider.")
@@ -628,7 +652,14 @@ class RunAPI:
             except ProviderError as exc:
                 # Adapter errors are sanitized at their boundary; never expose SDK bodies.
                 audit("rejected", "provider_error", provider)
-                raise HTTPException(422, f"Model test failed. {exc}") from None
+                recovery = (
+                    " For Ollama, run ollama list on the model server. If the selected model "
+                    "is missing, download it with ollama pull followed by its model name, "
+                    "then try this check again. OpsGraph does not download models."
+                    if provider.config.provider_preset == "ollama"
+                    else ""
+                )
+                raise HTTPException(422, f"Model test failed. {exc}{recovery}") from None
             except Exception as exc:
                 audit("rejected", "invalid_probe_response", provider)
                 raise HTTPException(
@@ -637,21 +668,32 @@ class RunAPI:
                     "and server configuration.",
                 ) from exc
             with self.runtime.provider_lock:
-                if self.runtime.provider is not provider:
+                if (
+                    self.runtime.provider is not provider
+                    or self.runtime.provider_revision != configuration_revision
+                    or self.runtime.provider_verification.generation != generation
+                ):
                     audit("rejected", "configuration_changed", provider)
                     raise HTTPException(
-                        409, "Model configuration changed during this test. Test again."
+                        409,
+                        "Model configuration or connection check changed during this test. "
+                        "Try again.",
                     )
-            audit("allowed", "structured_probe_succeeded", provider)
-            return {
-                "ok": True,
-                "configuration_revision": configuration_revision,
-                "provider": provider.config.kind,
-                "model": provider.config.model,
-                "reported_model": response.reported_model,
-                "checked_at": timestamp(),
-                "health": {"status": "ready", "detail": "Real structured model call succeeded."},
-            }
+                audit("allowed", "structured_probe_succeeded", provider)
+                verification = self.runtime.provider_verification.public(configuration_revision)
+                return {
+                    "ok": True,
+                    "configuration_revision": configuration_revision,
+                    "provider": provider.config.kind,
+                    "model": provider.config.model,
+                    "reported_model": response.reported_model,
+                    "checked_at": verification["checked_at"],
+                    "verification": verification,
+                    "health": {
+                        "status": "ready",
+                        "detail": "Real structured model call succeeded.",
+                    },
+                }
 
     @asynccontextmanager
     async def lifespan(self, app):

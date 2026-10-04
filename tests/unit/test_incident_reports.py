@@ -72,7 +72,7 @@ def test_selected_report_includes_exact_retained_content_and_unresolved_referenc
     assert "Sensitive row" in text
     assert "SELECT 'Sensitive SQL'" in text
     assert "Unresolved reference" in text
-    assert "missing\\-hash" in text
+    assert "missing-hash" in text
     assert "Truncated: Yes" in text
     assert "FORBIDDEN" not in text
     assert "not independently verified" in text
@@ -125,6 +125,45 @@ def test_untrusted_markdown_html_controls_and_fences_cannot_escape_sections(reco
     assert "\u202e" not in text
     assert "`````sql\n" in text
     assert "\n`````\n" in text
+
+
+def test_report_preserves_readable_quotes_timestamps_and_identifiers(record):
+    record["answer"]["summary"] = "Processor fastpay recorded 'failed' payments."
+    record["answer"]["findings"][0]["claim"] = 'The error was "gateway_timeout" (50 payments).'
+    before = copy.deepcopy(record)
+    text = build_incident_report(record, ReportOptions(include_findings=True, include_scope=True))[
+        "markdown"
+    ]
+    assert "Investigation: run-123" in text
+    assert "2026-10-02T10:00:00Z" in text
+    assert "Permitted tables: public.records" in text
+    assert "Processor fastpay recorded 'failed' payments." in text
+    assert 'The error was "gateway\\_timeout" (50 payments).' in text
+    assert "&#x27;" not in text
+    assert "&quot;" not in text
+    assert record == before
+
+
+@pytest.mark.parametrize(
+    ("value", "escaped"),
+    [
+        ("# Forged heading", "\\# Forged heading"),
+        ("- Forged list", "\\- Forged list"),
+        ("+ Forged list", "\\+ Forged list"),
+        ("---", "\\---"),
+        ("===", "\\==="),
+        ("1. Forged list", "1\\. Forged list"),
+        ("1) Forged list", "1\\) Forged list"),
+        ("> Forged quote", "&gt; Forged quote"),
+        ("[link](https://example.com)", "\\[link\\](https://example.com)"),
+        ("<https://example.com>", "&lt;https://example.com&gt;"),
+        ("&lt;script&gt;", "&amp;lt;script&amp;gt;"),
+    ],
+)
+def test_readable_prose_still_blocks_untrusted_markdown_structure(record, value, escaped):
+    record["question"] = value
+    text = build_incident_report(record, ReportOptions(include_question=True))["markdown"]
+    assert f"## Question\n\n{escaped}\n\n" in text
 
 
 def test_oversized_selection_can_be_retried_without_rows(record):
