@@ -46,6 +46,8 @@ def checkout(tmp_path):
     git(tmp_path, "clone", "--bare", str(source), str(remote))
     work = tmp_path / "checkout"
     git(tmp_path, "clone", str(remote), str(work))
+    git(work, "config", "user.name", "Release test")
+    git(work, "config", "user.email", "release@example.invalid")
     git(work, "checkout", "--detach", commit)
     return work, commit, tmp_path / "output"
 
