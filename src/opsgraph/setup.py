@@ -298,6 +298,7 @@ def run_setup(
     input_fn: Callable[[str], str] | None = None,
     secret_fn: Callable[[str], str] | None = None,
     output_fn: Callable[[str], object] = print,
+    prepared_database: str | None = None,
 ) -> int:
     """Prompt for backend configuration; browser inspection/probing stays mandatory."""
     ui = TerminalUI(output_fn)
@@ -308,6 +309,13 @@ def run_setup(
         workspace = ensure_private_directory(directory or default_workspace_directory())
         path = workspace / ".env"
         existing = read_private_config(path)
+        if prepared_database is not None and not path.exists():
+            existing.update(
+                {
+                    "OPSGRAPH_SOURCE_DSN": normalize_guided_dsn(prepared_database),
+                    "OPSGRAPH_POSTGRES_HOSTING": "local",
+                }
+            )
         if path.exists():
             output_fn(
                 "Saved settings found. Your history will stay safe. Setup uses the database "
@@ -378,30 +386,36 @@ def run_setup(
         known_hosting = {guide.id for guide in HOSTING_GUIDES}
         stored_hosting = existing.get("OPSGRAPH_POSTGRES_HOSTING")
         hosting_default = stored_hosting if stored_hosting in known_hosting else "self_hosted"
-        ui.menu(tuple((guide.id, guide.name) for guide in HOSTING_GUIDES), hosting_default)
-        selected_hosting = prompt(
-            "PostgreSQL hosting: where does your database run?",
-            hosting_default,
-            lambda value: _menu_choice(value, tuple(guide.id for guide in HOSTING_GUIDES)),
-            "Pick the company hosting your database, or Local PostgreSQL for this computer. "
-            "This selects instructions. It does not create or connect a database.",
-            hosting_guide(hosting_default).name,
-        )
+        if prepared_database is not None:
+            selected_hosting = "local"
+            output_fn("Your separate practice database connection is already prepared.")
+        else:
+            ui.menu(tuple((guide.id, guide.name) for guide in HOSTING_GUIDES), hosting_default)
+            selected_hosting = prompt(
+                "PostgreSQL hosting: where does your database run?",
+                hosting_default,
+                lambda value: _menu_choice(value, tuple(guide.id for guide in HOSTING_GUIDES)),
+                "Pick the company hosting your database, or Local PostgreSQL for this computer. "
+                "This selects instructions. It does not create or connect a database.",
+                hosting_guide(hosting_default).name,
+            )
         guide = hosting_guide(selected_hosting)
         output_fn(f"Selected: {guide.name}.")
-        output_fn(
-            "Paste your read-only connection string below. It contains the database address, "
-            "port, database name and login. Typing is hidden to protect its password."
-        )
-        output_fn(
-            "For a database on this computer, use its local address and port."
-            if selected_hosting == "local"
-            else "Remote connections must use sslmode=verify-full "
-            "and the provider's trusted certificate."
-        )
-        output_fn(
-            "Need connection instructions? Enter ? below. Connection checks run later in Sources."
-        )
+        if prepared_database is None:
+            output_fn(
+                "Paste your read-only connection string below. It contains the database address, "
+                "port, database name and login. Typing is hidden to protect its password."
+            )
+            output_fn(
+                "For a database on this computer, use its local address and port."
+                if selected_hosting == "local"
+                else "Remote connections must use sslmode=verify-full "
+                "and the provider's trusted certificate."
+            )
+            output_fn(
+                "Need connection instructions? Enter ? below. "
+                "Connection checks run later in Sources."
+            )
         database_help = "\n".join(
             (
                 "A connection string is also called a DSN. Ask your database administrator for "
@@ -415,25 +429,29 @@ def run_setup(
             )
         )
 
-        while True:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", getpass.GetPassWarning)
-                dsn = hidden(
-                    "Database connection string (hidden). Enter keeps a saved connection or skips. "
-                    "? shows help: "
-                ).strip()
-            if dsn == "?":
-                output_fn(database_help)
-                continue
-            if not dsn:
-                dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
-            if dsn:
-                try:
-                    dsn = normalize_guided_dsn(dsn)
-                except SetupError as error:
-                    output_fn(str(error))
+        if prepared_database is not None:
+            dsn = normalize_guided_dsn(prepared_database)
+        else:
+            while True:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", getpass.GetPassWarning)
+                    dsn = hidden(
+                        "Database connection string (hidden). Enter keeps a saved connection "
+                        "or skips. "
+                        "? shows help: "
+                    ).strip()
+                if dsn == "?":
+                    output_fn(database_help)
                     continue
-            break
+                if not dsn:
+                    dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
+                if dsn:
+                    try:
+                        dsn = normalize_guided_dsn(dsn)
+                    except SetupError as error:
+                        output_fn(str(error))
+                        continue
+                break
         output_fn(
             "Database connection entered. It will be saved after you confirm."
             if dsn

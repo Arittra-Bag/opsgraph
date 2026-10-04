@@ -187,3 +187,67 @@ guide, then inspect and approve a bounded readiness check. See
 [hosted PostgreSQL onboarding](hosted-postgresql.md).
 Saved investigations can produce a selectable Markdown report with a reviewed
 preview. See [incident reports](incident-reports.md).
+
+## No-code setup
+
+After cloning, run `python3 Start.py --no-code` on macOS/Linux or
+`py Start.py --no-code` on Windows. Python 3.9 or newer is required to start the
+installer. No SQL or configuration-file editing is required.
+
+1. Approve the application downloads on the first run. They go into
+   `.no-code-runtime`, separate from the existing `.venv` runtime.
+2. Choose **Try with practice data** or **Connect my database**.
+3. Choose a model service and enter its model name. Hosted services need your
+   own API key and explicit permission to send investigation data. Local model
+   services must already be running with a downloaded model.
+4. Review and save. For practice mode, approve the two invented-data tables and
+   a small test read. The launcher registers and inspects them through the same
+   authenticated, audited APIs used by the browser. Declining leaves source
+   setup for the browser. Changed source choices are preserved rather than replaced.
+5. In Settings, test the actual model connection. An installed client, successful
+   download or healthy API never stands in for this test. Start an investigation
+   only after the source and model checks pass.
+
+Practice mode creates 1,000 orders and 1,000 payments for an invented shop.
+Amounts are integer cents and timestamps use UTC. There are 50 failed fastpay
+payments with `gateway_timeout`, 450 succeeded fastpay payments and 500 succeeded
+steadypay payments. These deliberately reproducible records support a first
+investigation, not a claim of general model accuracy or production validation.
+
+Ask: "Count payments by processor, status and error_code. Which processor has
+failed payments, how many are there, and what error is recorded? Cite the evidence."
+Review the captured grouped counts and SQL before trusting the answer.
+
+The database uses a separate cluster directory, generated credentials and a
+loopback-only port. PostgreSQL 15-18 tools are detected from PATH or conventional
+installation locations. When no supported local runtime is installed, setup can
+use local Docker Desktop and the versioned `postgres:17.11` practice image after
+approval. A remote Docker service is not supported. No existing database service,
+Docker image, model runtime or application workspace is upgraded or reconfigured.
+If neither prerequisite is available, setup provides installation links and can
+be rerun, or you can choose an existing database instead.
+
+On normal shutdown or cancelled configuration, the owned practice database is
+stopped. Settings, records and investigation history are retained. Rerun the same
+command to resume. Forced process termination may leave the practice database
+running. After closing its application, stop it from the checkout with:
+
+```sh
+.no-code-runtime/bin/opsgraph no-code --stop
+```
+
+On Windows, use `.no-code-runtime\Scripts\opsgraph.exe no-code --stop`.
+Pass the same `--directory` if you chose a custom workspace. This stops only the
+owned practice service and never deletes data. One process at a time can use a
+given No-code workspace.
+
+Default workspaces are siblings of the normal OpsGraph workspace:
+`OpsGraph-Practice` for practice data and `OpsGraph-NoCode` for real connections.
+Use `--directory` for a separate private location and `--port` for a specific free
+browser port. Without `--port`, No-code setup chooses a free loopback port.
+Use `--configure` to review saved settings. Secrets stay in private files outside
+the checkout. Never share the practice service configuration or workspace `.env`.
+
+Practice setup never provisions cloud accounts, changes a real database or
+creates hosted model keys. Connecting your own database requires an authorized
+read-only login and explicit table selection in Sources.

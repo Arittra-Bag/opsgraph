@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import shutil
 import stat
@@ -17,6 +18,36 @@ from runpy import run_path
 TerminalUI = run_path(str(Path(__file__).parent / "src/opsgraph/terminal_ui.py"))["TerminalUI"]
 
 UV_VERSION = "0.9.26"
+
+
+def source_fingerprint(root: Path) -> str:
+    digest = hashlib.sha256()
+    paths = [
+        root / name for name in ("Start.py", "pyproject.toml", "uv.lock", "requirements-build.lock")
+    ]
+    paths.extend(
+        sorted(
+            path
+            for path in (root / "src").rglob("*")
+            if path.is_file() and "__pycache__" not in path.parts
+        )
+    )
+    for path in paths:
+        digest.update(str(path.relative_to(root)).encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def no_code_arguments(args: argparse.Namespace) -> list[str]:
+    result = ["-m", "opsgraph.cli", "no-code"]
+    if args.port is not None:
+        result.extend(("--port", str(args.port)))
+    if args.directory is not None:
+        result.extend(("--directory", str(args.directory)))
+    for flag in ("configure", "no_browser"):
+        if getattr(args, flag):
+            result.append("--" + flag.replace("_", "-"))
+    return result
 
 
 class StartError(RuntimeError):
@@ -175,9 +206,14 @@ def start(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--flow", choices=("quick", "advanced"))
     parser.add_argument("--directory", type=Path, help="private workspace location")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument(
+        "--no-code", action="store_true", help="open No-code setup with optional practice data"
+    )
     args = parser.parse_args(argv)
+    if args.no_code and args.flow:
+        parser.error("Choose --no-code or --flow, not both.")
     root = Path(__file__).resolve().parent
     ui = TerminalUI()
     try:
@@ -194,8 +230,32 @@ def start(argv: list[str] | None = None) -> int:
             )
         ):
             raise StartError("Run Start.py from a complete OpsGraph source checkout.")
-        if not 1024 <= args.port <= 65535:
+        if args.port is not None and not 1024 <= args.port <= 65535:
             raise StartError("Choose a local port between 1024 and 65535.")
+        runtime = root / (".no-code-runtime" if args.no_code else ".venv")
+        if runtime.exists() or runtime.is_symlink():
+            info = runtime.lstat()
+            if (
+                not stat.S_ISDIR(info.st_mode)
+                or stat.S_ISLNK(info.st_mode)
+                or getattr(info, "st_file_attributes", 0) & 0x400
+                or (os.name == "posix" and info.st_uid != os.getuid())
+            ):
+                raise StartError(
+                    "The installation runtime must be a directory you own, without a symlink or "
+                    "reparse point. Use a fresh checkout to avoid changing another runtime."
+                )
+        python = runtime / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        stamp = runtime / ".source-fingerprint"
+        fingerprint = source_fingerprint(root) if args.no_code else None
+        if args.no_code and stamp.is_file() and not stamp.is_symlink():
+            if python.is_file() and stamp.read_text() == fingerprint:
+                ui.write("No-code setup is already installed. Opening your saved setup.")
+                if args.install_only:
+                    return 0
+                return subprocess.call(  # noqa: S603
+                    [str(python), *no_code_arguments(args)], cwd=root, env=install_environment()
+                )
         ui.heading("Welcome to OpsGraph")
         ui.write("Ask questions about your PostgreSQL data. Check the records behind each answer.")
         ui.write("\nWhat happens next:")
@@ -218,20 +278,9 @@ def start(argv: list[str] | None = None) -> int:
         }:
             ui.write("Installation cancelled. No files were changed.")
             return 1
-        runtime = root / ".venv"
-        if runtime.exists() or runtime.is_symlink():
-            info = runtime.lstat()
-            if (
-                not stat.S_ISDIR(info.st_mode)
-                or stat.S_ISLNK(info.st_mode)
-                or getattr(info, "st_file_attributes", 0) & 0x400
-                or (os.name == "posix" and info.st_uid != os.getuid())
-            ):
-                raise StartError(
-                    "The existing .venv must be a directory you own, without a symlink or "
-                    "reparse point. Use a fresh checkout to avoid changing another runtime."
-                )
         environment = install_environment()
+        if args.no_code:
+            environment["UV_PROJECT_ENVIRONMENT"] = str(runtime)
         ui.heading("Installation 1 of 2: Prepare the software")
         with ui.progress("Preparing the installer"):
             uv = bootstrap_uv(root, environment)
@@ -255,7 +304,7 @@ def start(argv: list[str] | None = None) -> int:
                 "Private configuration is unchanged.",
             )
         ui.heading("Installation 2 of 2: Install OpsGraph")
-        python = root / (".venv/Scripts/python.exe" if os.name == "nt" else ".venv/bin/python")
+        python = runtime / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         with tempfile.TemporaryDirectory(prefix="opsgraph-install-") as directory:
             with ui.progress("Building OpsGraph"):
                 command(
@@ -296,9 +345,23 @@ def start(argv: list[str] | None = None) -> int:
                     environment,
                     "OpsGraph installation failed. Check disk space and retry.",
                 )
+        if args.no_code:
+            if fingerprint != source_fingerprint(root):
+                raise StartError("The checkout changed during installation. Rerun No-code setup.")
+            descriptor, temporary = tempfile.mkstemp(prefix=".source-fingerprint-", dir=runtime)
+            try:
+                with os.fdopen(descriptor, "w") as handle:
+                    handle.write(fingerprint)
+                os.replace(temporary, stamp)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
         if args.install_only:
             ui.write("\nInstalled. Run Start.py again to set up and open your private workspace.")
             return 0
+        if args.no_code:
+            return subprocess.call(  # noqa: S603
+                [str(python), *no_code_arguments(args)], cwd=root, env=install_environment()
+            )
         ui.heading("Installation complete. Let's set up your workspace.")
         launch = [
             uv,
@@ -306,10 +369,10 @@ def start(argv: list[str] | None = None) -> int:
             "--locked",
             "--no-sync",
             "opsgraph",
-            "launch",
-            "--port",
-            str(args.port),
+            "no-code" if args.no_code else "launch",
         ]
+        if args.port is not None or not args.no_code:
+            launch.extend(("--port", str(args.port or 8000)))
         for flag in ("configure", "no_browser"):
             if getattr(args, flag):
                 launch.append("--" + flag.replace("_", "-"))

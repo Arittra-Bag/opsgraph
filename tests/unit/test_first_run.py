@@ -349,3 +349,51 @@ def test_installer_does_not_modify_another_runtime_through_a_symlink(tmp_path, m
     assert first_run.start(["--yes", "--install-only"]) == 2
     assert marker.read_text() == "unchanged"
     assert sorted(p.name for p in unrelated.iterdir()) == ["preserved"]
+
+
+def test_no_code_installer_uses_separate_runtime_and_reuses_matching_install(tmp_path, monkeypatch):
+    root = checkout(tmp_path, monkeypatch)
+    original = root / ".venv"
+    original.mkdir()
+    marker = original / "existing-runtime"
+    marker.write_text("preserved")
+    installs, launches = [], []
+    monkeypatch.setattr(first_run, "bootstrap_uv", lambda *_: "/fixture/uv")
+
+    def install(args, cwd, env, failure):
+        installs.append(args)
+        assert env["UV_PROJECT_ENVIRONMENT"] == str(root / ".no-code-runtime")
+        if "sync" in args:
+            runtime = root / ".no-code-runtime"
+            runtime.mkdir(exist_ok=True)
+            directory = runtime / ("Scripts" if os.name == "nt" else "bin")
+            directory.mkdir()
+            (directory / ("python.exe" if os.name == "nt" else "python")).touch()
+        if "build" in args:
+            (Path(args[-1]) / "opsgraph-1.0.0-py3-none-any.whl").touch()
+
+    monkeypatch.setattr(first_run, "command", install)
+    monkeypatch.setattr(
+        first_run.subprocess, "call", lambda args, **kwargs: launches.append(args) or 0
+    )
+    assert first_run.start(["--no-code", "--yes"]) == 0
+    count = len(installs)
+    assert first_run.start(["--no-code"]) == 0
+    assert len(installs) == count
+    assert "no-code" in launches[0]
+    assert "--port" not in launches[0]
+    assert marker.read_text() == "preserved"
+    assert (root / ".no-code-runtime/.source-fingerprint").is_file()
+
+
+def test_no_code_fingerprint_changes_when_application_changes(tmp_path):
+    root = tmp_path
+    for name in ("Start.py", "pyproject.toml", "uv.lock", "requirements-build.lock"):
+        (root / name).write_text("initial")
+    source = root / "src/opsgraph"
+    source.mkdir(parents=True)
+    module = source / "module.py"
+    module.write_text("initial")
+    before = first_run.source_fingerprint(root)
+    module.write_text("updated")
+    assert before != first_run.source_fingerprint(root)

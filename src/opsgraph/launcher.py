@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -94,7 +95,13 @@ def bind_loopback(port: int) -> socket.socket:
 
 
 def launch(
-    directory: Path | None, port: int, *, configure: bool, browser: bool, flow: str = "choose"
+    directory: Path | None,
+    port: int,
+    *,
+    configure: bool,
+    browser: bool,
+    flow: str = "choose",
+    on_ready: Callable[[str], None] | None = None,
 ) -> int:
     from opsgraph.config import StatePathError, get_settings, resolve_state_path
     from opsgraph.setup import default_workspace_directory, read_private_config, run_setup
@@ -154,7 +161,7 @@ def launch(
         from opsgraph.api.app import app
 
         origin = f"http://127.0.0.1:{port}"
-        handoff = BrowserHandoff(settings.api_key, origin)
+        handoff = BrowserHandoff(settings.api_key, origin, lifetime=120 if on_ready else 60)
         attach_handoff(app, handoff)
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1"])
         server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, access_log=False))
@@ -163,7 +170,14 @@ def launch(
             deadline = time.monotonic() + 30
             while not server.started and time.monotonic() < deadline and not server.should_exit:
                 time.sleep(0.05)
-            if server.started and browser:
+            if server.started and on_ready is not None:
+                try:
+                    on_ready(origin)
+                except Exception:
+                    print(
+                        "Setup checks did not finish. Review Sources and Settings in the browser."
+                    )
+            if server.started and browser and not server.should_exit:
                 # Fragments are not sent to the server. The UI removes this
                 # one-use token immediately, before making a request.
                 try:

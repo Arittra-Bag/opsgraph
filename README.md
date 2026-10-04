@@ -49,6 +49,26 @@ cannot express before acting on an answer.
 
 ## Get started
 
+Want to try an investigation without creating your own database or writing SQL?
+Use **No-code setup** after cloning:
+
+```sh
+cd opsgraph
+python3 Start.py --no-code
+```
+
+On Windows, use `py Start.py --no-code`. Choose **Try with practice data** or
+**Connect my database**. Practice mode creates a separate local database with
+invented records and a restricted read-only login. It uses an installed PostgreSQL
+15-18 runtime, or a running local Docker Desktop installation. It does not install
+those prerequisites or download model files. Choose a hosted model with your own
+API key, or an already running local model.
+
+No-code setup has its own Python runtime and workspace. Existing Quick and
+Advanced setups remain available below. Repeat the same command to resume without
+reinstalling when the source has not changed. [Full setup guide](docs/quickstart.md#no-code-setup).
+
+
 You need:
 
 - Python 3.9 or newer to run the source installer, Git, and a modern browser.

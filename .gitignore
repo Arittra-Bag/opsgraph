@@ -21,3 +21,6 @@ secrets/
 *.zip
 
 .bootstrap/
+.no-code-runtime/
+.practice/
+.no-code-lock
