@@ -1,131 +1,72 @@
-# OpsGraph 1.0 release candidate
+# OpsGraph 1.0.0
 
-These notes describe the intended stable release inside a deliberately narrow boundary:
-one trusted operator, a private self-hosted instance, PostgreSQL sources, and
-bounded read-only investigations.
+OpsGraph is a private, self-hosted workspace for investigating PostgreSQL data.
+Ask a question, inspect the SQL and captured records, then continue in the same
+conversation. This release supports one trusted operator and bounded read-only
+access.
 
-Publication is pending the exact-revision gates in production readiness.
-The package version alone does not establish a published stable release.
+## Changes
 
-## What changed
+- Persistent investigation conversations with multiple turns, fresh follow-up
+  queries, retries and retained evidence.
+- No-code setup with practice data, an interactive terminal flow and table
+  discovery before explicit access approval.
+- Connection guidance for local PostgreSQL, Supabase, Neon, AWS RDS, Google
+  Cloud SQL, Azure and DigitalOcean, with safe connection diagnostics.
+- Readable Markdown incident reports with a preview and a choice of which
+  evidence sections to include.
+- Backend-held model configuration, explicit consent for external processing
+  and a real model connection check before investigating.
+- Stronger handling of malformed credentials and policy decisions, outdated
+  browser responses and overlapping playbook saves.
+- Private temporary practice credentials and the urllib3 2.8.0 security update.
+- A release badge that includes earlier prereleases and links to the complete
+  release history.
 
-- Model readiness requires a real connection check. Checks expire after 15
-  minutes and are invalidated by new tests, configuration changes, or restart.
-  Concurrent and failed checks cannot restore an older successful result.
-- Incident Markdown exports preserve readable quotes, timestamps, and ordinary
-  punctuation while retaining protection against report markup injection.
+## Getting started
 
-- A four-step first-run path connects the workspace, inspects an exact source,
-  tests a real model configuration, and requires an operator-approved bounded
-  database readiness read.
-- Source setup generates least-privilege PostgreSQL role SQL for administrator
-  review. OpsGraph never executes the guide or creates a password.
-- Remote PostgreSQL requires certificate and hostname verification by default.
-  Effective relation and column privileges, inherited roles, ownership, and
-  `PUBLIC` grants are checked before a source is accepted.
-- Query execution binds the schema fingerprint and SQL to one repeatable-read,
-  read-only snapshot.
-- Provider settings expose the preset, adapter, exact model, profile, reasoning
-  option, timeout, output-token bound, endpoint, and egress choice. API keys
-  remain write-only.
-- Durable runs fail visibly when projection, audit, or terminal-state recording
-  cannot complete. Startup recovers interrupted work without replaying database
-  queries.
-- The readiness endpoint validates local state schemas, rollback-only writes,
-  and coordinator health.
-- Linux CI exercises a connected PostgreSQL 17.7 control path with a real
-  least-privilege role and deterministic model-protocol fixture. Native package
-  and bundle checks continue on Linux, macOS, and Windows.
+After cloning the repository:
 
-## Upgrade notes
+```sh
+cd opsgraph
+python3 Start.py --no-code
+```
 
-Back up the complete private workspace before upgrading. Existing sources must
-be inspected again and pass the new readiness check. Open and re-save the
-provider configuration, then run the actual model probe. Remote PostgreSQL DSNs
-need `sslmode=verify-full` unless the deployment deliberately enables the
-documented compatibility override.
+On Windows, use `py Start.py --no-code`. Choose practice data or connect your
+own database. A model service and a database login with read-only access are
+required. PostgreSQL and model files are not installed automatically.
 
-Read [migration](../migration.md), [installation](../installation.md), and the
-[support matrix](support-matrix.md) before replacing an existing instance.
+## Upgrading
 
-## Supported boundary
+Back up your complete private workspace first. Reinspect existing sources,
+run their readiness checks and test the saved model connection after restarting.
+Remote PostgreSQL connections require `sslmode=verify-full` by default.
 
-Keep OpsGraph on loopback or a private network. The workspace key is a local
-control, not team identity, SSO, tenant isolation, or enterprise RBAC.
-PostgreSQL is the only source connector. Database writes, automatic remediation,
-executable plug-ins, model discovery, and automatic provider fallback are not
-included.
+See the [upgrade guide](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/migration.md)
+and [setup guide](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/quickstart.md).
 
-Citations and hashes identify captured evidence; they do not prove the model's
-business interpretation. Review SQL, records, scope, collection time, and
-missing definitions before acting on a finding.
+## Packages and validation
 
-## Release artifacts
+The release workflow checks the Python and frontend suites, the connected
+PostgreSQL control path, native bundles for Linux, macOS and Windows, and Linux
+amd64 and arm64 container images. The arm64 container check runs under QEMU.
 
-When `v1.0.0` is published, use matching artifacts and verify the release-level
-`SHA256SUMS` before installation. Native CPython 3.11 bundles are intended for
-Ubuntu 24.04 x64, Windows Server 2025 x64, and macOS 26 arm64. Each bundle
-contains a generated inventory for its exact wheelhouse and has a matching
-acceptance receipt.
+Download matching artifacts and verify `SHA256SUMS` before installation.
+Packages include the application wheel, source distribution, offline bundles,
+third-party source archives and validation receipts. See the
+[distribution guide](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/release/distribution.md)
+for platforms, files and checksum scopes.
 
-The application wheel and source distribution are accompanied by a verified
-third-party source supplement. The container package contains Linux amd64 and
-Linux arm64 images only; the arm64 runtime check uses QEMU on Ubuntu. The
-published index is assembled from the exact accepted platform images and its
-digest is recorded with both platform digests. It is not a Windows or macOS
-container image.
+## Scope and limitations
 
-See [stable distribution](distribution.md) for the complete file list, checksum
-scopes, source/notice relationship, receipts, and container tag contract.
+PostgreSQL is the only database connector. Keep the workspace on loopback or a
+private network. Team accounts, database writes and automatic remediation are
+not included.
 
-The final tag gate is recorded in
-[production readiness](../production-readiness.md#evidence-required-before-publishing-v100).
+Provider fixtures test the control path, not model answer quality. Hosted
+connection guidance does not certify every provider or network configuration.
+Review the SQL, captured records and missing business definitions before acting
+on a finding. Reports do not automatically redact sensitive data.
 
-## Guided PostgreSQL investigations
-
-- First-class connection guidance for local PostgreSQL, remote or self-hosted
-  servers, Supabase, Neon, AWS RDS, Google Cloud SQL, Azure, and DigitalOcean.
-  All routes share the existing read-only connector and require actual inspection
-  and readiness checks.
-- Safe connection diagnostics explain recoverable categories and next steps
-  without returning credentials or raw driver errors.
-- Selectable incident reports use saved evidence and recorded execution scope.
-  Preview, review confirmation, local Markdown download, and copy are available.
-  SQL and source records remain excluded until explicitly selected.
-- Partial captures remain visible when an investigation ends without a model
-  assessment. Report previews are invalidated when their saved snapshot changes.
-
-Managed-service guidance is not provider certification. Network routes, database
-grants, certificate trust, cloud resources, and token renewal remain separately
-managed by the operator. Model assessments still require evidence review.
-
-## Guided first run from source
-
-- A single `python3 Start.py` command installs locked dependencies and opens the
-  private workspace. Windows uses `py Start.py`. Downloads require consent.
-- Quick setup uses recommended defaults. Advanced setup exposes schema, endpoint,
-  output-profile, reasoning and timeout controls. Both show a credential-free
-  review before saving and require explicit consent for external model egress.
-- Terminal setup offers the same named provider presets as browser Settings.
-  Source inspection, bounded readiness and real model probing remain mandatory.
-- Missing database credentials can be deferred to the browser's administrator
-  role guide. Cancelling or retrying setup preserves existing private configuration.
-- Hosted guidance clarifies Supabase address-family/pooler choices and DigitalOcean
-  networking, database/user selection and cluster-CA configuration.
-
-## Optional-child count correctness
-
-- Planning guidance distinguishes actual child rows from an empty outer-join row.
-  Empty parents should have zero child rows and zero missing measurements.
-- A narrow pre-execution check rejects wildcard or constant counts of synthetic
-  outer-join rows for explicit child-row and NULL-value metrics on an
-  operator-defined relationship. The existing single correction attempt applies,
-  then an inconsistent plan stops without querying.
-- A measurement threshold with an explicitly unavailable source-unit definition
-  requires clarification before inference or querying. Requested units are never
-  treated as a definition of the stored values by this check.
-- Real-model metering scenarios now include a probe with no readings. Exact-result
-  checks cover its zero counts and NULL minimum and maximum values.
-
-These checks do not prove general query correctness. Review model conclusions
-against the recorded SQL, bounded source values and operator definitions.
+See the [support matrix](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/release/support-matrix.md)
+for tested environments and limits.
