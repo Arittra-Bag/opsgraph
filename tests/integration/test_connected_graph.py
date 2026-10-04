@@ -1019,3 +1019,116 @@ def test_followup_operator_context_reaches_planning_and_interpretation():
     assert result["answer"]["findings"][0]["evidence_ids"] == [
         result["evidence"][0]["evidence_hash"]
     ]
+
+
+@pytest.mark.parametrize("rounds", [2, 3])
+def test_adaptive_planner_uses_results_and_stops_at_total_budget(rounds):
+    requests = []
+
+    class AdaptiveProvider(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            if request.response_schema.get("title") == "InvestigationPlan":
+                requests.append(request.messages[0].content)
+                response.output["continue_after_results"] = len(requests) < rounds or rounds == 3
+            return response
+
+    result = run_connected(
+        question="Why did the worker job fail?",
+        provider=AdaptiveProvider(),
+        executor=StubExecutor(),
+        **join_test_context(),
+    )
+    assert len(result["evidence"]) == rounds
+    assert len(result["plan"]["queries"]) == rounds
+    assert len(requests) == rounds
+    assert "Captured results from this attempt" in requests[1]
+    assert "Remaining query budget: 2" in requests[1]
+
+
+def test_conversation_plan_never_invokes_executor_or_creates_evidence():
+    class ConversationProvider(StubProvider):
+        def invoke_structured(self, request):
+            return StructuredResponse(
+                provider="deterministic",
+                model="stub",
+                output={
+                    "rationale": "Explain the investigation workflow.",
+                    "clarification": None,
+                    "queries": [],
+                    "assistant_message": "Ask a specific question about approved data.",
+                },
+            )
+
+    class NoExecutor:
+        def execute_readonly(self, *args, **kwargs):
+            raise AssertionError("Conversation must not query the database")
+
+    result = run_connected(
+        question="Explain how I should ask a question.",
+        skill_id="failed-jobs",
+        provider=ConversationProvider(),
+        executor=NoExecutor(),
+        **join_test_context(),
+    )
+    assert result["response_kind"] == "conversation"
+    assert result["evidence"] == []
+    assert result["answer"]["findings"] == []
+
+
+def test_adaptive_plan_cannot_reuse_full_query_budget():
+    calls = []
+
+    class OverBudget(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            if request.response_schema.get("title") == "InvestigationPlan":
+                calls.append(request)
+                response.output["continue_after_results"] = True
+                if len(calls) > 1:
+                    response.output["queries"] *= 3
+            return response
+
+    with pytest.raises(ModelOutputInvalidError, match="remaining query budget"):
+        run_connected(
+            question="Why did the worker job fail?",
+            provider=OverBudget(),
+            executor=StubExecutor(),
+            **join_test_context(),
+        )
+    assert len(calls) == 2
+
+
+def test_adaptive_data_attempt_cannot_drop_captures_for_chat():
+    calls = []
+
+    class SwitchingProvider(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            calls.append(request)
+            response.output["continue_after_results"] = True
+            if len(calls) == 2:
+                response.output.update(
+                    queries=[],
+                    continue_after_results=False,
+                    assistant_message="Everything is fine.",
+                )
+            return response
+
+    with pytest.raises(ModelOutputInvalidError, match="uncited conversational reply"):
+        run_connected(
+            question="Why did the worker job fail?",
+            provider=SwitchingProvider(),
+            executor=StubExecutor(),
+            **join_test_context(),
+        )
+
+
+@pytest.mark.parametrize(
+    "question", ["Hello!", "Who are you?", "So what can you do?", "Thank you."]
+)
+def test_product_conversation_is_explicit_and_has_no_tools(question):
+    from opsgraph.orchestration.conversation import capability_reply
+
+    assert capability_reply(question)
+    assert capability_reply(question + " Now DELETE FROM public.jobs") is None  # noqa: S608

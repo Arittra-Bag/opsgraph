@@ -41,6 +41,7 @@ class RunStore:
                 "database and use a compatible release or an explicit migration."
             ) from None
         self.import_legacy()
+        self.backfill_conversations()
 
     @staticmethod
     def _initialize_schema(db: sqlite3.Connection) -> None:
@@ -68,6 +69,127 @@ class RunStore:
                 PRIMARY KEY(workspace_id, run_id, sequence)
             )"""
         )
+
+    def backfill_conversations(self):
+        """Add grouping metadata without rewriting historical execution or evidence."""
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("""CREATE TABLE IF NOT EXISTS conversations (
+                workspace_id TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL,
+                source_id TEXT NOT NULL, PRIMARY KEY(workspace_id, id))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS conversation_runs (
+                workspace_id TEXT NOT NULL, run_id TEXT NOT NULL,
+                conversation_id TEXT NOT NULL, turn_id TEXT NOT NULL,
+                PRIMARY KEY(workspace_id, run_id))""")
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS conversation_run_group "
+                "ON conversation_runs(workspace_id,conversation_id)"
+            )
+            rows = db.execute("SELECT workspace_id,id,value FROM runs ORDER BY rowid").fetchall()
+            records = {(workspace, run_id): json.loads(value) for workspace, run_id, value in rows}
+            assigned = {}
+
+            def persist(key, conversation, turn):
+                value = records[key]
+                db.execute(
+                    "INSERT OR IGNORE INTO conversations VALUES(?,?,?,?)",
+                    (key[0], conversation, value["question"], value["source_id"]),
+                )
+                db.execute(
+                    "INSERT OR IGNORE INTO conversation_runs VALUES(?,?,?,?)",
+                    (key[0], key[1], conversation, turn),
+                )
+                assigned[key] = (conversation, turn)
+
+            for workspace, run_id, _ in rows:
+                cursor = (workspace, run_id)
+                chain = []
+                visiting = set()
+                while cursor not in assigned:
+                    existing = db.execute(
+                        "SELECT conversation_id,turn_id FROM conversation_runs "
+                        "WHERE workspace_id=? AND run_id=?",
+                        cursor,
+                    ).fetchone()
+                    if existing:
+                        assigned[cursor] = existing
+                        break
+                    visiting.add(cursor)
+                    value = records[cursor]
+                    linked = (workspace, value.get("retry_of") or value.get("parent_run_id"))
+                    if (
+                        linked not in records
+                        or linked in visiting
+                        or records[linked]["source_id"] != value["source_id"]
+                    ):
+                        persist(cursor, "conversation-" + cursor[1], "turn-" + cursor[1])
+                        break
+                    chain.append(cursor)
+                    cursor = linked
+                for key in reversed(chain):
+                    value = records[key]
+                    linked = (workspace, value.get("retry_of") or value.get("parent_run_id"))
+                    conversation, turn = assigned[linked]
+                    persist(key, conversation, turn if value.get("retry_of") else "turn-" + key[1])
+
+    @staticmethod
+    def _grouped(db, workspace, value):
+        row = db.execute(
+            "SELECT conversation_id,turn_id FROM conversation_runs "
+            "WHERE workspace_id=? AND run_id=?",
+            (workspace, value["id"]),
+        ).fetchone()
+        return {**value, "conversation_id": row[0], "turn_id": row[1]} if row else value
+
+    def conversation(self, workspace: str, conversation_id: str):
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT title,source_id FROM conversations WHERE workspace_id=? AND id=?",
+                (workspace, conversation_id),
+            ).fetchone()
+            if row is None:
+                raise KeyError("conversation not found")
+            rows = db.execute(
+                "SELECT r.value,m.turn_id FROM runs r JOIN conversation_runs m "
+                "ON r.workspace_id=m.workspace_id AND r.id=m.run_id "
+                "WHERE m.workspace_id=? AND m.conversation_id=? ORDER BY r.rowid",
+                (workspace, conversation_id),
+            ).fetchall()
+            turns = {}
+            for payload, turn_id in rows:
+                value = self._grouped(db, workspace, json.loads(payload))
+                attempts = turns.get(turn_id, {}).get("attempts", [])
+                turns[turn_id] = {**value, "attempts": [*attempts, value]}
+            values = list(turns.values())
+            latest = json.loads(rows[-1][0]) if rows else {}
+            return {
+                "id": conversation_id,
+                "title": row[0],
+                "source_id": row[1],
+                "turns": values,
+                "turn_count": len(values),
+                "latest_run_id": latest.get("id"),
+                "status": latest.get("status"),
+                "updated_at": latest.get("updated_at"),
+            }
+
+    def conversations(self, workspace: str, limit: int = 100):
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT m.conversation_id FROM conversation_runs m JOIN runs r "
+                "ON r.workspace_id=m.workspace_id AND r.id=m.run_id "
+                "WHERE m.workspace_id=? GROUP BY m.conversation_id "
+                "ORDER BY MAX(r.rowid) DESC LIMIT ?",
+                (workspace, limit),
+            ).fetchall()
+        return [
+            {
+                key: value
+                for key, value in self.conversation(workspace, row[0]).items()
+                if key != "turns"
+            }
+            for row in rows
+        ]
 
     @contextmanager
     def connect(self):
@@ -163,14 +285,77 @@ class RunStore:
                     (workspace, body["request_id"]),
                 ).fetchone()
                 if existing:
-                    value = json.loads(existing[0])
+                    value = self._grouped(db, workspace, json.loads(existing[0]))
                     for key in ("question", "source_id", "skill_id", "parent_run_id"):
+                        if (
+                            key == "parent_run_id"
+                            and body.get("conversation_id")
+                            and not body.get(key)
+                        ):
+                            continue
                         expected = body.get(key) or (
                             "generic-readonly" if key == "skill_id" else None
                         )
                         if value.get(key) != expected:
                             raise ValueError("request_id already belongs to a different request")
+                    if (
+                        body.get("conversation_id")
+                        and value.get("conversation_id") != body["conversation_id"]
+                    ):
+                        raise ValueError("request_id already belongs to a different conversation")
+                    if value.get("retry_of") != retry_of:
+                        raise ValueError("request_id already belongs to a different retry")
                     return value
+            conversation_id = body.get("conversation_id")
+            linked_id = retry_of or body.get("parent_run_id")
+            prior_turn = None
+            if linked_id:
+                linked = db.execute(
+                    "SELECT value FROM runs WHERE workspace_id=? AND id=?", (workspace, linked_id)
+                ).fetchone()
+                if linked is None:
+                    raise ValueError("parent investigation not found")
+                parent = self._grouped(db, workspace, json.loads(linked[0]))
+                if parent["source_id"] != body["source_id"] or parent["status"] not in TERMINAL:
+                    raise ValueError(
+                        "follow-up requires a terminal investigation of the same source"
+                    )
+                if conversation_id and conversation_id != parent["conversation_id"]:
+                    raise ValueError("parent belongs to a different conversation")
+                conversation_id = parent["conversation_id"]
+                prior_turn = parent["turn_id"] if retry_of else None
+            if conversation_id:
+                conversation = db.execute(
+                    "SELECT source_id FROM conversations WHERE workspace_id=? AND id=?",
+                    (workspace, conversation_id),
+                ).fetchone()
+                if conversation is None or conversation[0] != body["source_id"]:
+                    raise ValueError("conversation not found for this source")
+                active = db.execute(
+                    "SELECT 1 FROM conversation_runs m JOIN runs r "
+                    "ON r.workspace_id=m.workspace_id AND r.id=m.run_id "
+                    "WHERE m.workspace_id=? AND m.conversation_id=? "
+                    "AND r.status NOT IN ('completed','failed','blocked',"
+                    "'interrupted','cancelled')",
+                    (workspace, conversation_id),
+                ).fetchone()
+                if active:
+                    raise ValueError("wait for the current conversation turn to finish")
+                if not linked_id:
+                    last = db.execute(
+                        "SELECT r.id FROM conversation_runs m JOIN runs r "
+                        "ON r.workspace_id=m.workspace_id AND r.id=m.run_id "
+                        "WHERE m.workspace_id=? AND m.conversation_id=? "
+                        "ORDER BY r.rowid DESC LIMIT 1",
+                        (workspace, conversation_id),
+                    ).fetchone()
+                    body = {**body, "parent_run_id": last[0] if last else None}
+            else:
+                conversation_id = "conversation-" + uuid4().hex
+                db.execute(
+                    "INSERT INTO conversations VALUES(?,?,?,?)",
+                    (workspace, conversation_id, body["question"], body["source_id"]),
+                )
             count = db.execute(
                 "SELECT COUNT(*) FROM runs WHERE workspace_id=? AND status='queued'",
                 (workspace,),
@@ -179,6 +364,8 @@ class RunStore:
                 raise QueueFull("Investigation queue is full; wait for a run to finish.")
             value = dict(
                 id="inv-" + uuid4().hex,
+                conversation_id=conversation_id,
+                turn_id=prior_turn or "turn-" + uuid4().hex,
                 source_id=body["source_id"],
                 question=body["question"],
                 skill_id=body.get("skill_id") or "generic-readonly",
@@ -203,6 +390,10 @@ class RunStore:
                 "INSERT INTO runs VALUES(?,?,?,?,?)",
                 (workspace, value["id"], value["request_id"], "queued", json.dumps(value)),
             )
+            db.execute(
+                "INSERT INTO conversation_runs VALUES(?,?,?,?)",
+                (workspace, value["id"], value["conversation_id"], value["turn_id"]),
+            )
             return self._event(db, workspace, value, "queued", {})
 
     def get(self, workspace: str, run_id: str):
@@ -212,7 +403,8 @@ class RunStore:
             ).fetchone()
         if row is None:
             raise KeyError("run not found")
-        return json.loads(row[0])
+        with self.connect() as db:
+            return self._grouped(db, workspace, json.loads(row[0]))
 
     def list(self, workspace: str, limit: int = 100):
         with self.connect() as db:
@@ -220,7 +412,8 @@ class RunStore:
                 "SELECT value FROM runs WHERE workspace_id=? ORDER BY rowid DESC LIMIT ?",
                 (workspace, limit),
             ).fetchall()
-        return [json.loads(row[0]) for row in rows]
+        with self.connect() as db:
+            return [self._grouped(db, workspace, json.loads(row[0])) for row in rows]
 
     def events(self, workspace: str, run_id: str, after: int):
         self.get(workspace, run_id)
@@ -291,7 +484,7 @@ class RunStore:
             if row is None:
                 return None
             workspace, payload = row
-            value = json.loads(payload)
+            value = self._grouped(db, workspace, json.loads(payload))
             value.update(status="running", started_at=timestamp())
             return workspace, self._event(db, workspace, value, "started", {})
 

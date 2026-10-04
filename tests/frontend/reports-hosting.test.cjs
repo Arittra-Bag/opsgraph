@@ -203,3 +203,25 @@ test('empty and failed table discovery allow manual entry and explicit retry', a
   assert.match(f.$('#tableDiscoveryStatus').textContent, /Retry or enter table names/);
   assert.equal(f.$('#retryTableDiscovery').disabled, false);
 });
+
+test('conversation replies render once and hide investigation output even if a retained answer exists', () => {
+  const f = fixture(); f.state.runs = [];
+  const original = f.context.$;
+  f.context.$ = selector => { const node = original(selector); node.dataset ||= {}; node.options ||= []; node.insertAdjacentHTML = () => {}; return node; };
+  f.context.viewState = { focusBookmark: () => ({}), currentOperation: () => 'Completed', captureStatus: () => 'No query' };
+  f.context.document = {};
+  f.context.sessionStorage = { setItem() {} };
+  f.context.terminal = () => true;
+  f.context.renderExecutionProgress = () => {};
+  f.context.renderHistory = () => {};
+  f.context.readiness = () => {};
+  vm.runInContext(source.slice(source.indexOf('  function renderRun('), source.indexOf('  function evidenceMarkup(')), f.context);
+  f.context.renderRun({ id: 'run-chat', source_id: 'source-a', status: 'completed', question: 'What can you do?', response_kind: 'conversation', assistant_message: 'I investigate approved PostgreSQL data.', answer: { summary: 'I investigate approved PostgreSQL data.', findings: [], limitations: [] }, evidence: [] });
+  assert.equal(f.$('#conversationReply').hidden, false);
+  assert.equal(f.$('#conversationReplyText').textContent, 'I investigate approved PostgreSQL data.');
+  assert.equal(f.$('#answerThread').hidden, true);
+  assert.equal(f.$('#conclusionCard').hidden, true);
+  assert.equal(f.$('.execution-card').hidden, true);
+  assert.equal(f.$('.run-scope').hidden, true);
+  assert.equal(f.$('#openReport').disabled, true);
+});

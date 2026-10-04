@@ -1092,3 +1092,128 @@ def test_reports_use_saved_workspace_snapshot_without_reexecution(api, monkeypat
         ).status_code
         == 404
     )
+
+
+def test_conversation_api_groups_followups_and_retry_attempts(api):
+    first = api.client.post(
+        "/api/runs",
+        headers=api.headers,
+        json={"question": "Count the approved records", "source_id": "local-data"},
+    ).json()
+    first = wait(api, first["id"])
+    assert first["status"] == "completed"
+    second = api.client.post(
+        "/api/runs",
+        headers=api.headers,
+        json={
+            "question": "What can you do?",
+            "source_id": "local-data",
+            "conversation_id": first["conversation_id"],
+            "request_id": "conversation-followup",
+        },
+    ).json()
+    second = wait(api, second["id"])
+    assert second["status"] == "completed"
+    assert second["response_kind"] == "conversation"
+    assert second["evidence"] == []
+    assert second["assistant_message"]
+    repeated = api.client.post(
+        "/api/runs",
+        headers=api.headers,
+        json={
+            "question": "What can you do?",
+            "source_id": "local-data",
+            "conversation_id": first["conversation_id"],
+            "request_id": "conversation-followup",
+        },
+    )
+    assert repeated.json()["id"] == second["id"]
+    retry = api.client.post(f"/api/runs/{second['id']}/retry", headers=api.headers).json()
+    retry = wait(api, retry["id"])
+    assert retry["turn_id"] == second["turn_id"]
+    assert retry["conversation_id"] == first["conversation_id"]
+    listing = api.client.get("/api/conversations", headers=api.headers).json()
+    assert len(listing) == 1 and listing[0]["turn_count"] == 2
+    detail = api.client.get(f"/api/conversations/{first['conversation_id']}", headers=api.headers)
+    assert detail.json()["turns"][1]["attempts"][0]["id"] == second["id"]
+    assert detail.json()["turns"][1]["id"] == retry["id"]
+    assert api.client.get("/api/conversations").status_code == 401
+    assert api.client.get(f"/api/conversations/{first['conversation_id']}").status_code == 401
+    foreign = api.service.store.create(
+        "other-workspace", {"question": "Foreign workspace question", "source_id": "local-data"}
+    )
+    assert (
+        api.client.get(
+            f"/api/conversations/{foreign['conversation_id']}", headers=api.headers
+        ).status_code
+        == 404
+    )
+
+
+def test_capability_reply_does_not_access_database_or_model(api, monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Conversational capability reply accessed database or model")
+
+    monkeypatch.setattr("opsgraph.api.runs.PsycopgReadOnlyExecutor", forbidden)
+    monkeypatch.setattr(api.runtime.provider, "invoke_structured", forbidden)
+    # Inspection records can disappear without affecting a no-tool capability explanation.
+    run = api.client.post(
+        "/api/runs", headers=api.headers, json={"question": "hi", "source_id": "local-data"}
+    ).json()
+    completed = wait(api, run["id"])
+    assert completed["status"] == "completed"
+    assert completed["response_kind"] == "conversation"
+    assert completed["plan"]["queries"] == []
+    assert completed["evidence"] == []
+
+
+def test_conversation_history_drops_assessments_outside_current_table_scope(api, monkeypatch):
+    workspace = api.runtime.settings.workspace_id
+    previous = api.service.store.create(
+        workspace, {"question": "Earlier investigation", "source_id": "local-data"}
+    )
+    api.service.store.update(
+        workspace,
+        previous["id"],
+        "evidence_captured",
+        {
+            "index": 0,
+            "evidence": {
+                "evidence_hash": "older-hash",
+                "referenced_tables": ["private.records"],
+                "created_at": "2026-01-01",
+                "rows": [["private-secret-sentinel"]],
+            },
+        },
+    )
+    api.service.store.update(
+        workspace,
+        previous["id"],
+        "completed",
+        status="completed",
+        answer={
+            "summary": "private-secret-sentinel",
+            "findings": [{"claim": "private-secret-sentinel"}],
+        },
+        assistant_message="private-secret-sentinel",
+    )
+    prompts = []
+    original = api.runtime.provider.invoke_structured
+
+    def recording(request):
+        prompts.append(request.messages[0].content)
+        return original(request)
+
+    monkeypatch.setattr(api.runtime.provider, "invoke_structured", recording)
+    created = api.client.post(
+        "/api/runs",
+        headers=api.headers,
+        json={
+            "question": "Count the approved records",
+            "source_id": "local-data",
+            "conversation_id": previous["conversation_id"],
+        },
+    ).json()
+    assert wait(api, created["id"])["status"] == "completed"
+    assert prompts and all("private-secret-sentinel" not in prompt for prompt in prompts)
+    assert "Earlier investigation" in prompts[0]

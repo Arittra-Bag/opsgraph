@@ -12,11 +12,12 @@ policy and the database role decide what can run. Each finding links back to the
 exact SQL, captured records, collection time, source revision, and execution
 limits that produced it.
 
-[![Completed OpsGraph 1.0 investigation with findings, recorded evidence and a follow-up form](docs/assets/opsgraph-investigation-workspace-1.0.png)](docs/assets/opsgraph-investigation-workspace-1.0.png)
+[![OpsGraph investigation conversation with saved PostgreSQL findings and a follow-up turn](docs/assets/opsgraph-investigation-workspace-1.0.png)](docs/assets/opsgraph-investigation-workspace-1.0.png)
 
-*A saved investigation against a six-row test dataset. Open the image for the
-full page. The result is historical evidence, independent of the current model
-connection.*
+*A real saved investigation of synthetic Supabase data, followed by a product
+question in the same conversation. Two captures retain 20 rows each. Open the
+image for the full page. Saved evidence remains available when the current
+model connection is unavailable.*
 
 [Get started](#get-started) · [Docker](#docker) ·
 [First investigation](docs/quickstart.md) · [Supported boundary](docs/production-readiness.md) ·
@@ -36,8 +37,9 @@ connection.*
   vLLM, OpenAI, Anthropic, OpenRouter, Groq, Together, Mistral, or a manual
   OpenAI-compatible endpoint. Presets provide protocol defaults; you still
   choose and test the exact model.
-- **Keep the work.** Reopen history, export evidence, retry with a fresh attempt,
-  or ask a linked follow-up that collects new evidence.
+- **Keep the conversation together.** Ask follow-ups in the same investigation,
+  inspect each turn's evidence, and retry without creating another sidebar entry.
+  Product questions and greetings do not query your database.
 
 FastAPI serves the browser workspace, LangGraph coordinates investigations, and
 SQLite stores local history and audit records. PostgreSQL is the only supported

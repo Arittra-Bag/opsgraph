@@ -73,8 +73,10 @@ unavailable for this verification method. Their original bytes are preserved.
 
 The synchronous real `/api/investigations` API remains supported. New clients
 can use `/api/runs` for durable submission, sequenced events, cancellation,
-retry, follow-up links and export. A reconnect attaches to an existing run;
-a retry creates a separate attempt and collects fresh evidence. Queued work
+retry, conversation turns and export. Linked historical runs are grouped into
+conversations without changing their IDs, captures or exports. Unlinked roots
+remain separate. A reconnect attaches to an existing run;
+a retry creates a separate attempt in the same turn and collects fresh evidence. Queued work
 can survive restart. Previously active work becomes interrupted, preserving
 completed captures without automatically repeating queries.
 

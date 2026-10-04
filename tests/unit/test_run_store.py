@@ -330,3 +330,148 @@ def test_cancel_racing_failure_finishes_before_terminal_callback(tmp_path):
         assert notified == ["cancelled"]
     finally:
         coordinator.close()
+
+
+def test_followups_and_retries_keep_conversation_and_retry_turn(tmp_path):
+    store = RunStore(tmp_path / "state.db")
+    root = store.create("alpha", BODY)
+    store.cancel("alpha", root["id"])
+    follow = store.create("alpha", {**BODY, "parent_run_id": root["id"]})
+    store.cancel("alpha", follow["id"])
+    retry = store.create("alpha", {**BODY, "parent_run_id": root["id"]}, retry_of=follow["id"])
+    assert root["conversation_id"] == follow["conversation_id"] == retry["conversation_id"]
+    assert root["turn_id"] != follow["turn_id"] == retry["turn_id"]
+    detail = store.conversation("alpha", root["conversation_id"])
+    assert len(detail["turns"]) == 2
+    assert [r["id"] for r in detail["turns"][1]["attempts"]] == [follow["id"], retry["id"]]
+    assert len(store.conversations("alpha")) == 1
+    with pytest.raises(KeyError):
+        store.conversation("beta", root["conversation_id"])
+
+
+def test_conversation_implicit_parent_idempotency_and_source_boundary(tmp_path):
+    store = RunStore(tmp_path / "state.db")
+    root = store.create("alpha", BODY)
+    store.cancel("alpha", root["id"])
+    request = {**BODY, "conversation_id": root["conversation_id"], "request_id": "turn-request"}
+    follow = store.create("alpha", request)
+    assert follow["parent_run_id"] == root["id"]
+    assert store.create("alpha", request)["id"] == follow["id"]
+    store.cancel("alpha", follow["id"])
+    later = store.create("alpha", {**BODY, "conversation_id": root["conversation_id"]})
+    assert later["parent_run_id"] == follow["id"]
+    assert store.create("alpha", request)["id"] == follow["id"]
+    with pytest.raises(ValueError, match="source"):
+        store.create("alpha", {**request, "request_id": None, "source_id": "other-source"})
+    with pytest.raises(ValueError, match="not found"):
+        store.create("beta", {**request, "request_id": None})
+
+
+def test_same_conversation_concurrent_admission_keeps_one_active_turn(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    store = RunStore(tmp_path / "state.db")
+    root = store.create("alpha", BODY)
+    store.cancel("alpha", root["id"])
+
+    def create(_):
+        try:
+            return store.create("alpha", {**BODY, "conversation_id": root["conversation_id"]})
+        except ValueError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(create, range(16)))
+    assert sum(result is not None for result in results) == 1
+    assert store.conversation("alpha", root["conversation_id"])["turn_count"] == 2
+
+
+def test_historical_backfill_preserves_payloads_events_and_captures(tmp_path):
+    import json
+
+    path = tmp_path / "state.db"
+    store = RunStore(path)
+    root = store.create("alpha", BODY)
+    store.cancel("alpha", root["id"])
+    follow = store.create("alpha", {**BODY, "parent_run_id": root["id"]})
+    store.cancel("alpha", follow["id"])
+    retry = store.create("alpha", {**BODY, "parent_run_id": root["id"]}, retry_of=follow["id"])
+    with store.connect() as db:
+        for run in (root, follow, retry):
+            value = json.loads(
+                db.execute("SELECT value FROM runs WHERE id=?", (run["id"],)).fetchone()[0]
+            )
+            value.pop("conversation_id")
+            value.pop("turn_id")
+            value["evidence"] = [{"evidence_hash": "preserved", "rows": [[7]]}]
+            db.execute("UPDATE runs SET value=? WHERE id=?", (json.dumps(value), run["id"]))
+        before = db.execute("SELECT value FROM runs ORDER BY rowid").fetchall()
+        events = db.execute("SELECT value FROM run_events ORDER BY rowid").fetchall()
+        db.execute("DROP TABLE conversation_runs")
+        db.execute("DROP TABLE conversations")
+    restored = RunStore(path)
+    assert len(restored.conversations("alpha")) == 1
+    assert restored.conversations("alpha")[0]["turn_count"] == 2
+    with restored.connect() as db:
+        assert db.execute("SELECT value FROM runs ORDER BY rowid").fetchall() == before
+        assert db.execute("SELECT value FROM run_events ORDER BY rowid").fetchall() == events
+    assert RunStore(path).conversations("alpha") == restored.conversations("alpha")
+
+
+def test_parallel_repeated_turn_request_is_exactly_once_across_restart(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    path = tmp_path / "state.db"
+    store = RunStore(path)
+    root = store.create("alpha", BODY)
+    store.cancel("alpha", root["id"])
+    request = {**BODY, "conversation_id": root["conversation_id"], "request_id": "shared-turn"}
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(lambda _: store.create("alpha", request), range(128)))
+    assert len({value["id"] for value in results}) == 1
+    reopened = RunStore(path)
+    assert reopened.create("alpha", request)["id"] == results[0]["id"]
+    assert reopened.conversation("alpha", root["conversation_id"])["turn_count"] == 2
+
+
+def test_backfill_deep_reverse_order_history_and_cycles_are_safe(tmp_path):
+    import json
+
+    path = tmp_path / "state.db"
+    store = RunStore(path)
+    with store.connect() as db:
+        for index in range(1500):
+            value = {
+                "id": f"old-{index}",
+                "question": "Historical question",
+                "source_id": "local-data",
+                "status": "completed",
+                "parent_run_id": f"old-{index + 1}" if index < 1499 else None,
+                "evidence": [{"evidence_hash": "unchanged"}],
+            }
+            db.execute(
+                "INSERT INTO runs VALUES(?,?,?,?,?)",
+                ("alpha", value["id"], None, "completed", json.dumps(value)),
+            )
+        for run_id, parent in (
+            ("cycle-a", "cycle-b"),
+            ("cycle-b", "cycle-a"),
+            ("orphan", "absent"),
+        ):
+            value = {
+                "id": run_id,
+                "question": "Historical question",
+                "source_id": "local-data",
+                "status": "completed",
+                "parent_run_id": parent,
+            }
+            db.execute(
+                "INSERT INTO runs VALUES(?,?,?,?,?)",
+                ("beta", run_id, None, "completed", json.dumps(value)),
+            )
+    migrated = RunStore(path)
+    assert len(migrated.conversations("alpha")) == 1
+    assert migrated.conversations("alpha")[0]["turn_count"] == 1500
+    assert len(migrated.conversations("beta")) == 2
+    assert migrated.get("alpha", "old-0")["evidence"] == [{"evidence_hash": "unchanged"}]
+    assert migrated.conversations("beta") == RunStore(path).conversations("beta")

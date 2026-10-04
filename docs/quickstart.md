@@ -173,7 +173,11 @@ using the same evidence. It never reruns SQL for this correction. A second
 inconsistent answer fails visibly; inspect the preserved evidence. This guard
 does not validate arbitrary business meaning.
 
-Follow-up creates a linked run. Retry collects fresh evidence in a new attempt.
+Follow-ups add turns to the same conversation. Retry collects fresh evidence in
+a separate attempt within its original turn. Earlier captures remain unchanged.
+You can ask what OpsGraph can do without a model call or database query.
+For data investigations, the planner can use captured results to choose a next
+query, with a maximum of three queries across all planning rounds.
 Reload/reconnect attaches to the existing run. Interrupted work is preserved
 and never automatically replayed; cancellation waits for active calls to exit.
 Persistent errors identify the failed operation and next action. See
