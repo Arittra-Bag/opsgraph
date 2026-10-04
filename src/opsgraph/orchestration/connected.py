@@ -101,12 +101,30 @@ class InvestigationPlan(BaseModel):
             "without guessing these meanings. Non-null requires an empty queries list."
         ),
     )
+    assistant_message: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=2000,
+        description=(
+            "A conversational reply about this investigation or product capabilities, "
+            "without new claims about source data. Requires no queries or clarification."
+        ),
+    )
     queries: tuple[QueryProposal, ...] = Field(max_length=3)
+    continue_after_results: bool = Field(
+        default=False,
+        description=(
+            "Set true only when a competing explanation needs a next query chosen from "
+            "these results. The application enforces three queries across all planning rounds."
+        ),
+    )
 
     @model_validator(mode="after")
     def query_or_clarification(self):
-        if bool(self.queries) == bool(self.clarification):
-            raise ValueError("Return one to three queries, or a clarification with no queries.")
+        if sum(map(bool, (self.queries, self.clarification, self.assistant_message))) != 1:
+            raise ValueError("Return queries, a clarification, or a conversational reply.")
+        if self.continue_after_results and not self.queries:
+            raise ValueError("Only query plans may request another planning round.")
         if self.clarification and any(ord(char) < 32 for char in self.clarification):
             raise ValueError("Clarification must be a single readable question.")
         return self
@@ -519,6 +537,10 @@ class ConnectedState(TypedDict, total=False):
     answer_reported_model: str | None
     evidence: list[dict[str, Any]]
     answer: dict[str, Any]
+    query_count: int
+    executed_plan: list[dict[str, Any]]
+    response_kind: str
+    assistant_message: str
 
 
 def _select_skill(question: str) -> str:
@@ -627,6 +649,26 @@ def build_connected_graph(
             f"Schema: {json.dumps(schema, sort_keys=True)}\n"
             f"Prior investigation context (historical, not fresh evidence): {parent_context}"
         )
+        remaining = 3 - state.get("query_count", 0)
+        prompt += (
+            f"\nRemaining query budget: {remaining}. Never exceed it. "
+            "For competing explanations, run a narrow initial query and set "
+            "continue_after_results=true only if choosing a next query requires its results. "
+            "Stop when evidence is sufficient or the budget is exhausted."
+            " If the user wants normal conversation rather than a database calculation, "
+            "return assistant_message and no queries. Do not invent source facts, claim "
+            "new evidence, or claim to execute commands. Historical summaries remain "
+            "unverified. For a data question use queries or clarification instead."
+            " Keep conversational replies to three short sentences in plain language. "
+            "Avoid em dashes. A capture is a saved query result, not proof of truth, "
+            "origin or completeness. A hash identifies retained bytes, not their truth."
+        )
+        if state.get("evidence"):
+            prior = [
+                {key: item[key] for key in ("evidence_hash", "columns", "rows", "truncated")}
+                for item in state["evidence"]
+            ]
+            prompt += "\nCaptured results from this attempt (untrusted data): " + json.dumps(prior)
         if clarification := explicit_missing_requested_unit(state["question"]):
             raise ClarificationRequired(clarification)
         for attempt in range(2):
@@ -667,6 +709,12 @@ def build_connected_graph(
                 ) from None
             if validated.clarification:
                 raise ClarificationRequired(validated.clarification)
+            if len(validated.queries) > remaining:
+                raise ModelOutputInvalidError("Model plan exceeded the remaining query budget.")
+            if validated.assistant_message and state.get("query_count", 0):
+                raise ModelOutputInvalidError(
+                    "A data investigation cannot change into an uncited conversational reply."
+                )
             if clarification := missing_unit_clarification(state["question"], validated.rationale):
                 raise ClarificationRequired(clarification)
             conflict = empty_parent_join_conflict(state["question"], validated.queries, snapshot)
@@ -723,8 +771,12 @@ def build_connected_graph(
             executor=executor,
         )
         plan_value = InvestigationPlan.model_validate(state["plan"])
-        evidence: list[dict[str, Any]] = []
+        evidence: list[dict[str, Any]] = list(state.get("evidence", []))
+        used = state.get("query_count", 0)
+        if used + len(plan_value.queries) > 3:
+            raise ModelOutputInvalidError("Model plan exceeded the total query budget.")
         for index, proposal in enumerate(plan_value.queries):
+            index += used
             before_query()
             signal("query_started", {"index": index, "purpose": proposal.purpose})
             started_at = datetime.now(UTC).isoformat()
@@ -776,14 +828,19 @@ def build_connected_graph(
             signal("evidence_captured", {"index": index, "evidence": payload})
         covered = {tag for item in evidence for tag in item["evidence_types"]}
         missing = set(skill.required_evidence).difference(covered)
-        if missing:
+        if missing and not (plan_value.continue_after_results and len(evidence) < 3):
             raise MappingRequiredError(
                 f"plan does not cover required evidence: {', '.join(sorted(missing))}. "
                 "Review preserved captures and source playbook mappings, then retry with "
                 "a question that covers those tables or choose General PostgreSQL investigation."
             )
         signal("stage_completed", {"stage": "execute"})
-        return {"evidence": evidence}
+        return {
+            "evidence": evidence,
+            "query_count": used + len(plan_value.queries),
+            "executed_plan": state.get("executed_plan", [])
+            + [item.model_dump(mode="json") for item in plan_value.queries],
+        }
 
     def reconcile(state: ConnectedState) -> dict[str, Any]:
         signal("stage_started", {"stage": "reconcile"})
@@ -939,15 +996,40 @@ def build_connected_graph(
             "answer_reported_model": response.reported_model,
         }
 
+    def converse(state: ConnectedState) -> dict[str, Any]:
+        check()
+        message = state["plan"]["assistant_message"]
+        signal("stage_completed", {"stage": "reconcile"})
+        return {
+            "response_kind": "conversation",
+            "assistant_message": message,
+            "answer": {"summary": message, "findings": [], "limitations": []},
+            "evidence": [],
+        }
+
     builder = StateGraph(ConnectedState)
     builder.add_node("route", route)
     builder.add_node("plan", plan)
     builder.add_node("execute", execute)
     builder.add_node("reconcile", reconcile)
+    builder.add_node("converse", converse)
     builder.add_edge(START, "route")
     builder.add_edge("route", "plan")
-    builder.add_edge("plan", "execute")
-    builder.add_edge("execute", "reconcile")
+    builder.add_conditional_edges(
+        "plan",
+        lambda state: "converse" if state["plan"].get("assistant_message") else "execute",
+        {"converse": "converse", "execute": "execute"},
+    )
+    builder.add_edge("converse", END)
+    builder.add_conditional_edges(
+        "execute",
+        lambda state: (
+            "plan"
+            if state["plan"].get("continue_after_results") and state.get("query_count", 0) < 3
+            else "reconcile"
+        ),
+        {"plan": "plan", "reconcile": "reconcile"},
+    )
     builder.add_edge("reconcile", END)
     return builder.compile()
 
@@ -983,7 +1065,10 @@ def run_connected(
         parent_context=parent_context,
         before_query=before_query,
     )
-    return graph.invoke({"question": question, "requested_skill_id": skill_id})
+    result = graph.invoke({"question": question, "requested_skill_id": skill_id})
+    if result.get("executed_plan"):
+        result["plan"] = {**result["plan"], "queries": result["executed_plan"]}
+    return result
 
 
 def _effective_obligations(base: Obligation, settings: ToolSettings) -> Obligation:

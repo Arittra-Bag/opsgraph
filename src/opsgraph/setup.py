@@ -15,6 +15,7 @@ import stat
 import sys
 import tempfile
 import warnings
+import webbrowser
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -24,9 +25,9 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from opsgraph.brokers.postgres import ConnectorUnavailable, PsycopgReadOnlyExecutor
 from opsgraph.postgres_diagnostics import connection_diagnostic
-from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide
+from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide, terminal_connection_help
 from opsgraph.providers.models import FIXED_HOSTED_PRESETS, PROVIDER_DEFAULT_ENDPOINTS
-from opsgraph.terminal_ui import TerminalUI
+from opsgraph.terminal_ui import TerminalScreenError, TerminalUI
 
 ConfigValues = dict[str, str | None]
 _IDENTIFIER = re.compile(r"[a-z_][a-z0-9_]{0,62}\Z")
@@ -298,16 +299,24 @@ def run_setup(
     input_fn: Callable[[str], str] | None = None,
     secret_fn: Callable[[str], str] | None = None,
     output_fn: Callable[[str], object] = print,
+    prepared_database: str | None = None,
 ) -> int:
     """Prompt for backend configuration; browser inspection/probing stays mandatory."""
-    ui = TerminalUI(output_fn)
-    ask = input_fn or (lambda label: input(ui.question(label)))
-    hidden = secret_fn or (lambda label: getpass.getpass(ui.question(label)))
+    ui = TerminalUI(None if output_fn is print else output_fn)
+    ask = input_fn or ui.ask
+    hidden = secret_fn or (lambda label: ui.ask(label, secret=True))
     output_fn = ui.write
     try:
         workspace = ensure_private_directory(directory or default_workspace_directory())
         path = workspace / ".env"
         existing = read_private_config(path)
+        if prepared_database is not None and not path.exists():
+            existing.update(
+                {
+                    "OPSGRAPH_SOURCE_DSN": normalize_guided_dsn(prepared_database),
+                    "OPSGRAPH_POSTGRES_HOSTING": "local",
+                }
+            )
         if path.exists():
             output_fn(
                 "Saved settings found. Your history will stay safe. Setup uses the database "
@@ -378,62 +387,112 @@ def run_setup(
         known_hosting = {guide.id for guide in HOSTING_GUIDES}
         stored_hosting = existing.get("OPSGRAPH_POSTGRES_HOSTING")
         hosting_default = stored_hosting if stored_hosting in known_hosting else "self_hosted"
-        ui.menu(tuple((guide.id, guide.name) for guide in HOSTING_GUIDES), hosting_default)
-        selected_hosting = prompt(
-            "PostgreSQL hosting: where does your database run?",
-            hosting_default,
-            lambda value: _menu_choice(value, tuple(guide.id for guide in HOSTING_GUIDES)),
-            "Pick the company hosting your database, or Local PostgreSQL for this computer. "
-            "This selects instructions. It does not create or connect a database.",
-            hosting_guide(hosting_default).name,
-        )
+        if prepared_database is not None:
+            selected_hosting = "local"
+            output_fn("Your separate practice database connection is already prepared.")
+        else:
+            ui.menu(tuple((guide.id, guide.name) for guide in HOSTING_GUIDES), hosting_default)
+            selected_hosting = prompt(
+                "PostgreSQL hosting: where does your database run?",
+                hosting_default,
+                lambda value: _menu_choice(value, tuple(guide.id for guide in HOSTING_GUIDES)),
+                "Pick the company hosting your database, or Local PostgreSQL for this computer. "
+                "This selects instructions. It does not create or connect a database.",
+                hosting_guide(hosting_default).name,
+            )
         guide = hosting_guide(selected_hosting)
         output_fn(f"Selected: {guide.name}.")
-        output_fn(
-            "Paste your read-only connection string below. It contains the database address, "
-            "port, database name and login. Typing is hidden to protect its password."
-        )
-        output_fn(
-            "For a database on this computer, use its local address and port."
-            if selected_hosting == "local"
-            else "Remote connections must use sslmode=verify-full "
-            "and the provider's trusted certificate."
-        )
-        output_fn(
-            "Need connection instructions? Enter ? below. Connection checks run later in Sources."
-        )
-        database_help = "\n".join(
-            (
-                "A connection string is also called a DSN. Ask your database administrator for "
-                "a read-only login. Sources includes an administrator role guide.",
-                guide.endpoint,
-                guide.network,
-                guide.tls,
-                *guide.steps,
-                *guide.checks,
-                f"Provider instructions: {guide.documentation}",
-            )
-        )
 
-        while True:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", getpass.GetPassWarning)
-                dsn = hidden(
-                    "Database connection string (hidden). Enter keeps a saved connection or skips. "
-                    "? shows help: "
-                ).strip()
-            if dsn == "?":
-                output_fn(database_help)
-                continue
-            if not dsn:
-                dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
-            if dsn:
-                try:
-                    dsn = normalize_guided_dsn(dsn)
-                except SetupError as error:
-                    output_fn(str(error))
+        def show_connection_help(*, details: bool = False) -> None:
+            steps, template, extra = terminal_connection_help(selected_hosting)
+            if details:
+                ui.note("Before you connect", extra)
+            else:
+                ui.note(
+                    f"{guide.name}: get your connection",
+                    tuple(f"{index}. {step}" for index, step in enumerate(steps, 1)),
+                )
+                output_fn("Example only. Replace the CAPITAL parts with your own details:")
+                ui.literal(template)
+                output_fn("Use your read-only login, not the database owner's login.")
+            output_fn(f"Official guide: {guide.documentation}")
+
+        if prepared_database is not None:
+            dsn = normalize_guided_dsn(prepared_database)
+        else:
+            output_fn(
+                "Choose what to do next. Help and choices are visible. Only the connection "
+                "you paste is hidden because it can contain a password. "
+                "Connection checks run later in Sources."
+            )
+            while True:
+                ui.menu(
+                    (
+                        ("paste", "Paste my connection string"),
+                        ("help", f"Show {guide.name} setup steps (?)"),
+                        (
+                            "skip",
+                            "Keep my saved connection"
+                            if existing.get("OPSGRAPH_SOURCE_DSN")
+                            else "Set up the database later",
+                        ),
+                        ("details", "Help with read-only access, passwords and certificates"),
+                        ("browser", "Open provider instructions in my browser"),
+                    ),
+                    "paste",
+                )
+                action = ask("Connection options: 1 / 2 / 3 / 4 / 5 / ?: ").strip().lower()
+                if action in {"?", "2", "help"}:
+                    show_connection_help()
                     continue
-            break
+                if action in {"4", "details"}:
+                    show_connection_help(details=True)
+                    continue
+                if action in {"5", "browser"}:
+                    try:
+                        opened = webbrowser.open(guide.documentation, new=2)
+                    except (OSError, webbrowser.Error):
+                        opened = False
+                    output_fn(
+                        "Opened the official setup guide. "
+                        "Return here when your connection is ready."
+                        if opened
+                        else f"Open this guide yourself: {guide.documentation}"
+                    )
+                    output_fn(
+                        "This opens instructions only. It does not connect or change your database."
+                    )
+                    continue
+                if action in {"3", "skip"}:
+                    dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
+                elif action in {"", "1", "paste"}:
+                    output_fn(
+                        "Paste below, then press Enter. Characters stay hidden to protect "
+                        "the password. Enter without pasting keeps a saved connection or skips."
+                    )
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("error", getpass.GetPassWarning)
+                        dsn = hidden("Paste connection string (hidden): ").strip()
+                    if dsn == "?":
+                        output_fn("? Help requested. Your connection was not changed.")
+                        show_connection_help()
+                        continue
+                    if not dsn:
+                        dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
+                else:
+                    output_fn(
+                        "Choose 1 to paste, 2 or ? for steps, 3 to continue without changes, "
+                        "4 for more help, or 5 for browser instructions. "
+                        "Never paste a password into this visible menu."
+                    )
+                    continue
+                if dsn:
+                    try:
+                        dsn = normalize_guided_dsn(dsn)
+                    except SetupError as error:
+                        output_fn(str(error))
+                        continue
+                break
         output_fn(
             "Database connection entered. It will be saved after you confirm."
             if dsn
@@ -688,10 +747,11 @@ def run_setup(
             "If you already saved model choices in browser Settings, those are used instead. "
             "Change them there when needed."
         )
+        ui.menu((("save", "Save these settings"), ("cancel", "Cancel without saving")), "save")
         decision = prompt(
             "Save configuration? save / cancel",
             "save",
-            lambda value: _choice(value, {"save", "cancel"}),
+            lambda value: _menu_choice(value, ("save", "cancel")),
         )
         if decision == "cancel":
             output_fn("Setup cancelled. Existing configuration was not replaced.")
@@ -720,6 +780,9 @@ def run_setup(
     except (EOFError, KeyboardInterrupt):
         output_fn("Setup cancelled. Existing configuration was not replaced.")
         return 1
+    except TerminalScreenError as error:
+        output_fn(str(error))
+        return 1
     except getpass.GetPassWarning:
         output_fn(
             "A private terminal is required for hidden credential entry. "
@@ -732,3 +795,5 @@ def run_setup(
             "permissions, path safety and configuration syntax; existing files were preserved."
         )
         return 1
+    finally:
+        ui.flush()

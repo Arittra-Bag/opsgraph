@@ -242,6 +242,8 @@ class RunCoordinator:
                     "completed",
                     status="completed",
                     answer=result["answer"],
+                    response_kind=result.get("response_kind", "investigation"),
+                    assistant_message=result.get("assistant_message"),
                     answer_reported_model=result.get("answer_reported_model"),
                     plan=result["plan"],
                     finished_at=timestamp(),

@@ -19,7 +19,7 @@
     anthropic: { endpoint: '', fixed: true },
     custom_openai: { endpoint: '' },
   };
-  const state = { authenticated: false, sources: [], skills: [], runs: [], run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
+  const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
   // A launcher supplies only a short-lived single-use token, never the API key.
   const launchToken = new URLSearchParams(location.hash.slice(1)).get('connect');
@@ -141,6 +141,13 @@
     const selected = state.sources.find(source => source.id === $('#investigationSource').value && sourceReady(source));
     return selected || state.sources.find(source => sourceReady(source) && !sourceReadinessPassed(source)) || state.sources.find(sourceReadinessPassed) || null;
   }
+  function isConversationQuestion(question) {
+    const text = question.trim().toLowerCase();
+    let end = text.length;
+    while (end > 0 && '?!.'.includes(text[end - 1])) end--;
+    const normalized = text.slice(0, end).trim();
+    return ['hi', 'hello', 'hey', 'thanks', 'thank you', 'what are you', 'who are you', 'what can you do', 'so what can you do', 'what can you help with', 'how does opsgraph work'].includes(normalized);
+  }
   function readiness() {
     const ready = state.sources.filter(sourceReady);
     const verified = ready.filter(sourceReadinessPassed);
@@ -148,10 +155,11 @@
     const sourceHasUnsavedEdits = state.sourceDirty && state.sourceEditingId === selectedSource?.id;
     const selectedVerified = sourceReadinessPassed(selectedSource) && !sourceHasUnsavedEdits;
     const modelReady = state.modelTested && !state.providerDirty;
+    const conversationalQuestion = isConversationQuestion($('#investigationQuestion').value);
     $('#openCredential').textContent = state.authenticated ? 'Workspace connected' : 'Connect workspace';
     $('#workspaceReadiness').textContent = state.authenticated ? 'Authenticated to this backend.' : 'Use the key created by your OpsGraph operator.';
-    $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : 'Configure and inspect an approved read-only source.';
-    $('#modelReadiness').textContent = modelReady ? 'A recent model connection check passed on this backend.' : state.providerDirty ? 'Save and test the edited model configuration.' : 'Run a current model connection check on this backend.';
+    $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : state.savedConnection ? 'Your database connection is saved. Choose its tables and check access.' : 'Configure and inspect an approved read-only source.';
+    $('#modelReadiness').textContent = modelReady ? 'A recent model connection check passed on this backend.' : state.providerDirty ? 'Save and test the edited model configuration.' : state.providerConfiguration ? `${state.providerConfiguration.provider} / ${state.providerConfiguration.model} is saved. Run a real connection check.` : 'Run a current model connection check on this backend.';
     $('#readinessReadiness').textContent = sourceHasUnsavedEdits ? `Save and inspect the edited configuration for ${selectedSource.name || selectedSource.id}.` : selectedVerified ? `${selectedSource.name || selectedSource.id} passed a bounded no-value read.` : selectedSource ? `Run a bounded no-value read for ${selectedSource.name || selectedSource.id}.` : verified.length ? 'Select a readiness-checked source for this investigation.' : 'Approve a one-row, no-value database probe after source inspection.';
     const completed = [state.authenticated, ready.length > 0, modelReady, selectedVerified];
     ['workspace', 'source', 'model', 'readiness'].forEach((step, index) => {
@@ -165,11 +173,11 @@
     });
     $('#setupCredential').hidden = state.authenticated;
     $('#setupSource').textContent = ready.length ? 'Review source' : 'Configure source';
-    $('#setupModel').textContent = modelReady ? 'Review model' : 'Configure model';
+    $('#setupModel').textContent = modelReady ? 'Review model' : state.providerConfiguration ? 'Check saved model' : 'Configure model';
     $('#setupReadiness').textContent = selectedVerified ? 'Review readiness' : 'Run readiness check';
     $('#saveSkill').disabled = !state.authenticated;
     const active = state.run && !terminal(state.run.status);
-    $('#submitRun').disabled = state.busy || !state.authenticated || !selectedVerified || !modelReady || Boolean(active);
+    $('#submitRun').disabled = state.busy || !state.authenticated || sourceHasUnsavedEdits || (!conversationalQuestion && (!selectedVerified || !modelReady)) || (conversationalQuestion && !selectedSource) || Boolean(active);
     const linkedFollowup = Boolean(state.run);
     $('#investigationSource').disabled = linkedFollowup || state.busy;
     $('#sourceComposerField').classList.toggle('is-locked', linkedFollowup);
@@ -178,12 +186,12 @@
     $('#investigationSkill').disabled = state.busy || Boolean(active);
     $('#playbookFieldHelp').textContent = active ? 'Available when the current run reaches a terminal state.' : linkedFollowup ? 'Choose the playbook for this follow-up.' : 'Choose the playbook for this investigation.';
     $('#investigationQuestion').disabled = state.busy || Boolean(active);
-    $('#submitRun').textContent = state.busy ? 'Submitting…' : state.run ? 'Ask follow-up' : 'Start investigation';
-    $('#composerTitle').textContent = state.run ? 'Ask a follow-up' : 'Start an investigation';
-    $('#composerContext').textContent = active ? 'This investigation is still active. You can cancel it or wait for a terminal state.' : state.run ? 'Creates a linked run against the same source. Choose the playbook for this follow-up; previous evidence remains unchanged.' : !state.authenticated ? 'Connect your workspace, inspect a source, and test your model before asking.' : !ready.length ? 'Configure a source in Sources. Model availability does not block source inspection.' : !modelReady ? state.providerDirty ? 'Save and test the edited model configuration before your first question.' : 'Test the actual model connection in Settings before your first question.' : sourceHasUnsavedEdits ? 'Save and inspect the edited source, then run its bounded readiness check again.' : !selectedVerified ? 'Review and run the selected source’s bounded readiness check before your first question.' : 'Choose a bounded operational question, including a time range where relevant.';
+    $('#submitRun').textContent = state.busy ? 'Submitting…' : state.run ? 'Send message' : 'Start investigation';
+    $('#composerTitle').textContent = state.run ? 'Continue the conversation' : 'Start an investigation';
+    $('#composerContext').textContent = active ? 'This investigation is still active. You can cancel it or wait for a terminal state.' : state.run ? 'Ask a follow-up, discuss the findings, or ask what OpsGraph can do. Your conversation stays together and earlier evidence is preserved.' : !state.authenticated ? 'Connect your workspace, inspect a source, and test your model before asking.' : !ready.length ? 'Configure a source in Sources. Model availability does not block source inspection.' : !modelReady ? state.providerDirty ? 'Save and test the edited model configuration before your first question.' : 'Test the actual model connection in Settings before your first question.' : sourceHasUnsavedEdits ? 'Save and inspect the edited source, then run its bounded readiness check again.' : !selectedVerified ? 'Review and run the selected source’s bounded readiness check before your first question.' : 'Choose a bounded operational question, including a time range where relevant.';
     if (state.run?.error?.code === 'clarification_required') {
       $('#composerTitle').textContent = 'Clarify your question';
-      $('#composerContext').textContent = 'Answer the clarification above with the needed definitions, join keys or time rules. This creates a linked attempt; nothing is treated as completed evidence from the blocked attempt.';
+      $('#composerContext').textContent = 'Answer the clarification above with the needed definitions, join keys or time rules. Your answer continues this conversation. No completed evidence is assumed from the question awaiting clarification.';
     }
     $('#testProvider').disabled = !state.authenticated || state.providerBusy || state.providerDirty;
     $('#providerFields').disabled = !state.authenticated || state.providerBusy || !state.providerConfiguration;
@@ -212,8 +220,8 @@
       cancelled: 'Execution cancelled',
       cancelling: 'Cancellation requested',
     };
-    $('#executionTitle').textContent = titles[state.run.status] || 'Investigation in progress';
-    $('.execution-card').dataset.state = state.run.status;
+    $('#executionTitle').textContent = state.run.error?.code === 'clarification_required' ? 'A little more context is needed' : titles[state.run.status] || 'Investigation in progress';
+    $('.execution-card').dataset.state = state.run.error?.code === 'clarification_required' ? 'clarification' : state.run.status;
     if (!state.runEvents.length) {
       $('#stageSummary').textContent = state.runEventsLoaded || state.run.legacy_provenance
         ? 'Detailed stage history is unavailable for this saved attempt.'
@@ -428,6 +436,10 @@
       const link = document.createElement('a'); link.href = url.href; link.textContent = 'Official connection documentation ↗'; link.target = '_blank'; link.rel = 'noopener noreferrer'; node.append(link);
     }
   }
+  function renderSavedConnection() {
+    if (state.authenticated && !(state.sources || []).length && state.savedConnection) $('#sourceCatalog').textContent = 'Connection saved. No tables approved yet.';
+    $('#savedConnection').hidden = !state.authenticated || !state.savedConnection || (state.sources || []).some(source => source.secret_ref === state.savedConnection.secret_ref);
+  }
   async function loadHostingGuides() {
     const token = ++state.hostingToken; const epoch = state.authEpoch;
     notice('#hostingError'); $('#retryHostingGuides').hidden = true;
@@ -436,6 +448,7 @@
       const catalog = await api('/api/postgres/hosting-guides');
       if (token !== state.hostingToken || epoch !== state.authEpoch) return;
       state.hostingGuides = catalog.profiles; state.hostingDefault = catalog.default_profile;
+      state.savedConnection = catalog.saved_connection || null; renderSavedConnection(); readiness();
       if (!state.sourceEditingId && !state.sourceDirty) $('#sourceHosting').value = state.hostingDefault;
       renderHostingGuide();
     } catch (error) {
@@ -542,6 +555,7 @@
       if (preferred) $('#investigationSource').value = preferred.id;
     }
     $('#sourceCatalog').innerHTML = state.sources.map(source => `<article class="source-card"><p class="eyebrow">POSTGRESQL · ${esc(source.status)}</p><h2>${esc(source.name)}</h2><p>${esc(source.id)}</p><p>${esc((source.allowed_tables || []).join(', ') || 'No explicit table scope')}</p><p>${source.allow_external_egress ? 'External inference permitted by source' : 'Local inference only'}</p><p>${sourceReadinessPassed(source) ? `Readiness checked ${esc(stamp(source.readiness.checked_at))}` : 'Bounded readiness check required'}</p><button class="secondary" data-edit-source="${esc(source.id)}">Configure / inspect</button></article>`).join('') || '<p class="helper">No PostgreSQL sources configured. Add a source to begin.</p>';
+    renderSavedConnection();
     readiness();
   }
   async function loadSkills() {
@@ -552,12 +566,24 @@
     $('#skillCatalog').innerHTML = state.skills.map(skill => `<article><p class="eyebrow">${esc(skill.id)} · ${esc(skill.version)}</p><h2>${esc(skill.name)}</h2><p>${esc(skill.purpose)}</p><p>Required evidence: ${esc((skill.required_evidence || []).join(', ') || 'No specialist evidence types')}</p><p>Tools: ${esc((skill.tools || []).map(binding => binding.tool).join(', '))}</p><button class="secondary" data-view="sources">Configure source mappings</button></article>`).join('') || '<p>No published playbooks available.</p>';
     renderComposerScope();
   }
-  async function loadHistory() { state.runs = await api('/api/runs'); renderHistory(); }
+  async function loadHistory() {
+    const epoch = state.authEpoch;
+    $('#historyMessage').textContent = 'Loading investigations…';
+    $('#caseList').setAttribute?.('aria-busy', 'true');
+    try {
+      const [runs, conversations] = await Promise.all([api('/api/runs'), api('/api/conversations')]);
+      if (epoch !== state.authEpoch) return;
+      state.runs = runs; state.conversations = conversations; renderHistory();
+    } catch (error) {
+      if (epoch === state.authEpoch) $('#historyMessage').textContent = 'History could not load. Refresh the workspace to retry.';
+      throw error;
+    } finally { if (epoch === state.authEpoch) $('#caseList').removeAttribute?.('aria-busy'); }
+  }
   function renderHistory() {
     const query = $('#caseSearch').value.trim().toLowerCase();
-    const runs = state.runs.filter(run => `${run.question} ${run.source_id}`.toLowerCase().includes(query));
-    $('#historyMessage').textContent = !state.authenticated ? 'Connect workspace to load saved investigations.' : !state.runs.length ? 'No investigations yet.' : !runs.length ? 'No matching investigations.' : `${state.runs.length} saved investigation${state.runs.length === 1 ? '' : 's'}.`;
-    preserveFocus(() => { $('#caseList').innerHTML = runs.map(run => `<button class="case-card${state.run?.id === run.id ? ' active' : ''}" data-run-id="${esc(run.id)}" data-focus-key="history:${esc(run.id)}"><span class="case-state">${esc(run.status)}</span><b>${esc(run.question)}</b><p>${esc(run.source_id)}</p><time datetime="${esc(run.created_at)}">${esc(stamp(run.created_at))}</time></button>`).join(''); });
+    const cases = (state.conversations || []).filter(item => `${item.title} ${item.source_id}`.toLowerCase().includes(query));
+    $('#historyMessage').textContent = !state.authenticated ? 'Connect workspace to load saved investigations.' : !(state.conversations || []).length ? 'No investigations yet.' : !cases.length ? 'No matching investigations.' : `${query ? `${cases.length} of ` : ''}${state.conversations.length} investigation${state.conversations.length === 1 ? '' : 's'}`;
+    preserveFocus(() => { $('#caseList').innerHTML = cases.map(item => `<button class="case-card${state.run?.conversation_id === item.id ? ' active' : ''}" data-run-id="${esc(item.latest_run_id)}" data-focus-key="history:${esc(item.id)}"><span class="case-state">${esc(item.status === 'blocked' ? 'Needs attention' : item.status)}</span><b>${esc(item.title)}</b><p>${esc(item.source_id)} · ${Number(item.turn_count) || 1} ${(Number(item.turn_count) || 1) === 1 ? 'turn' : 'turns'}</p><time datetime="${esc(item.updated_at)}">${esc(stamp(item.updated_at))}</time></button>`).join(''); });
   }
   async function loadPolicy() { state.policy = await api('/api/policies/current'); $('#policyDetails').textContent = json(state.policy); renderComposerScope(); }
   async function loadAudit() { $('#auditDetails').textContent = json(await api('/api/audit')); }
@@ -569,6 +595,7 @@
     if (rejected.some(item => item.reason.status === 401)) { state.authenticated = false; throw rejected.find(item => item.reason.status === 401).reason; }
     if (rejected.length) notice('#globalError', rejected.map(item => item.reason.message).join('\n'));
     readiness();
+    if (state.savedConnection && !state.sources.length && $('#sourceSetup').hidden) sourceSetup();
   }
   async function connectWorkspace(event) {
     const restoreFocus = guardAsyncFocus($('#saveCredential'), $('#workspace'));
@@ -590,8 +617,8 @@
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
   function clearWorkspace() {
-    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
-    state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
+    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); $('#tableChoices').replaceChildren(); $('#tableDiscovery').hidden = true; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
+    state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.conversations = []; state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
     $('#investigationQuestion').value = ''; $('#sourceCatalog').textContent = 'Connect workspace to load sources.'; $('#skillCatalog').textContent = 'Connect workspace to load playbooks.';
@@ -603,6 +630,35 @@
     ['#globalError', '#composerError', '#credentialError', '#sourceError', '#providerError', '#skillError'].forEach(id => notice(id));
     renderHistory(); readiness(); closeDrawer();
   }
+  async function discoverConnectionTables() {
+    const token = state.sourceSetupToken; const epoch = state.authEpoch;
+    if (!state.savedConnection || $('#sourceSecretRef').value !== state.savedConnection.secret_ref) return;
+    $('#tableDiscovery').hidden = false; $('#retryTableDiscovery').disabled = true;
+    $('#tableDiscoveryStatus').textContent = 'Finding readable tables. Only table names are fetched, no records or model calls.';
+    $('#tableChoices').replaceChildren();
+    try {
+      const result = await api('/api/postgres/discover-tables', { method: 'POST' });
+      if (token !== state.sourceSetupToken || epoch !== state.authEpoch) return;
+      const selected = new Set($('#sourceTables').value.split(',').map(value => value.trim()).filter(Boolean));
+      for (const name of result.tables) {
+        const label = document.createElement('label'); const checkbox = document.createElement('input');
+        label.className = 'checkbox-label'; checkbox.type = 'checkbox'; checkbox.checked = selected.has(name);
+        checkbox.addEventListener('change', () => {
+          const choices = new Set($('#sourceTables').value.split(',').map(value => value.trim()).filter(Boolean));
+          if (checkbox.checked && choices.size >= 100 && !choices.has(name)) { checkbox.checked = false; $('#tableDiscoveryStatus').textContent = 'Select at most 100 tables per source. Create another source for additional tables.'; return; }
+          if (checkbox.checked) choices.add(name); else choices.delete(name);
+          $('#sourceTables').value = [...choices].join(', '); markSourceDirty();
+        });
+        label.append(checkbox, document.createTextNode(name)); $('#tableChoices').append(label);
+      }
+      $('#tableDiscoveryStatus').textContent = result.tables.length ? 'Select up to 100 tables, then save and check access. Nothing is approved automatically.' : 'No readable tables found in your approved database groups. Check the login permissions or enter table names below.';
+      if (result.truncated) $('#tableDiscoveryStatus').textContent += ' Showing the first 500 tables. You can enter other exact names below.';
+      if (result.unsupported_count) $('#tableDiscoveryStatus').textContent += ' Some names need quoted identifiers, which this version does not support.';
+    } catch (error) {
+      if (token !== state.sourceSetupToken || epoch !== state.authEpoch) return;
+      $('#tableDiscoveryStatus').textContent = `${error.message} Retry or enter table names below.`; sourceDiagnostic(error);
+    } finally { if (token === state.sourceSetupToken && epoch === state.authEpoch) $('#retryTableDiscovery').disabled = false; }
+  }
   function sourceSetup(source = null) {
     const token = ++state.sourceSetupToken;
     state.sourceDirty = false; state.sourceEditingId = source?.id || null;
@@ -613,8 +669,9 @@
     if (!source) {
       $('#sourceId').value = `source-${Array.from(crypto.getRandomValues(new Uint8Array(4)), byte => byte.toString(16).padStart(2, '0')).join('')}`;
       $('#sourceName').value = 'PostgreSQL read-only';
-      $('#sourceSecretRef').value = 'OPSGRAPH_SOURCE_DSN';
-      $('#sourceSchemas').value = (state.policy?.obligations?.allowed_schemas || ['public']).join(', ');
+      $('#sourceSecretRef').value = state.savedConnection?.secret_ref || 'OPSGRAPH_SOURCE_DSN';
+      $('#sourceSchemas').value = (state.savedConnection?.allowed_schemas || state.policy?.obligations?.allowed_schemas || ['public']).join(', ');
+      if (state.savedConnection) $('#sourceStatus').textContent = 'Your connection is saved. Enter the table names below, then save and check access.';
     }
     if (source) {
       $('#sourceId').value = source.id; $('#sourceName').value = source.name; $('#sourceSecretRef').value = source.secret_ref || '';
@@ -632,6 +689,8 @@
         if (error.status !== 404) notice('#sourceError', error.message);
       });
     }
+    $('#tableDiscovery').hidden = true; $('#tableChoices').replaceChildren();
+    if (state.savedConnection && (!source || source.secret_ref === state.savedConnection.secret_ref)) void discoverConnectionTables();
     $('#sourceSetupTitle').focus();
   }
   function markSourceDirty() {
@@ -788,14 +847,19 @@
     const bookmark = viewState.focusBookmark(document);
     const selectedId = runId(run.id);
     if (state.report && (state.report.run_id !== run.id || state.report.snapshot_updated_at !== run.updated_at)) { resetReport(); $('#reportStatus').textContent = 'The saved investigation changed. Generate a fresh preview before sharing.'; }
-    state.run = run; sessionStorage.setItem('opsgraph.selectedRun', selectedId);
+    state.run = run;
+    if (state.conversation && state.conversation.id === run.conversation_id) { const index = (state.conversation.turns || []).findIndex(turn => turn.id === run.id); if (index >= 0) state.conversation.turns[index] = { ...state.conversation.turns[index], ...run }; }
+    sessionStorage.setItem('opsgraph.selectedRun', selectedId);
     $('#onboarding').hidden = true; $('#runWorkspace').hidden = false;
-    $('#runIdentity').textContent = run.legacy_provenance ? `${run.id} · imported legacy investigation; some provenance was not retained` : run.id; $('#caseTitle').textContent = run.question; $('#runSource').textContent = run.source_id;
-    $('#runCreated').textContent = stamp(run.created_at); $('#runSkill').textContent = run.skill_id || 'Selection pending'; $('#runState').textContent = run.status;
+    renderConversationTitle(); $('#caseTitle').textContent = run.question; $('#runSource').textContent = run.source_id;
+    $('#runCreated').textContent = stamp(run.created_at); $('#runSkill').textContent = run.skill_id || 'Selection pending'; $('#runState').textContent = run.error?.code === 'clarification_required' ? 'Clarification needed' : run.response_kind === 'conversation' ? 'Conversation' : run.status;
     const configuration = run.configuration;
     const recordedTables = configuration?.limits?.allowed_tables || [];
     $('#runScopeSummary').textContent = configuration ? `Recorded scope · ${recordedTables.slice(0, 2).join(', ') || 'tables unavailable'}${recordedTables.length > 2 ? ` + ${recordedTables.length - 2} more` : ''}${configuration.limits?.max_rows != null ? ` · ${configuration.limits.max_rows} rows/query` : ''}${configuration.limits?.timeout_ms != null ? ` · ${configuration.limits.timeout_ms} ms/query` : ''}` : 'Recorded investigation scope · unavailable';
     $('#runScope').innerHTML = configuration ? scopeMarkup({
+      'Conversation ID': run.conversation_id || 'Legacy record',
+      'Turn ID': run.turn_id || 'Legacy record',
+      'Attempt ID': run.id,
       'Recorded source': [configuration.source_name, configuration.source_id].filter(Boolean).join(' · ') || 'Unavailable',
       'Permitted tables at execution': (configuration.limits?.allowed_tables || []).join(', ') || 'Unavailable in this record',
       'Recorded row bound': configuration.limits?.max_rows != null ? `${configuration.limits.max_rows} rows per query` : 'Unavailable',
@@ -808,17 +872,19 @@
     }) + '<p class="helper">These are this attempt’s recorded execution bounds. Current source settings may differ. Column permissions are enforced by PostgreSQL; schema names do not establish business meaning.</p>' : '<p class="helper">Execution scope has not been recorded for this attempt. Historical records may lack these details; current settings do not establish historical scope.</p>';
     $('#currentOperation').textContent = viewState.currentOperation(run, state.lastEvent);
     renderExecutionProgress();
-    const previousId = run.retry_of || run.parent_run_id;
-    const previous = state.runs.find(item => item.id === previousId);
-    const previousExpanded = $('#previousTurn').dataset.runId === run.id && $('#previousTurn details')?.open;
-    $('#previousTurn').dataset.runId = run.id;
-    $('#previousTurn').hidden = !previousId;
-    $('#previousTurn').innerHTML = previousId ? `<details${previousExpanded ? ' open' : ''}><summary data-focus-key="previous-summary:${esc(run.id)}">${run.retry_of ? 'Previous attempt' : 'Previous conversation turn'} · historical context</summary>${previous ? `<p><strong>${esc(previous.question)}</strong></p><p>${esc(previous.answer?.summary || `Saved state: ${previous.status}. No completed conclusion recorded.`)}</p><p class="helper">Source ${esc(previous.source_id)} · ${esc(stamp(previous.created_at))}. Previous claims remain assessments; this run collects its own evidence.</p>` : '<p class="helper">Open the saved previous turn to inspect its question, state and evidence.</p>'}<button class="secondary" data-run-id="${esc(previousId)}" data-focus-key="previous:${esc(run.id)}">Open previous ${run.retry_of ? 'attempt' : 'turn'}</button></details>` : '';
-    $('#runRelation').textContent = run.retry_of ? `New attempt of ${run.retry_of}. Previous attempt retained.` : run.parent_run_id ? `Follow-up to ${run.parent_run_id}. Previous evidence retained.` : '';
+    renderConversation();
+    $('#runRelation').textContent = run.retry_of ? 'Retry within this conversation. Earlier evidence is preserved.' : run.parent_run_id ? 'Continuing this conversation. Earlier evidence is preserved.' : '';
     $('#cancelRun').hidden = terminal(run.status); $('#cancelRun').disabled = run.status === 'cancelling'; $('#cancelRun').textContent = run.status === 'cancelling' ? 'Cancellation requested' : 'Cancel run';
     $('#retryRun').hidden = !['failed', 'blocked', 'interrupted', 'cancelled'].includes(run.status);
+    $('#runError').className = run.error?.code === 'clarification_required' ? 'notice clarification-notice' : 'notice error';
     notice('#runError', run.error ? `${run.error.message || run.error.code}${run.status === 'interrupted' ? '\nBackend process stopped. Retry explicitly to create a separate attempt; this run will not resume automatically.' : ''}` : run.status === 'cancelling' ? 'Cancellation requested. The backend must finish or interrupt its current bounded operation before cancellation is confirmed.' : '');
-    const answer = run.answer; $('#answerThread').hidden = !answer && !(run.evidence || []).length; $('#conclusionCard').hidden = !answer;
+    const conversational = run.response_kind === 'conversation';
+    $('#conversationReply').hidden = !conversational;
+    $('#conversationReplyText').textContent = run.assistant_message || '';
+    $('.execution-card').hidden = conversational;
+    $('#openReport').disabled = conversational;
+    $('.run-scope').hidden = conversational;
+    const answer = conversational ? null : run.answer; $('#answerThread').hidden = conversational || (!answer && !(run.evidence || []).length); $('#conclusionCard').hidden = conversational || !answer;
     $('#conclusionTitle').textContent = answer?.summary || '';
     $('#limitations').innerHTML = (answer?.limitations || []).map(limit => `<li>${esc(limit)}</li>`).join('') || (answer ? '<li>No additional limitation recorded by the model. This does not establish completeness.</li>' : '<li>No completed model assessment was recorded. Inspect retained captures as partial evidence.</li>');
     const classes = new Set(['supported', 'possible', 'unknown', 'contradictory']);
@@ -838,8 +904,39 @@
     $('#investigationSource').value = run.source_id; $('#investigationSkill').value = run.skill_id === 'generic-readonly' ? '' : run.skill_id || '';
     const existing = state.runs.findIndex(item => item.id === run.id);
     if (existing < 0) state.runs.unshift(run); else state.runs[existing] = run;
+    const card = (state.conversations || []).find(item => item.id === run.conversation_id);
+    if (card && (!card.updated_at || run.updated_at >= card.updated_at)) { card.status = run.status; card.updated_at = run.updated_at; card.latest_run_id = run.id; }
     renderHistory(); readiness();
     if (!state.activeDrawer && bookmark.node && !bookmark.node.isConnected) viewState.focusTarget(bookmark, document)?.focus({ preventScroll: true });
+  }
+  function renderConversationTitle() {
+    const saved = state.conversation?.id === state.run?.conversation_id ? state.conversation : (state.conversations || []).find(item => item.id === state.run?.conversation_id);
+    const title = saved?.title || state.run?.question || 'Investigation';
+    const count = Number(saved?.turn_count) || saved?.turns?.length || 1;
+    $('#runIdentity').textContent = `${title} · ${count} ${count === 1 ? 'turn' : 'turns'}`;
+  }
+  function historicalAttempts(turn, expanded) {
+    const attempts = turn.attempts || [];
+    if (attempts.length < 2) return '';
+    const key = `attempts:${turn.turn_id || turn.id}`;
+    return `<details class="historical-attempt retry-history" data-attempt="${esc(key)}"${expanded.has(key) ? ' open' : ''}><summary>Attempts in this turn (${attempts.length})</summary>${attempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.assistant_message || attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}" data-focus-key="attempt:${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>`;
+  }
+  function renderConversation() {
+    const panel = $('#previousTurn');
+    const turns = state.conversation && state.conversation.id === state.run?.conversation_id ? state.conversation.turns || [] : [];
+    const currentIndex = turns.findIndex(turn => turn.id === state.run?.id || (turn.turn_id && turn.turn_id === state.run?.turn_id));
+    const previous = currentIndex < 0 ? [] : turns.slice(0, currentIndex);
+    const otherAttempts = currentIndex < 0 ? [] : (turns[currentIndex].attempts || []).filter(attempt => attempt.id !== state.run.id);
+    panel.hidden = !previous.length && !otherAttempts.length;
+    const expanded = new Set([...(panel.querySelectorAll?.('details[open]') || [])].map(node => node.dataset.attempt));
+    panel.innerHTML = previous.map(turn => `<article class="historical-turn"><header class="message-author"><span aria-hidden="true">OP</span><div><b>You</b><small>${esc(stamp(turn.turn_created_at || turn.created_at))}</small></div></header><h2>${esc(turn.question)}</h2><div class="historical-response"><header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>${turn.response_kind === 'conversation' ? 'Conversation · no database query' : 'Saved response · evidence remains unchanged'}</small></div></header><p class="historical-summary">${esc(turn.assistant_message || turn.answer?.summary || turn.error?.message || `Saved state: ${turn.status}`)}</p>${turn.response_kind !== 'conversation' ? `<details class="historical-attempt" data-attempt="${esc(turn.id)}"${expanded.has(turn.id) ? ' open' : ''}><summary>${esc(turn.error?.code === 'clarification_required' ? 'Clarification needed' : turn.status)} · ${(turn.evidence || []).length} captures · inspect this turn</summary>${(turn.answer?.findings || []).map(finding => `<p><strong>${esc(finding.classification)}</strong> · ${esc(finding.claim)}</p>`).join('')}<p class="helper">Earlier findings remain model assessments. Open this turn to inspect its evidence, execution details or report.</p><button class="secondary" data-run-id="${esc(turn.id)}" data-focus-key="attempt:${esc(turn.id)}">Inspect saved turn</button></details>` : ''}${historicalAttempts(turn, expanded)}</div></article>`).join('') + (otherAttempts.length ? `<details class="historical-attempt retry-history"><summary>Other attempts in this turn (${otherAttempts.length})</summary>${otherAttempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>` : '');
+  }
+  async function loadConversation(run, token) {
+    if (!run.conversation_id) { state.conversation = null; renderConversation(); return; }
+    const conversation = await api(`/api/conversations/${encodeURIComponent(runId(run.conversation_id))}`);
+    if (token !== state.streamToken || state.run?.conversation_id !== run.conversation_id) return;
+    state.conversation = conversation; renderConversationTitle(); renderConversation();
+    await loadHistory();
   }
   function evidenceMarkup(item, run) {
     const provenance = item.provenance || {};
@@ -874,6 +971,7 @@
       const run = await api(`/api/runs/${encodeURIComponent(id)}`);
       if (token !== state.streamToken) return;
       $('#activityLog').replaceChildren(); state.lastEventId = 0; state.lastEvent = null; state.runEvents = []; state.runEventsLoaded = false; $('#evidencePanel').hidden = true; $('#toggleEvidence').setAttribute('aria-expanded', 'false'); $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = false; renderRun(run); showView('investigations', false); void streamRun(id, token);
+      try { await loadConversation(run, token); } catch (error) { if (token === state.streamToken) notice('#globalError', `Conversation history could not load: ${error.message}. Select this investigation again to retry. The selected turn remains available.`); }
     } catch (error) { notice('#globalError', error.message); }
   }
   function addEvent(event) {
@@ -918,10 +1016,11 @@
   async function submitRun(event) {
     event.preventDefault();
     const selectedSourceId = $('#investigationSource').value;
-    if (state.busy || state.providerDirty || !state.modelTested || (state.sourceDirty && state.sourceEditingId === selectedSourceId) || $('#submitRun').disabled) return;
+    const conversationalQuestion = isConversationQuestion($('#investigationQuestion').value);
+    if (state.busy || (!conversationalQuestion && (state.providerDirty || !state.modelTested)) || (state.sourceDirty && state.sourceEditingId === selectedSourceId) || $('#submitRun').disabled) return;
     const restoreFocus = guardAsyncFocus($('#submitRun'), $('#currentOperation'));
     notice('#composerError'); state.busy = true; readiness();
-    const body = { question: $('#investigationQuestion').value.trim(), source_id: $('#investigationSource').value, skill_id: $('#investigationSkill').value || null, parent_run_id: state.run?.id || null };
+    const body = { question: $('#investigationQuestion').value.trim(), source_id: $('#investigationSource').value, skill_id: $('#investigationSkill').value || null, parent_run_id: state.conversation?.turns?.at(-1)?.id || state.run?.id || null, conversation_id: state.run?.conversation_id || null };
     const signature = JSON.stringify(body);
     if (!state.pending || state.pending.signature !== signature) state.pending = { signature, request_id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('') };
     body.request_id = state.pending.request_id;
@@ -929,7 +1028,7 @@
       const epoch = state.authEpoch;
       await loadProvider();
       if (epoch !== state.authEpoch) return;
-      if (state.providerDirty || !state.modelTested || (state.sourceDirty && state.sourceEditingId === selectedSourceId)) throw new Error('Review the source settings and run a current model connection check before investigating.');
+      if ((!conversationalQuestion && (state.providerDirty || !state.modelTested)) || (state.sourceDirty && state.sourceEditingId === selectedSourceId)) throw new Error('Review the source settings and run a current model connection check before investigating.');
       const run = await api('/api/runs', { method: 'POST', body: JSON.stringify(body) }); state.pending = null; await openRun(run.id);
     }
     catch (error) { notice('#composerError', `${error.message}\nCorrect the source/model configuration or retry this same question. A retry of this submission uses the same request ID.`); }
@@ -959,7 +1058,7 @@
   }
   function newInvestigation() {
     if (state.activeDrawer?.id === 'reportDrawer') closeDrawer(false);
-    stopStream(); state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.lastEvent = null; state.pending = null; sessionStorage.removeItem('opsgraph.selectedRun'); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
+    stopStream(); state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.lastEvent = null; state.pending = null; sessionStorage.removeItem('opsgraph.selectedRun'); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = true; notice('#composerError'); showView('investigations'); readiness(); renderHistory();
     if (!state.authenticated) openDrawer('credentialDrawer', $('#newInvestigation')); else $('#investigationQuestion').focus();
   }
@@ -1003,6 +1102,8 @@
   $('#drawerBackdrop').addEventListener('click', () => closeDrawer());
   ['#openCredential', '#setupCredential'].forEach(id => $(id).addEventListener('click', event => openDrawer('credentialDrawer', event.currentTarget)));
   $('#credentialForm').addEventListener('submit', connectWorkspace); $('#clearCredential').addEventListener('click', clearWorkspace);
+  $('#retryTableDiscovery').addEventListener('click', discoverConnectionTables);
+  $('#finishSavedConnection').addEventListener('click', () => sourceSetup());
   $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
   $('#setupReadiness').addEventListener('click', () => sourceSetup(sourceForReadinessSetup()));
   $('#sourceHosting').addEventListener('change', () => { renderHostingGuide(); markSourceDirty(); });
@@ -1035,6 +1136,7 @@
   });
   $('#testProvider').addEventListener('click', testProvider); $('#cancelRun').addEventListener('click', cancelRun); $('#retryRun').addEventListener('click', retryRun);
   $('#caseSearch').addEventListener('input', renderHistory);
+  $('#investigationQuestion').addEventListener('input', readiness);
   $('#skillForm').addEventListener('submit', saveSkill); $('#publishSkill').addEventListener('click', publishSkill);
   $('#skillJson').addEventListener('input', () => { state.savedSkill = null; $('#publishSkill').disabled = true; });
   ['#roleGuideName', '#roleGuideDatabase', '#sourceTables'].forEach(id => $(id).addEventListener('input', invalidateRoleGuide));

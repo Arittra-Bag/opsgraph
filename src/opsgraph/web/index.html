@@ -56,9 +56,9 @@
               </ol>
             </section>
             <section id="runWorkspace" hidden>
-              <header class="run-toolbar"><div class="run-toolbar-meta"><span>Investigation · <b id="runIdentity"></b></span><span class="run-state-badge" id="runState" aria-live="polite"></span><details class="run-scope"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details></div><div class="case-actions"><button class="primary" id="openReport">Create report</button><button class="secondary" id="exportEvidence">Export JSON</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry as new attempt</button></div></header>
+              <header class="run-toolbar"><div class="run-toolbar-meta"><span>Investigation · <b id="runIdentity"></b></span><span class="run-state-badge" id="runState" aria-live="polite"></span><details class="run-scope"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details></div><div class="case-actions"><button class="primary" id="openReport">Create report</button><button class="secondary" id="exportEvidence">Export JSON</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry this turn</button></div></header>
               <div class="canvas-scroll conversation">
-                <section class="previous-turn" id="previousTurn" aria-label="Previous conversation turn" hidden></section>
+                <section class="previous-turn" id="previousTurn" aria-label="Earlier conversation turns" hidden></section>
                 <article class="conversation-message operator-message" aria-labelledby="caseTitle">
                   <header class="message-author"><span aria-hidden="true">OP</span><div><b>You</b><small>asked <time id="runCreated"></time></small></div></header>
                   <h2 id="caseTitle"></h2><p id="runRelation" class="helper"></p>
@@ -70,6 +70,7 @@
                   <p class="current-operation" id="currentOperation" role="status"></p><p class="connection-state" id="streamState" role="status"></p>
                 </section>
                 <div class="notice error" id="runError" role="alert" hidden></div>
+                <article class="conversation-message opsgraph-message conversation-reply" id="conversationReply" hidden><header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>Conversation · no database query</small></div></header><p id="conversationReplyText"></p></article>
                 <article class="conversation-message opsgraph-message" id="answerThread" hidden>
                   <header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>Model assessment grounded in the recorded evidence</small></div></header>
                   <section class="decision-card" id="conclusionCard" hidden><div><p class="eyebrow">Model overview · unverified interpretation</p><h3 id="conclusionTitle"></h3><p>Review individual findings, referenced evidence and unresolved limitations. A citation does not establish support.</p><a href="#findingGrid">Review cited findings</a></div></section>
@@ -82,7 +83,7 @@
             <section class="composer-section" aria-labelledby="composerTitle">
               <h2 id="composerTitle">Start an investigation</h2><p id="composerContext" class="helper">Choose an inspected source and a bounded operational question.</p>
               <form id="investigationForm">
-                <label for="investigationQuestion">Question</label><textarea id="investigationQuestion" required minlength="8" maxlength="800" rows="3" placeholder="Describe the issue and relevant time range…"></textarea>
+                <label for="investigationQuestion">Question</label><textarea id="investigationQuestion" required minlength="1" maxlength="800" rows="3" placeholder="Describe the issue and relevant time range…"></textarea>
                 <details class="scope-summary composer-scope" id="composerScopeDetails" open><summary>Source and query scope</summary><div class="composer-controls"><div class="composer-field" id="sourceComposerField"><label for="investigationSource">Approved source</label><div class="select-shell"><select id="investigationSource" required aria-describedby="sourceFieldHelp"><option value="">Connect a source first</option></select><span class="field-status" id="sourceLockBadge" aria-hidden="true" hidden>Same source</span></div><p class="field-help" id="sourceFieldHelp">Choose an inspected source.</p></div><div class="composer-field"><label for="investigationSkill">Playbook</label><select id="investigationSkill" aria-describedby="playbookFieldHelp"><option value="">General read-only</option></select><p class="field-help" id="playbookFieldHelp">Choose the playbook for this investigation.</p></div></div><div id="composerScope">Select a source to review its configured scope.</div></details>
                 <div class="notice error" id="composerError" role="alert" hidden></div><div class="composer-actions"><p class="helper">Read-only queries. No automatic remediation.</p><button class="primary" id="submitRun" type="submit">Start investigation</button></div>
               </form>
@@ -94,6 +95,7 @@
         <header class="page-header"><div><p class="eyebrow">Your data</p><h1 id="sourcesTitle">Sources</h1><p>Connect an approved PostgreSQL source with a dedicated read-only role.</p></div><button class="primary" id="addSource">Add source</button></header>
         <div class="hosting-intro"><div><span class="section-number" aria-hidden="true">01</span><h2>PostgreSQL, wherever you run it.</h2><p>Local or hosted. One connector, explicit scope, verified access.</p></div><p class="helper">Choosing a host changes setup guidance. Your connection must pass actual inspection and a bounded readiness check.</p></div>
         <div class="source-grid" id="sourceCatalog"><p class="helper">Connect workspace to load sources.</p></div>
+        <section class="notice" id="savedConnection" hidden aria-live="polite"><h2>Database connection saved</h2><p>Your private connection is stored on this backend. Choose which tables OpsGraph may read, then check the connection. You do not need to paste it again.</p><button class="primary" id="finishSavedConnection" type="button">Choose tables and check connection</button></section>
         <section class="source-setup" id="sourceSetup" hidden>
           <div class="source-guide-column"><p class="eyebrow">Connection route</p><h2 id="sourceSetupTitle" tabindex="-1">Configure PostgreSQL</h2>
             <label for="sourceHosting">Where is your database hosted?</label><select id="sourceHosting" form="sourceForm"><option value="local">Local PostgreSQL</option><option value="self_hosted">Remote or self-hosted</option><option value="supabase">Supabase</option><option value="neon">Neon</option><option value="aws_rds">AWS RDS PostgreSQL</option><option value="google_cloud_sql">Google Cloud SQL</option><option value="azure">Azure Database for PostgreSQL</option><option value="digitalocean">DigitalOcean Managed PostgreSQL</option></select>
@@ -106,6 +108,7 @@
             <label for="sourceName">Display name</label><input id="sourceName" required placeholder="Staging PostgreSQL">
             <details class="source-advanced"><summary>Connection reference and source identity</summary><label for="sourceId">Source ID</label><input id="sourceId" required pattern="[a-z][a-z0-9\-]{1,63}" placeholder="staging-readonly"><label for="sourceSecretRef">DSN environment variable name</label><input id="sourceSecretRef" required pattern="[A-Z][A-Z0-9_]{2,127}" placeholder="OPSGRAPH_SOURCE_DSN"><small>Must be approved by OPSGRAPH_ALLOWED_POSTGRES_SECRET_REFS. Never enter the connection URL.</small></details>
             <label for="sourceSchemas">Allowed schemas</label><input id="sourceSchemas" required value="public">
+            <section id="tableDiscovery" hidden><h3>Choose your tables</h3><p id="tableDiscoveryStatus" class="helper" role="status"></p><div id="tableChoices"></div><button class="secondary" id="retryTableDiscovery" type="button">Refresh table list</button></section>
             <label for="sourceTables">Explicit allowed tables</label><input id="sourceTables" required placeholder="public.jobs, public.queues">
             <div id="inspectedTables" hidden></div>
             <section class="readiness-panel" id="sourceReadinessPanel" aria-labelledby="sourceReadinessTitle" hidden>

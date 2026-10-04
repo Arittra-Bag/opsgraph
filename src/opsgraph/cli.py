@@ -35,6 +35,16 @@ def _parser() -> argparse.ArgumentParser:
     launch.add_argument("--port", type=int, default=8000)
     launch.add_argument("--configure", action="store_true")
     launch.add_argument("--no-browser", action="store_true")
+    no_code = commands.add_parser(
+        "no-code", help="guided setup with optional isolated practice data"
+    )
+    no_code.add_argument("--directory", type=Path)
+    no_code.add_argument("--port", type=int)
+    no_code.add_argument("--configure", action="store_true")
+    no_code.add_argument("--no-browser", action="store_true")
+    no_code.add_argument(
+        "--stop", action="store_true", help="stop only the owned practice database"
+    )
     backup = commands.add_parser("backup", help="back up a stopped workspace to a new directory")
     backup.add_argument("--directory", type=Path)
     backup.add_argument("--output", type=Path, required=True)
@@ -164,6 +174,18 @@ def _init(directory: Path) -> int:
 
 def main() -> None:
     args = _parser().parse_args()
+    if args.command == "no-code":
+        from opsgraph.no_code import run_no_code
+
+        raise SystemExit(
+            run_no_code(
+                args.directory,
+                port=args.port,
+                browser=not args.no_browser,
+                configure=args.configure,
+                stop=args.stop,
+            )
+        )
     if args.command in {"backup", "restore"}:
         from opsgraph.maintenance import run_maintenance
 

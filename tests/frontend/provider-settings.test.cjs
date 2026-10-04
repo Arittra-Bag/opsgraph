@@ -23,6 +23,7 @@ function fixture() {
   const begin = source.indexOf('  function clearProviderVerification()');
   const end = source.indexOf('  async function loadSources()', begin);
   vm.runInContext(source.slice(begin, end), context);
+  vm.runInContext(source.slice(source.indexOf('  function isConversationQuestion('), source.indexOf('  function readiness()')), context);
   return { $, state, context, timers };
 }
 const verification = revision => ({ status: 'verified', configuration_revision: revision, checked_at: '2026-10-04T00:00:00Z', expires_at: '2026-10-04T00:15:00Z', valid_for_seconds: 899, detail: 'Recent model connection check passed.' });

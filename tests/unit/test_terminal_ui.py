@@ -65,3 +65,16 @@ def test_untrusted_labels_cannot_issue_terminal_control_sequences():
     result = safe_text(value)
     assert not re.search(r"[\x00-\x1f\x7f\u202e]", result)
     assert "safe" in result and "hidden" in result
+
+
+def test_help_card_wraps_but_connection_example_remains_copyable():
+    output = []
+    ui = TerminalUI(output.append, width=32)
+    ui.note(
+        "DigitalOcean PostgreSQL: get your connection",
+        ("1. Open your project and copy the connection string.",),
+    )
+    assert all(len(line) <= 32 for line in output)
+    example = "postgresql://READ_ONLY_LOGIN:YOUR_PASSWORD@127.0.0.1:5432/YOUR_DATABASE"
+    ui.literal(example)
+    assert output[-1] == "  " + example

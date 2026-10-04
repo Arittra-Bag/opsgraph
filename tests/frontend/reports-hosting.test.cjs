@@ -11,7 +11,7 @@ function fixture() {
     return nodes.get(id);
   };
   const state = { authenticated: true, authEpoch: 0, hostingToken: 0, hostingGuides: [], sourceDirty: false, reportToken: 0, reportRunId: 'run-a', run: { id: 'run-a', updated_at: 'saved-time' }, activeDrawer: { id: 'reportDrawer' } };
-  const context = vm.createContext({ $, state, URL, document: { createElement: tag => ({ tag, textContent: '', children: [], append(...items) { this.children.push(...items); } }) }, esc: value => String(value).replace(/</g, '&lt;'), stamp: value => value, runId: value => value, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, value = '') => { $(id).textContent = value; }, api: async () => ({}) });
+  const context = vm.createContext({ $, state, URL, readiness() {}, document: { createElement: tag => ({ tag, textContent: '', children: [], append(...items) { this.children.push(...items); } }) }, esc: value => String(value).replace(/</g, '&lt;'), stamp: value => value, runId: value => value, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, value = '') => { $(id).textContent = value; }, api: async () => ({}) });
   vm.runInContext(source.slice(source.indexOf('  function renderHostingGuide()'), source.indexOf('  async function loadSources()')), context);
   return { $, state, context };
 }
@@ -131,4 +131,116 @@ test('readable report decodes escaped prose punctuation without creating active 
   assert.equal(nodes[1].tag, 'ul');
   assert.equal(nodes[1].children.length, 2);
   assert.equal(nodes[2].textContent, 'A saved snapshot.');
+});
+
+test('saved terminal connection is shown after metadata loads without approving tables', async () => {
+  const f = fixture();
+  f.context.api = async () => ({ profiles: [], default_profile: 'supabase', saved_connection: { secret_ref: 'OPSGRAPH_SOURCE_DSN', allowed_schemas: ['public'] } });
+  await f.context.loadHostingGuides();
+  assert.equal(f.$('#savedConnection').hidden, false);
+  assert.equal(f.state.savedConnection.secret_ref, 'OPSGRAPH_SOURCE_DSN');
+  f.state.sources = [{ secret_ref: 'OPSGRAPH_SOURCE_DSN' }];
+  f.context.renderSavedConnection();
+  assert.equal(f.$('#savedConnection').hidden, true);
+  f.state.sources = []; f.state.authenticated = false;
+  f.context.renderSavedConnection();
+  assert.equal(f.$('#savedConnection').hidden, true);
+});
+
+test('late saved connection metadata never crosses workspace boundaries', async () => {
+  const f = fixture(); let resolve;
+  f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.loadHostingGuides();
+  f.state.authEpoch++;
+  resolve({ profiles: [], default_profile: 'supabase', saved_connection: { secret_ref: 'OTHER_SECRET' } });
+  await pending;
+  assert.equal(f.state.savedConnection, undefined);
+});
+
+function discoveryFixture() {
+  const f = fixture();
+  f.state.savedConnection = { secret_ref: 'OPSGRAPH_SOURCE_DSN' }; f.state.sourceSetupToken = 1;
+  f.$('#sourceSecretRef').value = 'OPSGRAPH_SOURCE_DSN';
+  f.context.markSourceDirty = () => { f.state.sourceDirty = true; };
+  f.context.document = {
+    createElement: tag => ({ tag, children: [], append(...items) { this.children.push(...items); }, addEventListener(type, handler) { this[type] = handler; } }),
+    createTextNode: text => ({ textContent: text }),
+  };
+  vm.runInContext(source.slice(source.indexOf('  async function discoverConnectionTables()'), source.indexOf('  function sourceSetup(')), f.context);
+  return f;
+}
+
+test('discovery lists names without granting access and preserves manual selections', async () => {
+  const f = discoveryFixture(); const requests = [];
+  f.$('#sourceTables').value = 'public.manual';
+  f.context.api = async (path, options) => { requests.push({ path, options }); return { tables: ['public.jobs'], truncated: false }; };
+  await f.context.discoverConnectionTables();
+  assert.equal(requests.length, 1); assert.equal(requests[0].path, '/api/postgres/discover-tables');
+  assert.equal(f.$('#sourceTables').value, 'public.manual');
+  const checkbox = f.$('#tableChoices').children[0].children[0];
+  assert.equal(checkbox.checked, false);
+  checkbox.checked = true; checkbox.change();
+  assert.equal(f.$('#sourceTables').value, 'public.manual, public.jobs');
+  assert.equal(f.state.sourceDirty, true);
+  assert.equal(f.$('#retryTableDiscovery').disabled, false);
+});
+
+for (const change of ['workspace', 'form']) test(`late table discovery discarded after ${change} changes`, async () => {
+  const f = discoveryFixture(); let resolve;
+  f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.discoverConnectionTables();
+  if (change === 'workspace') f.state.authEpoch++; else f.state.sourceSetupToken++;
+  resolve({ tables: ['public.old'] }); await pending;
+  assert.equal(f.$('#tableChoices').children.length, 0);
+});
+
+test('empty and failed table discovery allow manual entry and explicit retry', async () => {
+  const f = discoveryFixture(); f.context.api = async () => ({ tables: [], truncated: false });
+  await f.context.discoverConnectionTables();
+  assert.match(f.$('#tableDiscoveryStatus').textContent, /No readable tables/);
+  f.context.api = async () => { throw new Error('Connection unavailable'); };
+  await f.context.discoverConnectionTables();
+  assert.match(f.$('#tableDiscoveryStatus').textContent, /Retry or enter table names/);
+  assert.equal(f.$('#retryTableDiscovery').disabled, false);
+});
+
+test('conversation replies render once and hide investigation output even if a retained answer exists', () => {
+  const f = fixture(); f.state.runs = [];
+  const original = f.context.$;
+  f.context.$ = selector => { const node = original(selector); node.dataset ||= {}; node.options ||= []; node.insertAdjacentHTML = () => {}; return node; };
+  f.context.viewState = { focusBookmark: () => ({}), currentOperation: () => 'Completed', captureStatus: () => 'No query' };
+  f.context.document = {};
+  f.context.sessionStorage = { setItem() {} };
+  f.context.terminal = () => true;
+  f.context.renderExecutionProgress = () => {};
+  f.context.renderHistory = () => {};
+  f.context.readiness = () => {};
+  vm.runInContext(source.slice(source.indexOf('  function renderRun('), source.indexOf('  function evidenceMarkup(')), f.context);
+  f.context.renderRun({ id: 'run-chat', source_id: 'source-a', status: 'completed', question: 'What can you do?', response_kind: 'conversation', assistant_message: 'I investigate approved PostgreSQL data.', answer: { summary: 'I investigate approved PostgreSQL data.', findings: [], limitations: [] }, evidence: [] });
+  assert.equal(f.$('#conversationReply').hidden, false);
+  assert.equal(f.$('#conversationReplyText').textContent, 'I investigate approved PostgreSQL data.');
+  assert.equal(f.$('#answerThread').hidden, true);
+  assert.equal(f.$('#conclusionCard').hidden, true);
+  assert.equal(f.$('.execution-card').hidden, true);
+  assert.equal(f.$('.run-scope').hidden, true);
+  assert.equal(f.$('#openReport').disabled, true);
+});
+
+test('automatic table discovery preserves setup focus and handles failure with an enabled retry', async () => {
+  const f = discoveryFixture(); let focused = false;
+  const original = f.context.$;
+  f.context.$ = selector => { const node = original(selector); node.dataset ||= {}; node.reset = () => {}; node.focus = () => { if (selector === '#sourceSetupTitle') focused = true; }; return node; };
+  f.context.showView = () => {}; f.context.renderHostingGuide = () => {};
+  f.context.sourceDiagnostic = () => {}; f.context.updateSourceContinue = () => {};
+  f.context.invalidateRoleGuide = () => {};
+  f.context.crypto = { getRandomValues: value => value };
+  f.context.api = async () => { throw new Error('Connection unavailable'); };
+  vm.runInContext(source.slice(source.indexOf('  function sourceSetup('), source.indexOf('  function markSourceDirty(')), f.context);
+  f.context.sourceSetup();
+  assert.equal(focused, true);
+  assert.equal(f.$('#retryTableDiscovery').disabled, true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(f.$('#tableDiscoveryStatus').textContent, /Connection unavailable.*Retry/);
+  assert.equal(f.$('#retryTableDiscovery').disabled, false);
+  assert.equal(f.$('#sourceSecretRef').value, 'OPSGRAPH_SOURCE_DSN');
 });

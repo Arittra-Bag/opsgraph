@@ -156,6 +156,56 @@ class PsycopgReadOnlyExecutor:
                 with suppress(Exception):
                     connection.close()
 
+    def discover_tables(
+        self,
+        *,
+        allowed_schemas: tuple[str, ...],
+        allowed_tables: tuple[str, ...] | None = None,
+        timeout_ms: int = 5000,
+    ):
+        """List readable relation names without reading application records."""
+        if not allowed_schemas or not 100 <= timeout_ms <= 30000:
+            raise ValueError("bounded schema scope and timeout are required")
+        connection = None
+        try:
+            connection = self._connect()
+            with self._lock:
+                self._active = connection
+            cursor = connection.cursor()
+            cursor.execute("BEGIN READ ONLY")
+            cursor.execute("SELECT set_config('statement_timeout', %s, true)", (f"{timeout_ms}ms",))
+            self._verify_read_only_role(cursor)
+            cursor.execute(
+                "SELECT n.nspname, c.relname FROM pg_catalog.pg_class c "
+                "JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = ANY(%s) AND c.relkind IN ('r','p','v','f') "
+                "AND pg_catalog.has_schema_privilege(n.oid, 'USAGE') "
+                "AND pg_catalog.has_any_column_privilege(c.oid, 'SELECT') "
+                "AND (%s::text[] IS NULL OR (n.nspname || '.' || c.relname) = ANY(%s::text[])) "
+                "ORDER BY n.nspname, c.relname LIMIT 501",
+                (
+                    list(allowed_schemas),
+                    list(allowed_tables) if allowed_tables else None,
+                    list(allowed_tables) if allowed_tables else None,
+                ),
+            )
+            rows = cursor.fetchall()
+            return tuple(f"{row[0]}.{row[1]}" for row in rows[:500]), len(rows) > 500
+        except (UnsafeDatabaseRole, ConnectorUnavailable):
+            raise
+        except Exception as exc:
+            raise ConnectorUnavailable(
+                "table discovery failed", diagnostic_code=classify_postgres_failure(exc)
+            ) from None
+        finally:
+            with self._lock:
+                self._active = None
+            if connection is not None:
+                with suppress(Exception):
+                    connection.rollback()
+                with suppress(Exception):
+                    connection.close()
+
     def discover_schemas(self) -> tuple[str, ...]:
         """Return visible non-system schemas under the same verified role."""
 

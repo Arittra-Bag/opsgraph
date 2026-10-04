@@ -2,6 +2,12 @@
 
 ## 1.0.0 — first stable release
 
+- Separate no-code setup with practice data, interactive terminal guidance and
+  readable table discovery before explicit source approval.
+- Persistent investigation conversations with multiple turns, inspectable retry
+  attempts and bounded follow-up planning from current captured results.
+- Simpler getting-started instructions and a full-page capture of a live-tested
+  investigation using synthetic Supabase data.
 - Guided first-run checks for workspace access, exact PostgreSQL scope, a real
   model probe, and an operator-approved bounded database readiness read.
 - Hosting guidance for local, self-hosted, Supabase, Neon, RDS, Cloud SQL,

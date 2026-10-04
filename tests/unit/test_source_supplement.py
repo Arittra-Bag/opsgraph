@@ -318,6 +318,7 @@ def test_checked_in_manifest_covers_lock_and_preserves_verified_source_identitie
     )
     historical = json.loads((notices / "beta-source-manifest.json").read_bytes())
 
-    assert sources == historical["sources"]
-    assert len(sources) == 74
+    assert sources[:74] == historical["sources"]
+    assert {item["name"] for item in sources[74:]} == {"prompt-toolkit", "wcwidth"}
+    assert len(sources) == 76
     assert len(checked_notices) == 21

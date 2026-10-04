@@ -518,3 +518,24 @@ main { min-width: 0; overflow: visible; }
 dialog.report-drawer { margin: 0 0 0 auto; padding: 0; max-height: none; max-width: none; border: 0; border-left: 1px solid var(--line); color: var(--text); }
 #sourceStatus, #reportStatus { display: block; margin: 13px 0; color: var(--muted); font-size: 13px; }
 #reportPreview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 55vh; display: block; width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: #090d10; color: var(--text-2); padding: 13px; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+#tableChoices { max-height: 22rem; overflow-y: auto; margin: 12px 0; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; }
+#tableChoices .checkbox-label { overflow-wrap: anywhere; }
+
+/* Conversation history retains the same source and immutable captures. */
+.previous-turn { border: 0; padding: 0; background: none; }
+.historical-turn { padding-bottom: 32px; margin-bottom: 32px; border-bottom: 1px solid var(--border, #24343a); }
+.historical-turn h2 { font-size: clamp(1.3rem, 2vw, 1.8rem); line-height: 1.4; margin: 16px 0 24px; }
+.historical-response { padding: 24px; border: 1px solid #243a3d; border-radius: 16px; background: linear-gradient(130deg, #112022, #0d1519); }
+.historical-summary, #conversationReplyText { white-space: pre-wrap; line-height: 1.8; overflow-wrap: anywhere; }
+.historical-attempt { margin-top: 20px; padding-top: 16px; border-top: 1px solid #243a3d; }
+.historical-attempt summary { color: #68dcd0; cursor: pointer; line-height: 1.6; }
+.conversation-reply { padding: 24px; border: 1px solid #294346; border-radius: 16px; background: #101e21; }
+.case-card .case-state { text-transform: capitalize; }
+@media (max-width: 640px) { .historical-response, .conversation-reply { padding: 16px; } }
+
+.notice.clarification-notice { border-color: #426268; background: #142529; color: #c4eeea; }
+.execution-card[data-state="clarification"] .execution-dot { background: var(--teal); box-shadow: none; }
+
+.run-toolbar-meta > span:first-child { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 12px; letter-spacing: 0; text-transform: none; max-width: 100%; }
+.run-toolbar-meta #runIdentity { display: inline; overflow-wrap: anywhere; }

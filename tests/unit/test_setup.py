@@ -12,10 +12,77 @@ def private_directory(tmp_path):
     return setup.ensure_private_directory(tmp_path / "workspace")
 
 
+def test_visible_help_and_skip_do_not_request_database_secret(tmp_path):
+    directory = private_directory(tmp_path)
+    output = []
+    choices = iter(("?", "3"))
+
+    def answer(label):
+        if label.startswith("PostgreSQL hosting"):
+            return "supabase"
+        if label.startswith("Connection options"):
+            return next(choices)
+        return ""
+
+    def secret(label):
+        assert "connection string" not in label.lower()
+        return ""
+
+    assert (
+        setup.run_setup(directory, input_fn=answer, secret_fn=secret, output_fn=output.append) == 0
+    )
+    text = "\n".join(output)
+    assert "Session pooler" in text
+    assert "Example only" in text
+    assert "postgresql://READ_ONLY_LOGIN.PROJECT_REF:YOUR_PASSWORD@" in text
+    assert "Database connection skipped" in text
+    assert not setup.read_private_config(directory / ".env").get("OPSGRAPH_SOURCE_DSN")
+
+
+@pytest.mark.parametrize("opened", [True, False])
+def test_browser_instructions_use_only_the_official_url(tmp_path, monkeypatch, opened):
+    directory = private_directory(tmp_path)
+    requests = []
+    choices = iter(("5", "3"))
+    monkeypatch.setattr(setup.webbrowser, "open", lambda url, **_: requests.append(url) or opened)
+    output = []
+
+    def answer(label):
+        if label.startswith("PostgreSQL hosting"):
+            return "supabase"
+        if label.startswith("Connection options"):
+            return next(choices)
+        return ""
+
+    assert (
+        setup.run_setup(directory, input_fn=answer, secret_fn=lambda _: "", output_fn=output.append)
+        == 0
+    )
+    assert requests == [setup.hosting_guide("supabase").documentation]
+    assert "does not connect or change your database" in " ".join(output)
+
+
+@pytest.mark.parametrize("profile", [guide.id for guide in setup.HOSTING_GUIDES])
+def test_provider_help_has_placeholder_example_and_correct_transport(profile):
+    steps, example, details = setup.terminal_connection_help(profile)
+    assert 3 <= len(steps) <= 5
+    assert "READ_ONLY_LOGIN" in example and "YOUR_PASSWORD" in example
+    assert "administrator" in " ".join(details)
+    if profile in {"local", "google_cloud_sql"}:
+        assert "127.0.0.1" in example
+        assert "sslrootcert" not in example
+    else:
+        assert "sslmode=verify-full" in example
+    if profile == "google_cloud_sql":
+        assert "YOUR_PROXY_PORT" in example
+
+
 def prompts(*answers):
     values = iter(answers)
     return lambda label: (
-        "" if label.startswith(("PostgreSQL hosting", "Save configuration?")) else next(values)
+        ""
+        if label.startswith(("PostgreSQL hosting", "Save configuration?", "Connection options"))
+        else next(values)
     )
 
 
@@ -642,8 +709,8 @@ def test_optional_connection_help_does_not_connect_or_save_before_confirmation(
     tmp_path, monkeypatch
 ):
     directory = private_directory(tmp_path)
-    answers = iter(("?", "1", "", "", "", "", "", "", "", "cancel"))
-    credentials = iter(("?", "", ""))
+    answers = iter(("?", "1", "?", "3", "", "", "", "", "", "", "", "cancel"))
+    credentials = iter(("", ""))
     output = []
     monkeypatch.setattr("psycopg.connect", lambda *a, **k: pytest.fail("network attempted"))
     result = setup.run_setup(
@@ -655,7 +722,8 @@ def test_optional_connection_help_does_not_connect_or_save_before_confirmation(
     assert result == 1
     assert not (directory / ".env").exists()
     transcript = "\n".join(output)
-    assert "A connection string is also called a DSN" in transcript
+    assert "get your connection" in transcript
+    assert "Example only" in transcript
     assert "Database connection skipped" in transcript
     assert "Step 3 of 3" in transcript
 

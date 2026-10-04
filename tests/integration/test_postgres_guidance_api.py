@@ -218,3 +218,92 @@ def test_inspection_returns_fixed_diagnostics_and_audit_without_driver_content(
     assert "private-driver-marker" not in response.text
     assert "private-test-connection" not in response.text
     assert runtime.audit.entries[-1].details == {"reason": code}
+
+
+def test_saved_connection_handoff_is_authenticated_and_contains_no_credentials(
+    guidance_api, monkeypatch
+):
+    _, client, runtime, headers = guidance_api
+    runtime.settings.postgres_secret_ref = "OPSGRAPH_SOURCE_DSN"  # noqa: S105
+    runtime.settings.postgres_hosting = "supabase"
+    monkeypatch.setenv(
+        "OPSGRAPH_SOURCE_DSN", "postgresql://reader:private-password@private-host/db"
+    )
+    assert client.get("/api/postgres/hosting-guides").status_code == 401
+    response = client.get("/api/postgres/hosting-guides", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["saved_connection"] == {
+        "secret_ref": "OPSGRAPH_SOURCE_DSN",
+        "allowed_schemas": ["public"],
+    }
+    assert response.json()["default_profile"] == "supabase"
+    assert "private-password" not in response.text
+    assert "private-host" not in response.text
+    for _ in range(100):
+        refreshed = client.get("/api/postgres/hosting-guides", headers=headers)
+        assert refreshed.json()["saved_connection"] == response.json()["saved_connection"]
+    assert client.get("/api/sources", headers=headers).json() == []
+    monkeypatch.delenv("OPSGRAPH_SOURCE_DSN")
+    response = client.get("/api/postgres/hosting-guides", headers=headers)
+    assert response.json()["saved_connection"] is None
+    monkeypatch.setenv("OPSGRAPH_SOURCE_DSN", "private")
+    runtime.settings.allowed_postgres_secret_refs = ()
+    response = client.get("/api/postgres/hosting-guides", headers=headers)
+    assert response.json()["saved_connection"] is None
+
+
+def test_table_discovery_uses_saved_connection_and_policy_without_approving_sources(
+    guidance_api, monkeypatch
+):
+    module, client, runtime, headers = guidance_api
+    runtime.settings.postgres_secret_ref = "OPSGRAPH_SOURCE_DSN"  # noqa: S105
+    monkeypatch.setenv("OPSGRAPH_SOURCE_DSN", "private-connection")
+    calls = []
+
+    class Executor:
+        def __init__(self, dsn, **kwargs):
+            assert dsn == "private-connection"
+
+        def discover_tables(self, **kwargs):
+            calls.append(kwargs)
+            return ("public.jobs", "public.other", "public.Quoted"), False
+
+    monkeypatch.setattr(module, "PsycopgReadOnlyExecutor", Executor)
+    monkeypatch.setattr(
+        module,
+        "authorize",
+        lambda *args: Obligation(
+            allowed_schemas=("public",), allowed_tables=("public.jobs",), timeout_ms=1000
+        ),
+    )
+    assert client.post("/api/postgres/discover-tables").status_code == 401
+    result = client.post("/api/postgres/discover-tables", headers=headers)
+    assert result.json() == {"tables": ["public.jobs"], "truncated": False, "unsupported_count": 0}
+    assert calls == [
+        {"allowed_schemas": ("public",), "allowed_tables": ("public.jobs",), "timeout_ms": 1000}
+    ]
+    assert client.get("/api/sources", headers=headers).json() == []
+    assert "private-connection" not in result.text
+    monkeypatch.delenv("OPSGRAPH_SOURCE_DSN")
+    assert client.post("/api/postgres/discover-tables", headers=headers).status_code == 409
+
+
+def test_table_discovery_failure_is_safe_and_audited(guidance_api, monkeypatch):
+    from opsgraph.brokers import UnsafeDatabaseRole
+
+    module, client, runtime, headers = guidance_api
+    runtime.settings.postgres_secret_ref = "OPSGRAPH_SOURCE_DSN"  # noqa: S105
+    monkeypatch.setenv("OPSGRAPH_SOURCE_DSN", "private-connection")
+
+    class Executor:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def discover_tables(self, **kwargs):
+            raise UnsafeDatabaseRole("private driver detail")
+
+    monkeypatch.setattr(module, "PsycopgReadOnlyExecutor", Executor)
+    result = client.post("/api/postgres/discover-tables", headers=headers)
+    assert result.status_code >= 400
+    assert "private driver detail" not in result.text
+    assert runtime.audit.entries[-1].details["reason"] == "unsafe_role"
