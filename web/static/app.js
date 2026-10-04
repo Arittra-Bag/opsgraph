@@ -19,7 +19,7 @@
     anthropic: { endpoint: '', fixed: true },
     custom_openai: { endpoint: '' },
   };
-  const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
+  const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, skillEditToken: 0, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
   // A launcher supplies only a short-lived single-use token, never the API key.
   const launchToken = new URLSearchParams(location.hash.slice(1)).get('connect');
@@ -102,9 +102,11 @@
     $$('[data-view-panel]').forEach(panel => { panel.hidden = panel.dataset.viewPanel !== name; panel.classList.toggle('active', !panel.hidden); });
     $$('.nav-item').forEach(button => { const active = button.dataset.view === name; button.classList.toggle('active', active); active ? button.setAttribute('aria-current', 'page') : button.removeAttribute('aria-current'); });
     if (focus) { const heading = $(`[data-view-panel="${name}"] h1`); heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true }); }
-    if (state.authenticated && name === 'audit') loadAudit().catch(error => notice('#globalError', error.message));
-    if (state.authenticated && name === 'policies') loadPolicy().catch(error => notice('#globalError', error.message));
-    if (state.authenticated && name === 'investigations') loadHistory().catch(error => notice('#globalError', error.message));
+    const epoch = state.authEpoch;
+    const showError = error => { if (epoch === state.authEpoch) notice('#globalError', error.message); };
+    if (state.authenticated && name === 'audit') loadAudit().catch(showError);
+    if (state.authenticated && name === 'policies') loadPolicy().catch(showError);
+    if (state.authenticated && name === 'investigations') loadHistory().catch(showError);
   }
   function openDrawer(id, trigger) {
     if (state.activeDrawer) closeDrawer(false);
@@ -543,7 +545,10 @@
     return state.report && state.report.run_id === state.run?.id && state.report.snapshot_updated_at === state.run?.updated_at && $('#confirmReportReview').checked;
   }
   async function loadSources() {
-    state.sources = (await api('/api/sources')).filter(source => source.kind === 'postgresql');
+    const epoch = state.authEpoch; const token = state.sourceCatalogToken = (state.sourceCatalogToken || 0) + 1;
+    const sources = await api('/api/sources');
+    if (epoch !== state.authEpoch || token !== state.sourceCatalogToken) return;
+    state.sources = sources.filter(source => source.kind === 'postgresql');
     const selected = state.run?.source_id || $('#investigationSource').value;
     const ready = state.sources.filter(source => source.status === 'ready');
     $('#investigationSource').innerHTML = '<option value="">Select an inspected source</option>' + ready.map(source => `<option value="${esc(source.id)}">${esc(source.name)}${ready.some(other => other.id !== source.id && other.name === source.name) ? ` · ${esc(source.id)}` : ''}</option>`).join('');
@@ -559,7 +564,10 @@
     readiness();
   }
   async function loadSkills() {
-    state.skills = await api('/api/skills');
+    const epoch = state.authEpoch; const token = state.skillCatalogToken = (state.skillCatalogToken || 0) + 1;
+    const skills = await api('/api/skills');
+    if (epoch !== state.authEpoch || token !== state.skillCatalogToken) return;
+    state.skills = skills;
     const selected = state.run?.skill_id || $('#investigationSkill').value;
     $('#investigationSkill').innerHTML = '<option value="">General read-only</option>' + state.skills.filter(skill => skill.id !== 'generic-readonly').map(skill => `<option value="${esc(skill.id)}">${esc(skill.name)} · ${esc(skill.version)}</option>`).join('');
     if (selected) $('#investigationSkill').value = selected === 'generic-readonly' ? '' : selected;
@@ -585,12 +593,24 @@
     $('#historyMessage').textContent = !state.authenticated ? 'Connect workspace to load saved investigations.' : !(state.conversations || []).length ? 'No investigations yet.' : !cases.length ? 'No matching investigations.' : `${query ? `${cases.length} of ` : ''}${state.conversations.length} investigation${state.conversations.length === 1 ? '' : 's'}`;
     preserveFocus(() => { $('#caseList').innerHTML = cases.map(item => `<button class="case-card${state.run?.conversation_id === item.id ? ' active' : ''}" data-run-id="${esc(item.latest_run_id)}" data-focus-key="history:${esc(item.id)}"><span class="case-state">${esc(item.status === 'blocked' ? 'Needs attention' : item.status)}</span><b>${esc(item.title)}</b><p>${esc(item.source_id)} · ${Number(item.turn_count) || 1} ${(Number(item.turn_count) || 1) === 1 ? 'turn' : 'turns'}</p><time datetime="${esc(item.updated_at)}">${esc(stamp(item.updated_at))}</time></button>`).join(''); });
   }
-  async function loadPolicy() { state.policy = await api('/api/policies/current'); $('#policyDetails').textContent = json(state.policy); renderComposerScope(); }
-  async function loadAudit() { $('#auditDetails').textContent = json(await api('/api/audit')); }
+  async function loadPolicy() {
+    const epoch = state.authEpoch; const token = state.policyToken = (state.policyToken || 0) + 1;
+    const policy = await api('/api/policies/current');
+    if (epoch !== state.authEpoch || token !== state.policyToken) return;
+    state.policy = policy; $('#policyDetails').textContent = json(policy); renderComposerScope();
+  }
+  async function loadAudit() {
+    const epoch = state.authEpoch; const token = state.auditToken = (state.auditToken || 0) + 1;
+    const audit = await api('/api/audit');
+    if (epoch !== state.authEpoch || token !== state.auditToken) return;
+    $('#auditDetails').textContent = json(audit);
+  }
   async function loadWorkspace() {
+    const epoch = state.authEpoch;
     state.authenticated = true; notice('#globalError');
     const provider = async () => { await loadProviderConfiguration(); await loadProvider(); };
     const results = await Promise.allSettled([loadSources(), loadSkills(), provider(), loadHistory(), loadPolicy(), loadHostingGuides()]);
+    if (epoch !== state.authEpoch) return;
     const rejected = results.filter(item => item.status === 'rejected');
     if (rejected.some(item => item.reason.status === 401)) { state.authenticated = false; throw rejected.find(item => item.reason.status === 401).reason; }
     if (rejected.length) notice('#globalError', rejected.map(item => item.reason.message).join('\n'));
@@ -617,7 +637,7 @@
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
   function clearWorkspace() {
-    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); $('#tableChoices').replaceChildren(); $('#tableDiscovery').hidden = true; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
+    state.authEpoch++; state.skillEditToken++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); $('#tableChoices').replaceChildren(); $('#tableDiscovery').hidden = true; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
     state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.conversations = []; state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
@@ -1064,19 +1084,35 @@
   }
 
   async function saveSkill(event) {
+    event.preventDefault();
+    if (!state.authenticated) return;
     const restoreFocus = guardAsyncFocus($('#saveSkill'), $('#skillStatus'));
-    event.preventDefault(); notice('#skillError'); $('#saveSkill').disabled = true; $('#publishSkill').disabled = true; state.savedSkill = null;
-    try { const definition = JSON.parse($('#skillJson').value); await api('/api/skills/drafts', { method: 'POST', body: JSON.stringify(definition) }); state.savedSkill = definition.id; $('#publishSkill').disabled = false; $('#skillStatus').textContent = 'Validated draft saved. Review its scope before publishing.'; }
-    catch (error) { notice('#skillError', error.message); $('#skillStatus').textContent = 'Draft was not saved.'; }
-    finally { $('#saveSkill').disabled = false; restoreFocus(); }
+    const epoch = state.authEpoch; const token = state.skillEditToken = (state.skillEditToken || 0) + 1;
+    const input = $('#skillJson').value;
+    const current = () => epoch === state.authEpoch && token === state.skillEditToken && input === $('#skillJson').value;
+    notice('#skillError'); $('#saveSkill').disabled = true; $('#publishSkill').disabled = true; state.savedSkill = null;
+    try {
+      const definition = JSON.parse(input);
+      await api('/api/skills/drafts', { method: 'POST', body: JSON.stringify(definition) });
+      if (!current()) return;
+      state.savedSkill = definition.id; $('#publishSkill').disabled = false; $('#skillStatus').textContent = 'Validated draft saved. Review its scope before publishing.';
+    } catch (error) { if (current()) { notice('#skillError', error.message); $('#skillStatus').textContent = 'Draft was not saved.'; } }
+    finally { if (current()) { $('#saveSkill').disabled = false; restoreFocus(); } }
   }
   async function publishSkill() {
-    if (!state.savedSkill) return;
+    if (!state.authenticated || !state.savedSkill) return;
     const restoreFocus = guardAsyncFocus($('#publishSkill'), $('#skillStatus'));
+    const epoch = state.authEpoch; const token = state.skillEditToken; const saved = state.savedSkill;
+    const current = () => epoch === state.authEpoch && token === state.skillEditToken && saved === state.savedSkill;
     $('#publishSkill').disabled = true; notice('#skillError');
-    try { await api(`/api/skills/${encodeURIComponent(state.savedSkill)}/publish`, { method: 'POST' }); await loadSkills(); $('#skillStatus').textContent = 'Playbook published and available for selection.'; state.savedSkill = null; }
-    catch (error) { notice('#skillError', error.message); $('#publishSkill').disabled = false; }
-    finally { restoreFocus(); }
+    try {
+      await api(`/api/skills/${encodeURIComponent(saved)}/publish`, { method: 'POST' });
+      if (!current()) return;
+      await loadSkills();
+      if (!current()) return;
+      $('#skillStatus').textContent = 'Playbook published and available for selection.'; state.savedSkill = null;
+    } catch (error) { if (current()) { notice('#skillError', error.message); $('#publishSkill').disabled = false; } }
+    finally { if (epoch === state.authEpoch && token === state.skillEditToken) restoreFocus(); }
   }
   document.addEventListener('click', event => {
     const view = event.target.closest('[data-view]'); if (view) showView(view.dataset.view);
@@ -1138,7 +1174,7 @@
   $('#caseSearch').addEventListener('input', renderHistory);
   $('#investigationQuestion').addEventListener('input', readiness);
   $('#skillForm').addEventListener('submit', saveSkill); $('#publishSkill').addEventListener('click', publishSkill);
-  $('#skillJson').addEventListener('input', () => { state.savedSkill = null; $('#publishSkill').disabled = true; });
+  $('#skillJson').addEventListener('input', () => { state.skillEditToken++; state.savedSkill = null; $('#publishSkill').disabled = true; $('#saveSkill').disabled = !state.authenticated; $('#skillStatus').textContent = 'Playbook edited. Validate this version before publishing.'; });
   ['#roleGuideName', '#roleGuideDatabase', '#sourceTables'].forEach(id => $(id).addEventListener('input', invalidateRoleGuide));
   $('#inspectedTables').addEventListener('change', () => { $('#sourceTables').value = $$('[data-inspected-table]:checked').map(input => input.dataset.inspectedTable).join(', '); invalidateRoleGuide(); markSourceDirty(); });
   function setHistoryHidden(hidden) {

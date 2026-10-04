@@ -4,6 +4,7 @@ import os
 import secrets
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlunsplit
 
@@ -311,6 +312,48 @@ def test_docker_start_is_isolated_and_does_not_put_password_on_command_line(tmp_
     assert any(value.startswith("type=volume,source=opsgraph-practice-") for value in start)
     assert "--privileged" not in start and "--network" not in start
     assert not (database.directory / "container.env").exists()
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_docker_credentials_use_new_private_file_and_cleanup(tmp_path, monkeypatch, failure):
+    monkeypatch.setattr(no_code, "postgres_bin", lambda: None)
+    monkeypatch.setattr(no_code.shutil, "which", lambda _: str(tmp_path / "docker"))
+    monkeypatch.setattr(no_code, "free_port", lambda: 15432)
+    written = []
+
+    def run(args, **kwargs):
+        if "context" in args:
+            return "unix:///local/docker.sock"
+        if "run" in args:
+            env_file = Path(args[args.index("--env-file") + 1])
+            written.append(env_file)
+            assert env_file.read_text() == (
+                "POSTGRES_PASSWORD=" + database.values["ADMIN_PASSWORD"] + "\n"
+            )
+            if os.name == "posix":
+                assert env_file.stat().st_mode & 0o077 == 0
+            if failure:
+                raise no_code.NoCodeError("Practice service stopped.")
+        return "ready"
+
+    monkeypatch.setattr(no_code, "command", run)
+    monkeypatch.setattr(
+        no_code.subprocess,
+        "run",
+        lambda args, **kwargs: subprocess.CompletedProcess(args, 1, b"", b""),
+    )
+    database = no_code.PracticeDatabase(tmp_path / "workspace")
+    database.prepare()
+    existing = database.directory / "container.env"
+    existing.write_text("preserve existing file")
+    existing.chmod(0o644)
+    if failure:
+        with pytest.raises(no_code.NoCodeError):
+            database.start_docker()
+    else:
+        database.start_docker()
+    assert existing.read_text() == "preserve existing file"
+    assert written and all(not path.exists() for path in written)
 
 
 def test_no_redirect_never_forwards_a_workspace_key():

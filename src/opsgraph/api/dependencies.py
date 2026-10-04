@@ -13,7 +13,13 @@ def require_workspace(
 ) -> str:
     """Authenticate the one trusted operator for this private workspace."""
 
-    if not x_opsgraph_key or not secrets.compare_digest(x_opsgraph_key, settings.api_key):
+    try:
+        valid = bool(x_opsgraph_key) and secrets.compare_digest(
+            x_opsgraph_key.encode("utf-8"), settings.api_key.encode("utf-8")
+        )
+    except UnicodeError:
+        valid = False
+    if not valid:
         raise HTTPException(status_code=401, detail="Valid workspace API key required")
     return settings.workspace_id
 

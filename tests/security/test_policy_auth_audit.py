@@ -101,3 +101,34 @@ def test_obligations_are_hard_bounded() -> None:
         Obligation(max_rows=10_000)
     with pytest.raises(ValueError):
         Obligation(timeout_ms=90_000)
+
+
+@pytest.mark.parametrize("value", [None, {}, {"allowed": True}, True, "allow"])
+def test_malformed_policy_results_deny_without_exposing_or_raising(value):
+    class MalformedEvaluator:
+        def evaluate(self, request):
+            return value
+
+    principal = Principal(subject="dev", workspace_id="one", roles={"analyst"})
+    decision = FailClosedPolicy(MalformedEvaluator()).authorize(
+        ActionRequest(principal=principal, action="inspect", workspace_id="one", resource="schema")
+    )
+    assert decision.allowed is False
+    assert decision.obligations is None
+
+
+def test_constructed_policy_cannot_bypass_obligation_validation():
+    class MalformedEvaluator:
+        def evaluate(self, request):
+            return PolicyDecision.model_construct(
+                allowed=True,
+                reason="untrusted",
+                obligations=Obligation.model_construct(max_rows=10_000),
+            )
+
+    principal = Principal(subject="dev", workspace_id="one", roles={"analyst"})
+    decision = FailClosedPolicy(MalformedEvaluator()).authorize(
+        ActionRequest(principal=principal, action="inspect", workspace_id="one", resource="schema")
+    )
+    assert decision.allowed is False
+    assert decision.obligations is None

@@ -318,7 +318,13 @@ def test_checked_in_manifest_covers_lock_and_preserves_verified_source_identitie
     )
     historical = json.loads((notices / "beta-source-manifest.json").read_bytes())
 
-    assert sources[:74] == historical["sources"]
+    for current, previous in zip(sources[:74], historical["sources"], strict=True):
+        if current.get("name") == "urllib3":
+            assert previous["version"] == "2.7.0"
+            assert current["version"] == "2.8.0"
+            assert current["file"] == "urllib3-2.8.0.tar.gz"
+        else:
+            assert current == previous
     assert {item["name"] for item in sources[74:]} == {"prompt-toolkit", "wcwidth"}
     assert len(sources) == 76
     assert len(checked_notices) == 21
