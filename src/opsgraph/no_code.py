@@ -15,6 +15,7 @@ import time
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 import psycopg
@@ -115,8 +116,7 @@ def setup_lock(workspace: Path):
         if os.name == "nt":
             import msvcrt
 
-            handle.write(b"0")
-            handle.flush()
+            # Windows can lock beyond EOF without writing into an existing lock.
             handle.seek(0)
             try:
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
@@ -475,7 +475,20 @@ class PracticeDatabase:
 
 def connect_practice(origin: str, values: dict[str, str | None], *, external: bool) -> None:
     """Use authenticated, audited APIs after explicit terminal scope approval."""
-    if not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{4,5}", origin):
+    try:
+        address = urlsplit(origin)
+        port = address.port
+        local = (
+            address.scheme == "http"
+            and port is not None
+            and 1024 <= port <= 65535
+            and address.netloc == f"127.0.0.1:{port}"
+            and not (address.path or address.query or address.fragment)
+            and address.geturl() == origin
+        )
+    except ValueError:
+        local = False
+    if not local:
         raise NoCodeError("Practice checks require this launcher's local address.")
     ui = TerminalUI()
     opener = build_opener(ProxyHandler({}), NoRedirect())

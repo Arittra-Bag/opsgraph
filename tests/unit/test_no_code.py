@@ -1,7 +1,8 @@
 import os
 import secrets
 import subprocess
-from pathlib import Path
+import sys
+from types import SimpleNamespace
 from urllib.parse import urlunsplit
 
 import pytest
@@ -85,6 +86,36 @@ def test_lock_rejects_hard_links_without_changing_target(tmp_path):
     assert target.read_text() == "preserved"
 
 
+def test_windows_lock_contention_does_not_write_into_locked_range(tmp_path, monkeypatch):
+    workspace = ensure_private_directory(tmp_path / "workspace")
+    path = workspace / ".no-code-lock"
+    path.write_bytes(b"preserved")
+    calls = []
+
+    def locking(descriptor, mode, count):
+        assert os.lseek(descriptor, 0, os.SEEK_CUR) == 0
+        assert path.read_bytes() == b"preserved"
+        calls.append((mode, count))
+        if len(calls) > 1:
+            raise PermissionError("Lock is held")
+
+    windows = SimpleNamespace(
+        name="nt",
+        **{
+            key: getattr(os, key, 0)
+            for key in ("open", "fdopen", "fstat", "O_RDWR", "O_CREAT", "O_NOFOLLOW")
+        },
+    )
+    monkeypatch.setattr(no_code, "os", windows)
+    monkeypatch.setitem(sys.modules, "msvcrt", SimpleNamespace(LK_NBLCK=1, locking=locking))
+    with no_code.setup_lock(workspace):
+        with pytest.raises(no_code.NoCodeError, match="Another"):
+            with no_code.setup_lock(workspace):
+                pytest.fail("Second setup acquired lock")
+    assert calls == [(1, 1), (1, 1)]
+    assert path.read_bytes() == b"preserved"
+
+
 def test_prepare_preserves_existing_workspace(tmp_path):
     workspace = ensure_private_directory(tmp_path / "workspace")
     config = workspace / ".env"
@@ -95,7 +126,7 @@ def test_prepare_preserves_existing_workspace(tmp_path):
 
 
 def test_prepare_saves_private_manifest_and_can_resume(tmp_path, monkeypatch):
-    monkeypatch.setattr(no_code, "postgres_bin", lambda: Path("/runtime/bin"))
+    monkeypatch.setattr(no_code, "postgres_bin", lambda: tmp_path / "runtime" / "bin")
     monkeypatch.setattr(no_code, "free_port", lambda: 15432)
     database = no_code.PracticeDatabase(tmp_path / "workspace")
     database.prepare()
@@ -120,7 +151,7 @@ def test_prepare_saves_private_manifest_and_can_resume(tmp_path, monkeypatch):
     ],
 )
 def test_manifest_validation_fails_closed(tmp_path, monkeypatch, key, value):
-    monkeypatch.setattr(no_code, "postgres_bin", lambda: Path("/runtime/bin"))
+    monkeypatch.setattr(no_code, "postgres_bin", lambda: tmp_path / "runtime" / "bin")
     monkeypatch.setattr(no_code, "free_port", lambda: 15432)
     database = no_code.PracticeDatabase(tmp_path / "workspace")
     database.prepare()
@@ -163,9 +194,17 @@ def test_prepared_database_uses_quick_model_setup_without_database_copy_paste(tm
         "https://remote.invalid",
         "file:///tmp/test",
         urlunsplit(("http", "@".join(("127.0.0.1:8000", "remote.invalid")), "", "", "")),
+        urlunsplit(("http", "127.0.0.1:18001", "/path", "", "")),
+        urlunsplit(("http", "127.0.0.1:18001", "", "query=1", "")),
+        urlunsplit(("http", "127.0.0.1:18001", "", "", "fragment")),
+        urlunsplit(("http", "127.0.0.1:99999", "", "", "")),
+        urlunsplit(("http", "127.0.0.1:0", "", "", "")),
+        urlunsplit(("http", "127.0.0.1:port", "", "", "")),
+        urlunsplit(("http", "[::1]:18001", "", "", "")),
     ],
 )
-def test_practice_api_cannot_send_workspace_key_to_remote_address(origin):
+def test_practice_api_cannot_send_workspace_key_to_remote_address(origin, monkeypatch):
+    monkeypatch.setattr(no_code, "build_opener", lambda *args: pytest.fail("Network accessed"))
     with pytest.raises(no_code.NoCodeError):
         no_code.connect_practice(origin, {}, external=False)
 
@@ -278,7 +317,7 @@ def test_occupied_app_port_cannot_start_or_modify_practice_database(tmp_path, mo
 
 
 def test_native_cluster_symlink_cannot_redirect_setup_to_existing_database(tmp_path, monkeypatch):
-    monkeypatch.setattr(no_code, "postgres_bin", lambda: Path("/runtime/bin"))
+    monkeypatch.setattr(no_code, "postgres_bin", lambda: tmp_path / "runtime" / "bin")
     monkeypatch.setattr(no_code, "free_port", lambda: 15432)
     database = no_code.PracticeDatabase(tmp_path / "workspace")
     database.prepare()
@@ -292,7 +331,7 @@ def test_native_cluster_symlink_cannot_redirect_setup_to_existing_database(tmp_p
 
 
 def test_native_cluster_identity_mismatch_cannot_start_or_stop_service(tmp_path, monkeypatch):
-    monkeypatch.setattr(no_code, "postgres_bin", lambda: Path("/runtime/bin"))
+    monkeypatch.setattr(no_code, "postgres_bin", lambda: tmp_path / "runtime" / "bin")
     monkeypatch.setattr(no_code, "free_port", lambda: 15432)
     database = no_code.PracticeDatabase(tmp_path / "workspace")
     database.prepare()
@@ -309,7 +348,7 @@ def test_native_cluster_identity_mismatch_cannot_start_or_stop_service(tmp_path,
 
 @pytest.mark.parametrize("field", ["label", "image", "ports", "volume"])
 def test_docker_identity_requires_owned_volume_and_loopback_binding(tmp_path, monkeypatch, field):
-    monkeypatch.setattr(no_code, "postgres_bin", lambda: Path("/runtime/bin"))
+    monkeypatch.setattr(no_code, "postgres_bin", lambda: tmp_path / "runtime" / "bin")
     monkeypatch.setattr(no_code, "free_port", lambda: 15432)
     database = no_code.PracticeDatabase(tmp_path / "workspace")
     database.prepare()

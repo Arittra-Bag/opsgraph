@@ -141,6 +141,13 @@
     const selected = state.sources.find(source => source.id === $('#investigationSource').value && sourceReady(source));
     return selected || state.sources.find(source => sourceReady(source) && !sourceReadinessPassed(source)) || state.sources.find(sourceReadinessPassed) || null;
   }
+  function isConversationQuestion(question) {
+    const text = question.trim().toLowerCase();
+    let end = text.length;
+    while (end > 0 && '?!.'.includes(text[end - 1])) end--;
+    const normalized = text.slice(0, end).trim();
+    return ['hi', 'hello', 'hey', 'thanks', 'thank you', 'what are you', 'who are you', 'what can you do', 'so what can you do', 'what can you help with', 'how does opsgraph work'].includes(normalized);
+  }
   function readiness() {
     const ready = state.sources.filter(sourceReady);
     const verified = ready.filter(sourceReadinessPassed);
@@ -148,7 +155,7 @@
     const sourceHasUnsavedEdits = state.sourceDirty && state.sourceEditingId === selectedSource?.id;
     const selectedVerified = sourceReadinessPassed(selectedSource) && !sourceHasUnsavedEdits;
     const modelReady = state.modelTested && !state.providerDirty;
-    const conversationalQuestion = /^(hi|hello|hey|thanks|thank you|what are you|who are you|what can you do|so what can you do|what can you help with|how does opsgraph work)$/.test($('#investigationQuestion').value.trim().toLowerCase().replace(/[?!.]+$/, '').trim());
+    const conversationalQuestion = isConversationQuestion($('#investigationQuestion').value);
     $('#openCredential').textContent = state.authenticated ? 'Workspace connected' : 'Connect workspace';
     $('#workspaceReadiness').textContent = state.authenticated ? 'Authenticated to this backend.' : 'Use the key created by your OpsGraph operator.';
     $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : state.savedConnection ? 'Your database connection is saved. Choose its tables and check access.' : 'Configure and inspect an approved read-only source.';
@@ -683,7 +690,7 @@
       });
     }
     $('#tableDiscovery').hidden = true; $('#tableChoices').replaceChildren();
-    if (state.savedConnection && (!source || source.secret_ref === state.savedConnection.secret_ref)) discoverConnectionTables();
+    if (state.savedConnection && (!source || source.secret_ref === state.savedConnection.secret_ref)) void discoverConnectionTables();
     $('#sourceSetupTitle').focus();
   }
   function markSourceDirty() {
@@ -1009,7 +1016,7 @@
   async function submitRun(event) {
     event.preventDefault();
     const selectedSourceId = $('#investigationSource').value;
-    const conversationalQuestion = /^(hi|hello|hey|thanks|thank you|what are you|who are you|what can you do|so what can you do|what can you help with|how does opsgraph work)$/.test($('#investigationQuestion').value.trim().toLowerCase().replace(/[?!.]+$/, '').trim());
+    const conversationalQuestion = isConversationQuestion($('#investigationQuestion').value);
     if (state.busy || (!conversationalQuestion && (state.providerDirty || !state.modelTested)) || (state.sourceDirty && state.sourceEditingId === selectedSourceId) || $('#submitRun').disabled) return;
     const restoreFocus = guardAsyncFocus($('#submitRun'), $('#currentOperation'));
     notice('#composerError'); state.busy = true; readiness();

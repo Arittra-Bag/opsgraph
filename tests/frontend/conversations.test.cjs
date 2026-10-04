@@ -15,6 +15,7 @@ function fixture() {
   const context = vm.createContext({ $, state, api: async path => { calls.push(path); return []; }, esc: value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'), stamp: value => value, preserveFocus: fn => fn(), runId: value => value });
   vm.runInContext(source.slice(source.indexOf('  async function loadHistory('), source.indexOf('  async function loadPolicy(')), context);
   vm.runInContext(source.slice(source.indexOf('  function renderConversationTitle('), source.indexOf('  function evidenceMarkup(')), context);
+  vm.runInContext(source.slice(source.indexOf('  function isConversationQuestion('), source.indexOf('  function readiness()')), context);
   return { $, state, context, calls };
 }
 test('sidebar lists conversations once, with turns and latest selectable run', () => {
@@ -139,4 +140,14 @@ test('retry preserves original turn timestamp and exposes every prior conversati
   assert.doesNotMatch(html, /<details[^>]* open/);
   assert.doesNotMatch(html, /<script>/);
   assert.equal((html.match(/What can you do\?/g) || []).length, 1);
+});
+test('capability normalization strips only the final contiguous punctuation suffix', () => {
+  const f = fixture();
+  for (const question of ['hi ?!', 'hi?\n', ' Hi!!!  ', ' SO WHAT CAN YOU DO?! ']) {
+    assert.equal(f.context.isConversationQuestion(question), true, question);
+  }
+  for (const question of ['hi? !', 'hi?\n!', 'what can you do? run SQL', '?'.repeat(100000) + 'x', 'hi' + '?'.repeat(100000) + 'x']) {
+    assert.equal(f.context.isConversationQuestion(question), false, question.slice(0, 40));
+  }
+  assert.equal(f.context.isConversationQuestion('hi' + '?'.repeat(100000)), true);
 });

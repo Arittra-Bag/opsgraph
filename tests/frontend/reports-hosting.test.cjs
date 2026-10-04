@@ -225,3 +225,22 @@ test('conversation replies render once and hide investigation output even if a r
   assert.equal(f.$('.run-scope').hidden, true);
   assert.equal(f.$('#openReport').disabled, true);
 });
+
+test('automatic table discovery preserves setup focus and handles failure with an enabled retry', async () => {
+  const f = discoveryFixture(); let focused = false;
+  const original = f.context.$;
+  f.context.$ = selector => { const node = original(selector); node.dataset ||= {}; node.reset = () => {}; node.focus = () => { if (selector === '#sourceSetupTitle') focused = true; }; return node; };
+  f.context.showView = () => {}; f.context.renderHostingGuide = () => {};
+  f.context.sourceDiagnostic = () => {}; f.context.updateSourceContinue = () => {};
+  f.context.invalidateRoleGuide = () => {};
+  f.context.crypto = { getRandomValues: value => value };
+  f.context.api = async () => { throw new Error('Connection unavailable'); };
+  vm.runInContext(source.slice(source.indexOf('  function sourceSetup('), source.indexOf('  function markSourceDirty(')), f.context);
+  f.context.sourceSetup();
+  assert.equal(focused, true);
+  assert.equal(f.$('#retryTableDiscovery').disabled, true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(f.$('#tableDiscoveryStatus').textContent, /Connection unavailable.*Retry/);
+  assert.equal(f.$('#retryTableDiscovery').disabled, false);
+  assert.equal(f.$('#sourceSecretRef').value, 'OPSGRAPH_SOURCE_DSN');
+});

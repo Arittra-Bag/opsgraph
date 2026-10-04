@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import re
-
 
 def capability_reply(question: str) -> str | None:
     """Answer explicit social and product intents without interpreting source data."""
-    normalized = re.sub(r"[?.!]+$", "", question.strip().lower()).strip()
+    normalized = question.strip().lower().rstrip("?.!").strip()
     if normalized in {"hi", "hello", "hey"}:
         return (
             "Hello. I can help investigate your approved PostgreSQL tables. "
