@@ -128,6 +128,7 @@ test('source list defaults to a readiness-checked source', async () => {
   const begin = source.indexOf('  async function loadSources()');
   const end = source.indexOf('  async function loadSkills()', begin);
   vm.runInContext(source.slice(begin, end), f.context);
+  vm.runInContext(source.slice(source.indexOf('  function renderSavedConnection()'), source.indexOf('  async function loadHostingGuides()')), f.context);
   await f.context.loadSources();
   assert.equal(f.$('#investigationSource').value, 'verified');
 });

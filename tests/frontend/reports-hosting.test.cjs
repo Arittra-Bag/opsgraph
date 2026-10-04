@@ -11,7 +11,7 @@ function fixture() {
     return nodes.get(id);
   };
   const state = { authenticated: true, authEpoch: 0, hostingToken: 0, hostingGuides: [], sourceDirty: false, reportToken: 0, reportRunId: 'run-a', run: { id: 'run-a', updated_at: 'saved-time' }, activeDrawer: { id: 'reportDrawer' } };
-  const context = vm.createContext({ $, state, URL, document: { createElement: tag => ({ tag, textContent: '', children: [], append(...items) { this.children.push(...items); } }) }, esc: value => String(value).replace(/</g, '&lt;'), stamp: value => value, runId: value => value, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, value = '') => { $(id).textContent = value; }, api: async () => ({}) });
+  const context = vm.createContext({ $, state, URL, readiness() {}, document: { createElement: tag => ({ tag, textContent: '', children: [], append(...items) { this.children.push(...items); } }) }, esc: value => String(value).replace(/</g, '&lt;'), stamp: value => value, runId: value => value, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, value = '') => { $(id).textContent = value; }, api: async () => ({}) });
   vm.runInContext(source.slice(source.indexOf('  function renderHostingGuide()'), source.indexOf('  async function loadSources()')), context);
   return { $, state, context };
 }
@@ -131,4 +131,28 @@ test('readable report decodes escaped prose punctuation without creating active 
   assert.equal(nodes[1].tag, 'ul');
   assert.equal(nodes[1].children.length, 2);
   assert.equal(nodes[2].textContent, 'A saved snapshot.');
+});
+
+test('saved terminal connection is shown after metadata loads without approving tables', async () => {
+  const f = fixture();
+  f.context.api = async () => ({ profiles: [], default_profile: 'supabase', saved_connection: { secret_ref: 'OPSGRAPH_SOURCE_DSN', allowed_schemas: ['public'] } });
+  await f.context.loadHostingGuides();
+  assert.equal(f.$('#savedConnection').hidden, false);
+  assert.equal(f.state.savedConnection.secret_ref, 'OPSGRAPH_SOURCE_DSN');
+  f.state.sources = [{ secret_ref: 'OPSGRAPH_SOURCE_DSN' }];
+  f.context.renderSavedConnection();
+  assert.equal(f.$('#savedConnection').hidden, true);
+  f.state.sources = []; f.state.authenticated = false;
+  f.context.renderSavedConnection();
+  assert.equal(f.$('#savedConnection').hidden, true);
+});
+
+test('late saved connection metadata never crosses workspace boundaries', async () => {
+  const f = fixture(); let resolve;
+  f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.loadHostingGuides();
+  f.state.authEpoch++;
+  resolve({ profiles: [], default_profile: 'supabase', saved_connection: { secret_ref: 'OTHER_SECRET' } });
+  await pending;
+  assert.equal(f.state.savedConnection, undefined);
 });

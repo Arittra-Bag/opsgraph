@@ -150,8 +150,8 @@
     const modelReady = state.modelTested && !state.providerDirty;
     $('#openCredential').textContent = state.authenticated ? 'Workspace connected' : 'Connect workspace';
     $('#workspaceReadiness').textContent = state.authenticated ? 'Authenticated to this backend.' : 'Use the key created by your OpsGraph operator.';
-    $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : 'Configure and inspect an approved read-only source.';
-    $('#modelReadiness').textContent = modelReady ? 'A recent model connection check passed on this backend.' : state.providerDirty ? 'Save and test the edited model configuration.' : 'Run a current model connection check on this backend.';
+    $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : state.savedConnection ? 'Your database connection is saved. Choose its tables and check access.' : 'Configure and inspect an approved read-only source.';
+    $('#modelReadiness').textContent = modelReady ? 'A recent model connection check passed on this backend.' : state.providerDirty ? 'Save and test the edited model configuration.' : state.providerConfiguration ? `${state.providerConfiguration.provider} / ${state.providerConfiguration.model} is saved. Run a real connection check.` : 'Run a current model connection check on this backend.';
     $('#readinessReadiness').textContent = sourceHasUnsavedEdits ? `Save and inspect the edited configuration for ${selectedSource.name || selectedSource.id}.` : selectedVerified ? `${selectedSource.name || selectedSource.id} passed a bounded no-value read.` : selectedSource ? `Run a bounded no-value read for ${selectedSource.name || selectedSource.id}.` : verified.length ? 'Select a readiness-checked source for this investigation.' : 'Approve a one-row, no-value database probe after source inspection.';
     const completed = [state.authenticated, ready.length > 0, modelReady, selectedVerified];
     ['workspace', 'source', 'model', 'readiness'].forEach((step, index) => {
@@ -165,7 +165,7 @@
     });
     $('#setupCredential').hidden = state.authenticated;
     $('#setupSource').textContent = ready.length ? 'Review source' : 'Configure source';
-    $('#setupModel').textContent = modelReady ? 'Review model' : 'Configure model';
+    $('#setupModel').textContent = modelReady ? 'Review model' : state.providerConfiguration ? 'Check saved model' : 'Configure model';
     $('#setupReadiness').textContent = selectedVerified ? 'Review readiness' : 'Run readiness check';
     $('#saveSkill').disabled = !state.authenticated;
     const active = state.run && !terminal(state.run.status);
@@ -428,6 +428,10 @@
       const link = document.createElement('a'); link.href = url.href; link.textContent = 'Official connection documentation ↗'; link.target = '_blank'; link.rel = 'noopener noreferrer'; node.append(link);
     }
   }
+  function renderSavedConnection() {
+    if (state.authenticated && !(state.sources || []).length && state.savedConnection) $('#sourceCatalog').textContent = 'Connection saved. No tables approved yet.';
+    $('#savedConnection').hidden = !state.authenticated || !state.savedConnection || (state.sources || []).some(source => source.secret_ref === state.savedConnection.secret_ref);
+  }
   async function loadHostingGuides() {
     const token = ++state.hostingToken; const epoch = state.authEpoch;
     notice('#hostingError'); $('#retryHostingGuides').hidden = true;
@@ -436,6 +440,7 @@
       const catalog = await api('/api/postgres/hosting-guides');
       if (token !== state.hostingToken || epoch !== state.authEpoch) return;
       state.hostingGuides = catalog.profiles; state.hostingDefault = catalog.default_profile;
+      state.savedConnection = catalog.saved_connection || null; renderSavedConnection(); readiness();
       if (!state.sourceEditingId && !state.sourceDirty) $('#sourceHosting').value = state.hostingDefault;
       renderHostingGuide();
     } catch (error) {
@@ -542,6 +547,7 @@
       if (preferred) $('#investigationSource').value = preferred.id;
     }
     $('#sourceCatalog').innerHTML = state.sources.map(source => `<article class="source-card"><p class="eyebrow">POSTGRESQL · ${esc(source.status)}</p><h2>${esc(source.name)}</h2><p>${esc(source.id)}</p><p>${esc((source.allowed_tables || []).join(', ') || 'No explicit table scope')}</p><p>${source.allow_external_egress ? 'External inference permitted by source' : 'Local inference only'}</p><p>${sourceReadinessPassed(source) ? `Readiness checked ${esc(stamp(source.readiness.checked_at))}` : 'Bounded readiness check required'}</p><button class="secondary" data-edit-source="${esc(source.id)}">Configure / inspect</button></article>`).join('') || '<p class="helper">No PostgreSQL sources configured. Add a source to begin.</p>';
+    renderSavedConnection();
     readiness();
   }
   async function loadSkills() {
@@ -590,7 +596,7 @@
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
   function clearWorkspace() {
-    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
+    state.authEpoch++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
     state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
@@ -613,8 +619,9 @@
     if (!source) {
       $('#sourceId').value = `source-${Array.from(crypto.getRandomValues(new Uint8Array(4)), byte => byte.toString(16).padStart(2, '0')).join('')}`;
       $('#sourceName').value = 'PostgreSQL read-only';
-      $('#sourceSecretRef').value = 'OPSGRAPH_SOURCE_DSN';
-      $('#sourceSchemas').value = (state.policy?.obligations?.allowed_schemas || ['public']).join(', ');
+      $('#sourceSecretRef').value = state.savedConnection?.secret_ref || 'OPSGRAPH_SOURCE_DSN';
+      $('#sourceSchemas').value = (state.savedConnection?.allowed_schemas || state.policy?.obligations?.allowed_schemas || ['public']).join(', ');
+      if (state.savedConnection) $('#sourceStatus').textContent = 'Your connection is saved. Enter the table names below, then save and check access.';
     }
     if (source) {
       $('#sourceId').value = source.id; $('#sourceName').value = source.name; $('#sourceSecretRef').value = source.secret_ref || '';
@@ -1003,6 +1010,7 @@
   $('#drawerBackdrop').addEventListener('click', () => closeDrawer());
   ['#openCredential', '#setupCredential'].forEach(id => $(id).addEventListener('click', event => openDrawer('credentialDrawer', event.currentTarget)));
   $('#credentialForm').addEventListener('submit', connectWorkspace); $('#clearCredential').addEventListener('click', clearWorkspace);
+  $('#finishSavedConnection').addEventListener('click', () => sourceSetup());
   $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
   $('#setupReadiness').addEventListener('click', () => sourceSetup(sourceForReadinessSetup()));
   $('#sourceHosting').addEventListener('change', () => { renderHostingGuide(); markSourceDirty(); });

@@ -279,3 +279,15 @@ the checkout. Never share the practice service configuration or workspace `.env`
 Practice setup never provisions cloud accounts, changes a real database or
 creates hosted model keys. Connecting your own database requires an authorized
 read-only login and explicit table selection in Sources.
+
+### Continue from terminal setup
+
+Terminal setup saves your private database connection and model settings. In Sources,
+select **Choose tables and check connection** to approve the exact tables that may be
+read. The saved connection is reused, so you do not need to paste it again. Table
+approval and connection checks are separate from saving credentials.
+
+In Settings, your provider and model are already filled in. The key field stays blank
+because stored keys are never displayed again. **Model untested** means the real
+connection check has not passed yet. Run **Test actual model connection** before
+starting an investigation.

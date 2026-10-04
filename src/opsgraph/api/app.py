@@ -213,9 +213,18 @@ def index():
 @app.get("/api/postgres/hosting-guides")
 def postgres_hosting_guides(principal: Annotated[Principal, Depends(require_principal)]):
     """Return documentation only. This never connects to a database or provider."""
+    settings = runtime.settings
+    reference = settings.postgres_secret_ref
+    saved_connection = None
+    if reference and reference in settings.allowed_postgres_secret_refs and os.getenv(reference):
+        saved_connection = {
+            "secret_ref": reference,
+            "allowed_schemas": list(settings.postgres_allowed_schemas),
+        }
     return {
         "default_profile": runtime.settings.postgres_hosting,
         "profiles": [guide.as_dict() for guide in HOSTING_GUIDES],
+        "saved_connection": saved_connection,
     }
 
 
