@@ -1,17 +1,17 @@
 {
   "schema_version": 2,
   "release_version": "1.0.0",
-  "recorded_on": "2026-10-04",
-  "scope": "1.0.0 release candidate source supplement. Previously verified dependency source identities are preserved. The terminal interface adds two PyPI source archives, verified by exact size and SHA-256. OpsGraph application source is distributed separately as the revision-matching sdist.",
+  "recorded_on": "2026-10-05",
+  "scope": "1.0.0 release candidate source supplement. Dependency source archives are bound to the current lock and verified by exact size and SHA-256. OpsGraph application source is distributed separately as the revision-matching sdist.",
   "dependency_lock": {
     "file": "requirements.lock",
-    "sha256": "0863f7edd3823e4b99953609819c59d1a752652e09b6e2cc0028438e146268ac",
+    "sha256": "6965fc2a58d98d5d58f7b7580d2dc5b3886101da3ba9b7ab7784bad9ab4797de",
     "package_count": 57
   },
   "historical_source_manifest": {
     "file": "beta-source-manifest.json",
     "sha256": "ea3653d750b690041ebc3216afe969f483fcfdd04d894711af0e1ca6db9579e6",
-    "relationship": "Historical Beta 1 evidence supplied the original source identities, which remain unchanged. The current dependency lock additionally includes prompt-toolkit and wcwidth. This manifest does not promote historical application artifacts as current release evidence."
+    "relationship": "Historical Beta 1 evidence supplied the original source identities. The current dependency lock additionally includes prompt-toolkit and wcwidth, and uses the verified urllib3 2.8.0 source archive. This manifest does not promote historical application artifacts as current release evidence."
   },
   "package_source_mappings": {
     "orjson": {
@@ -548,11 +548,11 @@
     },
     {
       "name": "urllib3",
-      "version": "2.7.0",
-      "file": "urllib3-2.7.0.tar.gz",
-      "source": "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz",
-      "sha256": "231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c",
-      "size": 433602
+      "version": "2.8.0",
+      "file": "urllib3-2.8.0.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz",
+      "sha256": "63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63",
+      "size": 458972
     },
     {
       "name": "uuid_utils",

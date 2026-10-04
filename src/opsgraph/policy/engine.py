@@ -39,6 +39,11 @@ class FailClosedPolicy:
             return PolicyDecision(reason="workspace boundary mismatch")
         try:
             decision = self.evaluator.evaluate(request)
+            if not isinstance(decision, PolicyDecision):
+                return PolicyDecision(reason="policy evaluator returned an invalid decision")
+            decision = PolicyDecision.model_validate(
+                decision.model_dump(warnings=False), strict=True
+            )
         except Exception:
             return PolicyDecision(reason="policy evaluator unavailable")
         if decision.allowed and decision.obligations is None:

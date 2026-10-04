@@ -11,6 +11,7 @@ import socket
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -419,11 +420,13 @@ class PracticeDatabase:
             self.verify_docker_identity(entry)
             command([docker, "start", name])
             return
-        env_file = self.directory / "container.env"
-        descriptor = os.open(env_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(descriptor, "w") as handle:
-            handle.write("POSTGRES_PASSWORD=" + self.values["ADMIN_PASSWORD"] + "\n")
+        descriptor, filename = tempfile.mkstemp(
+            prefix=".container-", suffix=".env", dir=self.directory
+        )
+        env_file = Path(filename)
         try:
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write("POSTGRES_PASSWORD=" + self.values["ADMIN_PASSWORD"] + "\n")
             command(
                 [
                     docker,
