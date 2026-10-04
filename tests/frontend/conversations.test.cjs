@@ -7,7 +7,7 @@ const source = fs.readFileSync('src/opsgraph/web/static/app.js', 'utf8');
 function fixture() {
   const nodes = new Map();
   const $ = id => {
-    if (!nodes.has(id)) nodes.set(id, { value: '', hidden: false, innerHTML: '', textContent: '', querySelectorAll: () => [] });
+    if (!nodes.has(id)) nodes.set(id, { value: '', hidden: false, innerHTML: '', textContent: '', attributes: {}, setAttribute(name, value) { this.attributes[name] = value; }, removeAttribute(name) { delete this.attributes[name]; }, querySelectorAll: () => [] });
     return nodes.get(id);
   };
   const state = { authenticated: true, authEpoch: 1, streamToken: 4, runs: [], conversations: [], run: { id: 'inv-2', conversation_id: 'case-1' } };
@@ -150,4 +150,38 @@ test('capability normalization strips only the final contiguous punctuation suff
     assert.equal(f.context.isConversationQuestion(question), false, question.slice(0, 40));
   }
   assert.equal(f.context.isConversationQuestion('hi' + '?'.repeat(100000)), true);
+});
+test('older history success cannot overwrite the newer conversation list', async () => {
+  const f = fixture(); const requests = [];
+  f.context.api = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+  const older = f.context.loadHistory(); const newer = f.context.loadHistory();
+  requests[2].resolve([{ id: 'inv-current' }]); requests[3].resolve([{ id: 'case-current', title: 'Current', status: 'completed', latest_run_id: 'inv-current' }]); await newer;
+  requests[0].resolve([{ id: 'inv-old' }]); requests[1].resolve([{ id: 'case-old', title: 'Old' }]); await older;
+  assert.equal(f.state.runs[0].id, 'inv-current'); assert.equal(f.state.conversations[0].id, 'case-current');
+  assert.match(f.$('#caseList').innerHTML, /Current/); assert.doesNotMatch(f.$('#caseList').innerHTML, />Old</);
+});
+test('obsolete history failure neither rejects nor clears the newer loading state', async () => {
+  const f = fixture(); const requests = [];
+  f.context.api = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+  const older = f.context.loadHistory(); const newer = f.context.loadHistory();
+  requests[0].reject(new Error('Old history failure')); requests[1].resolve([]); await assert.doesNotReject(older);
+  assert.equal(f.$('#historyMessage').textContent, 'Loading investigations…'); assert.equal(f.$('#caseList').attributes['aria-busy'], 'true');
+  requests[2].resolve([]); requests[3].resolve([]); await newer;
+  assert.equal(f.$('#historyMessage').textContent, 'No investigations yet.'); assert.equal(f.$('#caseList').attributes['aria-busy'], undefined);
+});
+test('a current history failure retains existing data, clears busy and exposes a retry message', async () => {
+  const f = fixture(); const requests = [];
+  f.state.conversations = [{ id: 'retained' }];
+  f.context.api = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+  const pending = f.context.loadHistory(); requests[0].reject(new Error('Current history failure')); requests[1].resolve([]);
+  await assert.rejects(pending, /Current history failure/);
+  assert.equal(f.state.conversations[0].id, 'retained'); assert.equal(f.$('#caseList').attributes['aria-busy'], undefined);
+  assert.match(f.$('#historyMessage').textContent, /Refresh the workspace to retry/);
+});
+test('history errors after workspace reset are silently discarded', async () => {
+  const f = fixture(); const requests = [];
+  f.context.api = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+  const pending = f.context.loadHistory(); f.state.authEpoch++; f.$('#historyMessage').textContent = 'Connect workspace';
+  requests[0].reject(new Error('Old workspace failure')); requests[1].resolve([]); await assert.doesNotReject(pending);
+  assert.equal(f.$('#historyMessage').textContent, 'Connect workspace');
 });

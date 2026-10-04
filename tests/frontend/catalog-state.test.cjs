@@ -14,7 +14,7 @@ function fixture() {
   const context = vm.createContext({ $, state, api: async () => ({}), json: JSON.stringify, esc: String, stamp: String, readiness() {}, renderSavedConnection() {}, renderComposerScope() {}, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, message = '') => { $(id).textContent = message; }, guardAsyncFocus: () => () => {} });
   vm.runInContext(source.slice(source.indexOf('  async function loadSources()'), source.indexOf('  async function loadHistory()')), context);
   vm.runInContext(source.slice(source.indexOf('  async function loadPolicy()'), source.indexOf('  async function loadWorkspace()')), context);
-  vm.runInContext(source.slice(source.indexOf('  async function saveSkill('), source.indexOf("  document.addEventListener('click'")), context);
+  vm.runInContext(source.slice(source.indexOf('  function queueSkillMutation('), source.indexOf("  document.addEventListener('click'")), context);
   return { $, state, context };
 }
 for (const [method, response, node] of [
@@ -86,4 +86,74 @@ test('current validated drafts save and publish normally', async () => {
   f.context.loadSkills = async () => {};
   await f.context.publishSkill();
   assert.equal(f.state.savedSkill, null); assert.match(f.$('#skillStatus').textContent, /published/);
+});
+for (const method of ['loadSources', 'loadSkills', 'loadPolicy', 'loadAudit']) {
+  for (const invalidation of ['workspace', 'newer request']) {
+    test(`${method} ignores stale rejection after ${invalidation}`, async () => {
+      const f = fixture(); const requests = [];
+      f.context.api = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+      const first = f.context[method]();
+      let second;
+      if (invalidation === 'workspace') f.state.authEpoch++;
+      else { second = f.context[method](); requests[1].resolve(method === 'loadPolicy' ? { id: 'current' } : []); await second; }
+      requests[0].reject(new Error('Obsolete backend error'));
+      await assert.doesNotReject(first);
+    });
+  }
+  test(`${method} preserves current request failures for caller handling`, async () => {
+    const f = fixture(); f.context.api = async () => { throw new Error('Current backend error'); };
+    await assert.rejects(f.context[method](), /Current backend error/);
+  });
+}
+function mutationFixture() {
+  const f = fixture(); const requests = [];
+  f.context.api = (path, options) => new Promise((resolve, reject) => requests.push({ path, body: options.body ? JSON.parse(options.body) : null, resolve, reject }));
+  const save = version => {
+    f.state.skillEditToken++; f.state.savedSkill = null;
+    f.$('#skillJson').value = JSON.stringify({ id: 'same-playbook', version });
+    return f.context.saveSkill({ preventDefault() {} });
+  };
+  return { ...f, requests, save };
+}
+test('same-ID draft saves are serialized and retain the newly submitted definition', async () => {
+  const f = mutationFixture();
+  const older = f.save('1'); const newer = f.save('2');
+  assert.equal(f.requests.length, 1); assert.equal(f.requests[0].body.version, '1');
+  f.requests[0].resolve({}); await older; await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.requests.length, 2); assert.equal(f.requests[1].body.version, '2');
+  assert.equal(f.state.savedSkill, null); assert.equal(f.$('#publishSkill').disabled, true);
+  f.requests[1].resolve({}); await newer;
+  assert.equal(f.state.savedSkill, 'same-playbook'); assert.equal(f.$('#publishSkill').disabled, false);
+});
+test('obsolete queued definitions are skipped before a backend request starts', async () => {
+  const f = mutationFixture();
+  const older = f.save('1'); const obsolete = f.save('2'); const latest = f.save('3');
+  f.requests[0].resolve({}); await older; await obsolete; await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.requests.length, 2); assert.equal(f.requests[1].body.version, '3');
+  f.requests[1].resolve({}); await latest;
+  assert.equal(f.state.savedSkill, 'same-playbook');
+});
+test('a settled failed save does not poison the queue or overwrite the latest form', async () => {
+  const f = mutationFixture();
+  const older = f.save('1'); const newer = f.save('2');
+  f.requests[0].reject(new Error('Old request rejected')); await older; await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.requests.length, 2); assert.equal(f.$('#skillError').textContent, '');
+  f.requests[1].resolve({}); await newer;
+  assert.equal(f.state.savedSkill, 'same-playbook');
+});
+test('workspace reset prevents queued saves from reaching the backend', async () => {
+  const f = mutationFixture();
+  const older = f.save('1'); const queued = f.save('2');
+  f.state.authEpoch++; f.state.authenticated = false;
+  f.requests[0].resolve({}); await older; await queued;
+  assert.equal(f.requests.length, 1); assert.equal(f.state.savedSkill, null);
+});
+test('a new draft save waits for the approved publication request to finish', async () => {
+  const f = mutationFixture(); f.state.savedSkill = 'same-playbook';
+  const publishing = f.context.publishSkill(); const saving = f.save('2');
+  assert.equal(f.requests.length, 1); assert.equal(f.requests[0].path, '/api/skills/same-playbook/publish');
+  f.requests[0].resolve({}); await publishing; await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.requests.length, 2); assert.equal(f.requests[1].path, '/api/skills/drafts');
+  f.requests[1].resolve({}); await saving;
+  assert.equal(f.state.savedSkill, 'same-playbook'); assert.match(f.$('#skillStatus').textContent, /Validated draft saved/);
 });

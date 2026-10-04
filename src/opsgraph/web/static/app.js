@@ -546,8 +546,11 @@
   }
   async function loadSources() {
     const epoch = state.authEpoch; const token = state.sourceCatalogToken = (state.sourceCatalogToken || 0) + 1;
-    const sources = await api('/api/sources');
-    if (epoch !== state.authEpoch || token !== state.sourceCatalogToken) return;
+    const current = () => epoch === state.authEpoch && token === state.sourceCatalogToken;
+    let sources;
+    try { sources = await api('/api/sources'); }
+    catch (error) { if (current()) throw error; return; }
+    if (!current()) return;
     state.sources = sources.filter(source => source.kind === 'postgresql');
     const selected = state.run?.source_id || $('#investigationSource').value;
     const ready = state.sources.filter(source => source.status === 'ready');
@@ -565,8 +568,11 @@
   }
   async function loadSkills() {
     const epoch = state.authEpoch; const token = state.skillCatalogToken = (state.skillCatalogToken || 0) + 1;
-    const skills = await api('/api/skills');
-    if (epoch !== state.authEpoch || token !== state.skillCatalogToken) return;
+    const current = () => epoch === state.authEpoch && token === state.skillCatalogToken;
+    let skills;
+    try { skills = await api('/api/skills'); }
+    catch (error) { if (current()) throw error; return; }
+    if (!current()) return;
     state.skills = skills;
     const selected = state.run?.skill_id || $('#investigationSkill').value;
     $('#investigationSkill').innerHTML = '<option value="">General read-only</option>' + state.skills.filter(skill => skill.id !== 'generic-readonly').map(skill => `<option value="${esc(skill.id)}">${esc(skill.name)} · ${esc(skill.version)}</option>`).join('');
@@ -575,17 +581,19 @@
     renderComposerScope();
   }
   async function loadHistory() {
-    const epoch = state.authEpoch;
+    const epoch = state.authEpoch; const token = state.historyCatalogToken = (state.historyCatalogToken || 0) + 1;
+    const current = () => epoch === state.authEpoch && token === state.historyCatalogToken;
     $('#historyMessage').textContent = 'Loading investigations…';
     $('#caseList').setAttribute?.('aria-busy', 'true');
     try {
       const [runs, conversations] = await Promise.all([api('/api/runs'), api('/api/conversations')]);
-      if (epoch !== state.authEpoch) return;
+      if (!current()) return;
       state.runs = runs; state.conversations = conversations; renderHistory();
     } catch (error) {
-      if (epoch === state.authEpoch) $('#historyMessage').textContent = 'History could not load. Refresh the workspace to retry.';
+      if (!current()) return;
+      $('#historyMessage').textContent = 'History could not load. Refresh the workspace to retry.';
       throw error;
-    } finally { if (epoch === state.authEpoch) $('#caseList').removeAttribute?.('aria-busy'); }
+    } finally { if (current()) $('#caseList').removeAttribute?.('aria-busy'); }
   }
   function renderHistory() {
     const query = $('#caseSearch').value.trim().toLowerCase();
@@ -595,14 +603,20 @@
   }
   async function loadPolicy() {
     const epoch = state.authEpoch; const token = state.policyToken = (state.policyToken || 0) + 1;
-    const policy = await api('/api/policies/current');
-    if (epoch !== state.authEpoch || token !== state.policyToken) return;
+    const current = () => epoch === state.authEpoch && token === state.policyToken;
+    let policy;
+    try { policy = await api('/api/policies/current'); }
+    catch (error) { if (current()) throw error; return; }
+    if (!current()) return;
     state.policy = policy; $('#policyDetails').textContent = json(policy); renderComposerScope();
   }
   async function loadAudit() {
     const epoch = state.authEpoch; const token = state.auditToken = (state.auditToken || 0) + 1;
-    const audit = await api('/api/audit');
-    if (epoch !== state.authEpoch || token !== state.auditToken) return;
+    const current = () => epoch === state.authEpoch && token === state.auditToken;
+    let audit;
+    try { audit = await api('/api/audit'); }
+    catch (error) { if (current()) throw error; return; }
+    if (!current()) return;
     $('#auditDetails').textContent = json(audit);
   }
   async function loadWorkspace() {
@@ -1083,6 +1097,19 @@
     if (!state.authenticated) openDrawer('credentialDrawer', $('#newInvestigation')); else $('#investigationQuestion').focus();
   }
 
+  function queueSkillMutation(current, send) {
+    let operation;
+    if (state.skillMutationQueue) {
+      operation = state.skillMutationQueue.then(() => current() ? send() : null);
+    } else {
+      try { operation = Promise.resolve(current() ? send() : null); }
+      catch (error) { operation = Promise.reject(error); }
+    }
+    const settled = operation.catch(() => {});
+    state.skillMutationQueue = settled;
+    void settled.then(() => { if (state.skillMutationQueue === settled) state.skillMutationQueue = null; });
+    return operation;
+  }
   async function saveSkill(event) {
     event.preventDefault();
     if (!state.authenticated) return;
@@ -1093,11 +1120,16 @@
     notice('#skillError'); $('#saveSkill').disabled = true; $('#publishSkill').disabled = true; state.savedSkill = null;
     try {
       const definition = JSON.parse(input);
-      await api('/api/skills/drafts', { method: 'POST', body: JSON.stringify(definition) });
+      const body = JSON.stringify(definition);
+      await queueSkillMutation(current, () => api('/api/skills/drafts', { method: 'POST', body }));
       if (!current()) return;
       state.savedSkill = definition.id; $('#publishSkill').disabled = false; $('#skillStatus').textContent = 'Validated draft saved. Review its scope before publishing.';
     } catch (error) { if (current()) { notice('#skillError', error.message); $('#skillStatus').textContent = 'Draft was not saved.'; } }
-    finally { const active = current(); if (active) $('#saveSkill').disabled = false; restoreFocus(active); }
+    finally {
+      const active = current();
+      if (active) { $('#saveSkill').disabled = false; }
+      restoreFocus(active);
+    }
   }
   async function publishSkill() {
     if (!state.authenticated || !state.savedSkill) return;
@@ -1106,7 +1138,7 @@
     const current = () => epoch === state.authEpoch && token === state.skillEditToken && saved === state.savedSkill;
     $('#publishSkill').disabled = true; notice('#skillError');
     try {
-      await api(`/api/skills/${encodeURIComponent(saved)}/publish`, { method: 'POST' });
+      await queueSkillMutation(current, () => api(`/api/skills/${encodeURIComponent(saved)}/publish`, { method: 'POST' }));
       if (!current()) return;
       await loadSkills();
       if (!current()) return;

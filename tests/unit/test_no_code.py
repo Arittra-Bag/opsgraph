@@ -353,7 +353,8 @@ def test_docker_credentials_use_new_private_file_and_cleanup(tmp_path, monkeypat
     else:
         database.start_docker()
     assert existing.read_text() == "preserve existing file"
-    assert written and all(not path.exists() for path in written)
+    assert len(written) == 1
+    assert not written[0].exists()
 
 
 def test_no_redirect_never_forwards_a_workspace_key():
