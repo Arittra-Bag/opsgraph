@@ -14,10 +14,10 @@ limits that produced it.
 
 [![OpsGraph investigation conversation with saved PostgreSQL findings and a follow-up turn](docs/assets/opsgraph-investigation-workspace-1.0.png)](docs/assets/opsgraph-investigation-workspace-1.0.png)
 
-*A real saved investigation of synthetic Supabase data, followed by a product
-question in the same conversation. Two captures retain 20 rows each. Open the
-image for the full page. Saved evidence remains available when the current
-model connection is unavailable.*
+*A live-tested investigation of synthetic Supabase payment data with Anthropic.
+Three turns stay in one conversation: an incident question, a conversational
+explanation without a database query, and a comparison using fresh evidence.
+Open the image for the full page, including findings, limitations and captures.*
 
 [Get started](#get-started) · [Docker](#docker) ·
 [First investigation](docs/quickstart.md) · [Supported boundary](docs/production-readiness.md) ·

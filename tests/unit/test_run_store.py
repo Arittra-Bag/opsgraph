@@ -332,17 +332,21 @@ def test_cancel_racing_failure_finishes_before_terminal_callback(tmp_path):
         coordinator.close()
 
 
-def test_followups_and_retries_keep_conversation_and_retry_turn(tmp_path):
+def test_followups_and_retries_keep_conversation_and_retry_turn(tmp_path, monkeypatch):
+    monkeypatch.setattr("opsgraph.persistence.runs.timestamp", lambda: "2026-10-04T12:00:00Z")
     store = RunStore(tmp_path / "state.db")
     root = store.create("alpha", BODY)
     store.cancel("alpha", root["id"])
     follow = store.create("alpha", {**BODY, "parent_run_id": root["id"]})
     store.cancel("alpha", follow["id"])
+    monkeypatch.setattr("opsgraph.persistence.runs.timestamp", lambda: "2026-10-04T12:01:00Z")
     retry = store.create("alpha", {**BODY, "parent_run_id": root["id"]}, retry_of=follow["id"])
     assert root["conversation_id"] == follow["conversation_id"] == retry["conversation_id"]
     assert root["turn_id"] != follow["turn_id"] == retry["turn_id"]
     detail = store.conversation("alpha", root["conversation_id"])
     assert len(detail["turns"]) == 2
+    assert detail["turns"][1]["turn_created_at"] == follow["created_at"]
+    assert detail["turns"][1]["turn_created_at"] != retry["created_at"]
     assert [r["id"] for r in detail["turns"][1]["attempts"]] == [follow["id"], retry["id"]]
     assert len(store.conversations("alpha")) == 1
     with pytest.raises(KeyError):

@@ -159,7 +159,13 @@ class RunStore:
             for payload, turn_id in rows:
                 value = self._grouped(db, workspace, json.loads(payload))
                 attempts = turns.get(turn_id, {}).get("attempts", [])
-                turns[turn_id] = {**value, "attempts": [*attempts, value]}
+                turns[turn_id] = {
+                    **value,
+                    "turn_created_at": turns.get(turn_id, {}).get(
+                        "turn_created_at", value.get("created_at")
+                    ),
+                    "attempts": [*attempts, value],
+                }
             values = list(turns.values())
             latest = json.loads(rows[-1][0]) if rows else {}
             return {

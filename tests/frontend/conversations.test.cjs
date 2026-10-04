@@ -128,3 +128,15 @@ test('historical turn inspection submits the follow-up against the latest conver
   assert.equal(body.parent_run_id, 'inv-latest');
   assert.equal(body.conversation_id, 'case-1');
 });
+test('retry preserves original turn timestamp and exposes every prior conversational attempt', () => {
+  const f = fixture();
+  f.state.conversation = { id: 'case-1', turns: [{ id: 'inv-retry', turn_id: 'turn-original', turn_created_at: 'original-time', created_at: 'retry-time', question: 'What can you do?', response_kind: 'conversation', assistant_message: 'Current reply', attempts: [{ id: 'inv-original', created_at: 'original-time', status: 'completed', response_kind: 'conversation', assistant_message: '<script>old</script>' }, { id: 'inv-retry', created_at: 'retry-time', status: 'completed', assistant_message: 'Current reply' }] }, f.state.run] };
+  f.context.renderConversation(); const html = f.$('#previousTurn').innerHTML;
+  assert.match(html, /<small>original-time<\/small>/);
+  assert.match(html, /Attempts in this turn \(2\)/);
+  assert.match(html, /data-run-id="inv-original"/);
+  assert.match(html, /data-run-id="inv-retry"/);
+  assert.doesNotMatch(html, /<details[^>]* open/);
+  assert.doesNotMatch(html, /<script>/);
+  assert.equal((html.match(/What can you do\?/g) || []).length, 1);
+});

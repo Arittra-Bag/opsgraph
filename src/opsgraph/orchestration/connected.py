@@ -659,6 +659,9 @@ def build_connected_graph(
             "return assistant_message and no queries. Do not invent source facts, claim "
             "new evidence, or claim to execute commands. Historical summaries remain "
             "unverified. For a data question use queries or clarification instead."
+            " Keep conversational replies to three short sentences in plain language. "
+            "Avoid em dashes. A capture is a saved query result, not proof of truth, "
+            "origin or completeness. A hash identifies retained bytes, not their truth."
         )
         if state.get("evidence"):
             prior = [
