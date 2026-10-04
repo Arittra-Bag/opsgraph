@@ -552,5 +552,7 @@ def test_table_name_discovery_is_bounded_read_only_and_cleans_up():
     executed = connection.cursor().executed
     assert ("BEGIN READ ONLY", None) in executed
     assert any("LIMIT 501" in sql and "has_any_column_privilege" in sql for sql, _ in executed)
+    discovery = next(sql for sql, _ in executed if "LIMIT 501" in sql)
+    assert "c.relkind IN ('r','p','v','f')" in discovery
     assert all(not sql.startswith("SELECT * FROM") for sql, _ in executed)
     assert connection.closed

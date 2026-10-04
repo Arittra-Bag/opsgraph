@@ -490,7 +490,7 @@ def connect_practice(origin: str, values: dict[str, str | None], *, external: bo
         local = False
     if not local:
         raise NoCodeError("Practice checks require this launcher's local address.")
-    ui = TerminalUI()
+    ui = TerminalUI(full_screen=False)
     opener = build_opener(ProxyHandler({}), NoRedirect())
 
     def request(path: str, body: dict | None = None):

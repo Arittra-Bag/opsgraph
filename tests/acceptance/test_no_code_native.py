@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, gettempdir
 from urllib.error import HTTPError
 from urllib.request import ProxyHandler, Request, build_opener
 
@@ -27,7 +27,9 @@ def test_native_practice_regression_and_stress():
     ROOT = Path(__file__).resolve().parents[2]
     original = ROOT / ".venv/pyvenv.cfg"
     before = hashlib.sha256(original.read_bytes()).hexdigest() if original.exists() else None
-    with TemporaryDirectory(prefix="opsgraph-no-code-regression-", dir="/private/tmp") as root:
+    with TemporaryDirectory(
+        prefix="opsgraph-no-code-regression-", dir=Path(gettempdir()).resolve()
+    ) as root:
         workspace = Path(root)
         database = PracticeDatabase(workspace)
         server = None

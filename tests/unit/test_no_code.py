@@ -1,3 +1,5 @@
+import io
+import json
 import os
 import secrets
 import subprocess
@@ -207,6 +209,53 @@ def test_practice_api_cannot_send_workspace_key_to_remote_address(origin, monkey
     monkeypatch.setattr(no_code, "build_opener", lambda *args: pytest.fail("Network accessed"))
     with pytest.raises(no_code.NoCodeError):
         no_code.connect_practice(origin, {}, external=False)
+
+
+@pytest.mark.parametrize("preserve", [True, False])
+def test_practice_status_is_visible_in_interactive_terminal(monkeypatch, preserve):
+    class InteractiveStream(io.StringIO):
+        def isatty(self):
+            return True
+
+    stream = InteractiveStream()
+    ui_type = no_code.TerminalUI
+    modes = []
+
+    def make_ui(**kwargs):
+        modes.append(kwargs["full_screen"])
+        return ui_type(stream=stream, **kwargs)
+
+    requests = []
+
+    def open_request(request, timeout):
+        requests.append(request.full_url)
+        source = {
+            "id": "practice-data",
+            "secret_ref": "OPSGRAPH_SOURCE_DSN",
+            "allowed_tables": [] if preserve else list(no_code.PRACTICE_TABLES),
+            "allow_external_egress": False,
+        }
+        body = [source] if request.full_url.endswith("/api/sources") else {}
+        return io.StringIO(json.dumps(body))
+
+    for name in ("NO_COLOR", "CI", "OPSGRAPH_PLAIN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setattr(no_code, "TerminalUI", make_ui)
+    monkeypatch.setattr(no_code, "build_opener", lambda *args: SimpleNamespace(open=open_request))
+    monkeypatch.setattr(sys, "stdin", SimpleNamespace(isatty=lambda: True))
+    no_code.connect_practice(
+        urlunsplit(("http", "127.0.0.1:18001", "", "", "")),
+        {"OPSGRAPH_API_KEY": "test-workspace-key"},
+        external=False,
+    )
+    assert modes == [False]
+    if preserve:
+        assert "Your saved source choices were preserved." in stream.getvalue()
+        assert len(requests) == 1
+    else:
+        assert "Practice source checked." in stream.getvalue()
+        assert requests[-1].endswith("/readiness")
 
 
 def test_cancel_before_database_start_preserves_existing_flow(tmp_path, monkeypatch):

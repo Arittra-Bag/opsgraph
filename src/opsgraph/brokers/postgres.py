@@ -178,7 +178,7 @@ class PsycopgReadOnlyExecutor:
             cursor.execute(
                 "SELECT n.nspname, c.relname FROM pg_catalog.pg_class c "
                 "JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace "
-                "WHERE n.nspname = ANY(%s) AND c.relkind IN ('r','p','v','m','f') "
+                "WHERE n.nspname = ANY(%s) AND c.relkind IN ('r','p','v','f') "
                 "AND pg_catalog.has_schema_privilege(n.oid, 'USAGE') "
                 "AND pg_catalog.has_any_column_privilege(c.oid, 'SELECT') "
                 "AND (%s::text[] IS NULL OR (n.nspname || '.' || c.relname) = ANY(%s::text[])) "
