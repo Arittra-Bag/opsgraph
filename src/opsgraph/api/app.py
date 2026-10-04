@@ -222,13 +222,19 @@ def postgres_hosting_guides(principal: Annotated[Principal, Depends(require_prin
 @app.get("/api/health")
 def health():
     settings = runtime.settings
-    provider_health = runtime.provider.health()
+    with runtime.provider_lock:
+        provider_health = runtime.provider.health()
+        verification = runtime.provider_verification.public(runtime.provider_revision)
     return {
         # Liveness is independent of model readiness; provider test performs a real call.
         "ok": True,
         "investigation_ready": settings.mode == "connected"
         and settings.model_provider != "deterministic"
-        and provider_health.status == "ready",
+        and provider_health.status == "ready"
+        and verification["status"] == "verified",
+        "readiness_scope": "model_connection",
+        "source_readiness_required": True,
+        "model_verification": verification,
         "version": __version__,
         "mode": settings.mode,
         "model": settings.model_provider,
@@ -420,10 +426,12 @@ def playbooks(_: Annotated[str, Depends(require_workspace)]):
 
 @app.get("/api/providers/current")
 def provider_status(_: Annotated[str, Depends(require_workspace)]):
-    return {
-        "health": runtime.provider.health().model_dump(mode="json"),
-        "capabilities": runtime.provider.capabilities.model_dump(mode="json"),
-    }
+    with runtime.provider_lock:
+        return {
+            "health": runtime.provider.health().model_dump(mode="json"),
+            "capabilities": runtime.provider.capabilities.model_dump(mode="json"),
+            "verification": runtime.provider_verification.public(runtime.provider_revision),
+        }
 
 
 @app.get("/api/policies/current")

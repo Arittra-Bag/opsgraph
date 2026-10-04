@@ -151,7 +151,7 @@
     $('#openCredential').textContent = state.authenticated ? 'Workspace connected' : 'Connect workspace';
     $('#workspaceReadiness').textContent = state.authenticated ? 'Authenticated to this backend.' : 'Use the key created by your OpsGraph operator.';
     $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : 'Configure and inspect an approved read-only source.';
-    $('#modelReadiness').textContent = modelReady ? 'Actual model connection test passed in this tab.' : state.providerDirty ? 'Save and test the edited model configuration.' : 'A real model connection test has not passed in this tab.';
+    $('#modelReadiness').textContent = modelReady ? 'A recent model connection check passed on this backend.' : state.providerDirty ? 'Save and test the edited model configuration.' : 'Run a current model connection check on this backend.';
     $('#readinessReadiness').textContent = sourceHasUnsavedEdits ? `Save and inspect the edited configuration for ${selectedSource.name || selectedSource.id}.` : selectedVerified ? `${selectedSource.name || selectedSource.id} passed a bounded no-value read.` : selectedSource ? `Run a bounded no-value read for ${selectedSource.name || selectedSource.id}.` : verified.length ? 'Select a readiness-checked source for this investigation.' : 'Approve a one-row, no-value database probe after source inspection.';
     const completed = [state.authenticated, ready.length > 0, modelReady, selectedVerified];
     ['workspace', 'source', 'model', 'readiness'].forEach((step, index) => {
@@ -261,14 +261,61 @@
       $('#trustModel').title = trust.model ? `Provider: ${trust.model}` : '';
     } catch (error) { notice('#globalError', error.message); $('#runtimeDetails').textContent = error.message; }
   }
+  function clearProviderVerification() {
+    if (state.providerExpiryTimer !== undefined) clearTimeout(state.providerExpiryTimer);
+    state.providerExpiryTimer = undefined;
+    state.providerVerification = null;
+    state.modelTested = false;
+  }
+  function applyProviderVerification(verification) {
+    clearProviderVerification();
+    const status = verification?.status || 'untested';
+    const seconds = Number(verification?.valid_for_seconds);
+    const matches = typeof verification?.configuration_revision === 'string' && verification.configuration_revision === state.providerConfiguration?.revision;
+    const verified = state.authenticated && !state.providerDirty && matches && status === 'verified' && Number.isFinite(seconds) && seconds > 0 && seconds <= 900;
+    state.modelTested = verified;
+    if (verified) {
+      state.providerVerification = verification;
+      $('#providerTestStatus').textContent = `Recent model connection check passed · ${stamp(verification.checked_at)}. Source readiness is checked separately.`;
+      $('#trustModel').textContent = 'Model reachable';
+      $('#trustModel').className = 'trust-signal good';
+      state.providerExpiryTimer = setTimeout(() => {
+        if (state.providerVerification !== verification) return;
+        clearProviderVerification();
+        $('#providerTestStatus').textContent = 'The model connection check expired. Test the connection again before investigating.';
+        $('#trustModel').textContent = 'Model check expired';
+        $('#trustModel').className = 'trust-signal checking';
+        readiness();
+      }, Math.ceil(seconds * 1000));
+    } else {
+      const effective = state.providerDirty || !matches ? 'untested' : status;
+      const labels = { untested: 'Model untested', checking: 'Checking model', failed: 'Model unreachable', expired: 'Model check expired' };
+      $('#trustModel').textContent = labels[effective] || 'Model unverified';
+      $('#trustModel').className = effective === 'failed' ? 'trust-signal failed' : 'trust-signal checking';
+      $('#providerTestStatus').textContent = state.providerDirty ? 'Configuration changed. Save and run a new actual model connection test.' : matches && verification?.detail ? verification.detail : 'Run an actual model connection test before investigating.';
+    }
+    readiness();
+  }
   async function loadProvider() {
-    const epoch = state.authEpoch;
-    const current = await api('/api/providers/current');
-    if (epoch !== state.authEpoch) return;
-    const health = current.health || {};
-    const configuration = state.providerConfiguration || {};
-    $('#providerConfig').innerHTML = `<div><dt>Connection preset</dt><dd>${esc(configuration.provider || 'Not reported')}</dd></div><div><dt>Protocol adapter</dt><dd>${esc(configuration.adapter || health.provider || 'Not reported')}</dd></div><div><dt>Configured model</dt><dd>${esc(health.model || configuration.model || 'Not reported')}</dd></div><div><dt>Configuration status</dt><dd>${esc(health.status || 'Unknown')}: ${esc(health.detail || 'No detail reported')}</dd></div><div><dt>External inference</dt><dd>${current.capabilities?.external_egress === true ? 'Configured provider uses external egress' : current.capabilities?.external_egress === false ? 'Provider reports no external egress' : 'Not reported'}</dd></div>`;
-    return current;
+    const epoch = state.authEpoch; const token = state.providerTestToken;
+    try {
+      const current = await api('/api/providers/current');
+      if (epoch !== state.authEpoch || token !== state.providerTestToken) return;
+      const health = current.health || {};
+      const configuration = state.providerConfiguration || {};
+      $('#providerConfig').innerHTML = `<div><dt>Connection preset</dt><dd>${esc(configuration.provider || 'Not reported')}</dd></div><div><dt>Protocol adapter</dt><dd>${esc(configuration.adapter || health.provider || 'Not reported')}</dd></div><div><dt>Configured model</dt><dd>${esc(health.model || configuration.model || 'Not reported')}</dd></div><div><dt>Configuration status</dt><dd>${esc(health.status || 'Unknown')}: ${esc(health.detail || 'No detail reported')}</dd></div><div><dt>External inference</dt><dd>${current.capabilities?.external_egress === true ? 'Configured provider uses external egress' : current.capabilities?.external_egress === false ? 'Provider reports no external egress' : 'Not reported'}</dd></div>`;
+      applyProviderVerification(current.verification);
+      return current;
+    } catch (error) {
+      if (epoch === state.authEpoch && token === state.providerTestToken) {
+        clearProviderVerification();
+        $('#trustModel').textContent = 'Model unverified';
+        $('#trustModel').className = 'trust-signal checking';
+        $('#providerTestStatus').textContent = 'Model status could not be refreshed. Retry before investigating.';
+        readiness();
+      }
+      throw error;
+    }
   }
   function providerFormMode() {
     const preset = providerPresets[$('#modelProvider').value] || providerPresets.custom_openai;
@@ -282,7 +329,7 @@
   }
   function markProviderDirty() {
     state.providerDirty = true;
-    state.modelTested = false;
+    clearProviderVerification();
     state.providerTestToken++;
     $('#providerSaveStatus').textContent = 'Unsaved changes. Save before testing this configuration.';
     $('#providerTestStatus').textContent = 'Configuration changed. Save and run a new actual model connection test.';
@@ -292,7 +339,7 @@
   }
   function fillProviderForm(configuration) {
     if (state.providerConfiguration?.revision !== configuration.revision) {
-      state.modelTested = false;
+      clearProviderVerification();
       $('#providerTestStatus').textContent = 'Configuration changed. Run an actual model connection test.';
       $('#trustModel').textContent = 'Model untested';
       $('#trustModel').className = 'trust-signal checking';
@@ -331,7 +378,7 @@
     try {
       const saved = await api('/api/providers/configuration', { method: 'PUT', body: JSON.stringify(request) });
       if (epoch !== state.authEpoch) return;
-      state.modelTested = false; fillProviderForm(saved);
+      clearProviderVerification(); fillProviderForm(saved);
       notice('#providerError'); $('#providerTestStatus').textContent = 'Configuration changed. Run a new actual model connection test.';
       $('#trustModel').textContent = 'Model untested';
       $('#trustModel').className = 'trust-signal checking';
@@ -339,7 +386,7 @@
       await loadProvider().catch(error => { if (epoch === state.authEpoch) notice('#providerError', `Configuration saved, but its status could not be refreshed. ${error.message}`); });
     } catch (error) {
       if (epoch !== state.authEpoch) return;
-      if (![400, 403, 409, 422].includes(error.status)) { state.modelTested = false; $('#trustModel').textContent = 'Model unverified'; $('#trustModel').className = 'trust-signal checking'; }
+      if (![400, 403, 409, 422].includes(error.status)) { clearProviderVerification(); $('#trustModel').textContent = 'Model unverified'; $('#trustModel').className = 'trust-signal checking'; }
       notice('#providerSaveError', error.message);
       $('#providerSaveStatus').textContent = 'Save was not confirmed. Review the error and retry; re-enter a new API key if you supplied one.';
     } finally { request.api_key = ''; if (epoch === state.authEpoch) { state.providerBusy = false; readiness(); restoreFocus(); } }
@@ -349,7 +396,7 @@
     const token = ++state.providerTestToken; state.providerBusy = true;
     const restoreFocus = guardAsyncFocus($('#testProvider'), $('#providerTestStatus'));
     notice('#providerError'); $('#testProvider').disabled = true; $('#providerTestStatus').textContent = 'Running an actual bounded model request…';
-    state.modelTested = false; readiness(); $('#testProvider').disabled = true;
+    clearProviderVerification(); readiness(); $('#testProvider').disabled = true;
     try {
       const result = await api('/api/providers/current/test', { method: 'POST' });
       if (token !== state.providerTestToken) return;
@@ -360,13 +407,10 @@
       if (!result.configuration_revision || result.configuration_revision !== configuration.revision) throw new Error('Model configuration changed during the connection test. Test the current configuration again.');
       await loadProvider();
       if (token !== state.providerTestToken) return;
-      state.modelTested = true;
-      $('#providerTestStatus').textContent = `Real connection test passed: ${result.provider || result.health?.provider || 'configured provider'} / ${result.model || result.health?.model || 'configured model'} · ${stamp(result.checked_at)}.`;
-      $('#trustModel').textContent = 'Model reachable';
-      $('#trustModel').className = 'trust-signal good';
+      if (!state.modelTested) throw new Error('Model connection verification is no longer current. Test the current configuration again.');
     } catch (error) {
       if (token !== state.providerTestToken) return;
-      state.modelTested = false;
+      clearProviderVerification();
       notice('#providerError', error.message); $('#providerTestStatus').textContent = 'Model unavailable. Source setup and saved investigations remain available.'; $('#trustModel').textContent = 'Model unreachable'; $('#trustModel').className = 'trust-signal failed';
     } finally { if (token === state.providerTestToken) state.providerBusy = false; readiness(); restoreFocus(); }
   }
@@ -544,7 +588,7 @@
   }
   function clearWorkspace() {
     state.authEpoch++; state.hostingToken++; state.hostingGuides = []; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
-    state.authenticated = false; state.modelTested = false; state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
+    state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
     $('#investigationQuestion').value = ''; $('#sourceCatalog').textContent = 'Connect workspace to load sources.'; $('#skillCatalog').textContent = 'Connect workspace to load playbooks.';
@@ -552,7 +596,7 @@
     $('#trustModel').textContent = 'Model unchecked';
     $('#trustModel').className = 'trust-signal checking';
     ['#previousTurn', '#caseTitle', '#runIdentity', '#runRelation', '#runSource', '#runCreated', '#runSkill', '#runState', '#conclusionTitle', '#limitations', '#evidenceLedger', '#streamState', '#runScope', '#runScopeSummary', '#currentOperation', '#captureStatus', '#inspectedTables'].forEach(id => $(id).replaceChildren());
-    $('#providerTestStatus').textContent = 'No connection test performed in this tab.'; $('#sourceSetup').hidden = true; $('#sourceForm').reset();
+    $('#providerTestStatus').textContent = 'Connect your workspace to view the current model connection check.'; $('#sourceSetup').hidden = true; $('#sourceForm').reset();
     ['#globalError', '#composerError', '#credentialError', '#sourceError', '#providerError', '#skillError'].forEach(id => notice(id));
     renderHistory(); readiness(); closeDrawer();
   }
@@ -878,7 +922,13 @@
     const signature = JSON.stringify(body);
     if (!state.pending || state.pending.signature !== signature) state.pending = { signature, request_id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('') };
     body.request_id = state.pending.request_id;
-    try { const run = await api('/api/runs', { method: 'POST', body: JSON.stringify(body) }); state.pending = null; await openRun(run.id); }
+    try {
+      const epoch = state.authEpoch;
+      await loadProvider();
+      if (epoch !== state.authEpoch) return;
+      if (state.providerDirty || !state.modelTested || (state.sourceDirty && state.sourceEditingId === selectedSourceId)) throw new Error('Review the source settings and run a current model connection check before investigating.');
+      const run = await api('/api/runs', { method: 'POST', body: JSON.stringify(body) }); state.pending = null; await openRun(run.id);
+    }
     catch (error) { notice('#composerError', `${error.message}\nCorrect the source/model configuration or retry this same question. A retry of this submission uses the same request ID.`); }
     finally { state.busy = false; readiness(); restoreFocus(); }
   }
@@ -894,7 +944,13 @@
     if (!state.run || state.busy) return;
     const restoreFocus = guardAsyncFocus($('#retryRun'), $('#currentOperation'));
     state.busy = true; $('#retryRun').disabled = true;
-    try { const run = await api(`/api/runs/${encodeURIComponent(state.run.id)}/retry`, { method: 'POST' }); await openRun(run.id); }
+    const epoch = state.authEpoch; const original = state.run;
+    try {
+      await loadProvider();
+      if (epoch !== state.authEpoch || state.run !== original) return;
+      if (state.providerDirty || !state.modelTested || (state.sourceDirty && state.sourceEditingId === original.source_id)) throw new Error('Review the source settings and run a current model connection check before retrying.');
+      const run = await api(`/api/runs/${encodeURIComponent(original.id)}/retry`, { method: 'POST' }); await openRun(run.id);
+    }
     catch (error) { notice('#runError', error.message); }
     finally { state.busy = false; $('#retryRun').disabled = false; readiness(); restoreFocus(); }
   }

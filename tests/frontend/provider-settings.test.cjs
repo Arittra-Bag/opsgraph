@@ -18,12 +18,14 @@ function fixture() {
     custom_openai: { endpoint: '' },
   };
   const sourceReady = item => item?.status === 'ready';
-  const context = vm.createContext({ $, state, providerPresets, sourceReady, sourceReadinessPassed: item => sourceReady(item) && item.readiness?.status === 'ready', stamp: value => value, notice: (id, value = '') => { $(id).textContent = value; }, readiness() {}, guardAsyncFocus: () => () => {}, loadProvider: async () => {}, api: async () => ({}) });
-  const begin = source.indexOf('  function providerFormMode()');
+  const timers = new Map(); let timerId = 0;
+  const context = vm.createContext({ $, state, setTimeout: callback => { timers.set(++timerId, callback); return timerId; }, clearTimeout: id => timers.delete(id), esc: value => value, providerPresets, sourceReady, sourceReadinessPassed: item => sourceReady(item) && item.readiness?.status === 'ready', stamp: value => value, notice: (id, value = '') => { $(id).textContent = value; }, readiness() {}, guardAsyncFocus: () => () => {}, loadProvider: async () => {}, api: async () => ({}) });
+  const begin = source.indexOf('  function clearProviderVerification()');
   const end = source.indexOf('  async function loadSources()', begin);
   vm.runInContext(source.slice(begin, end), context);
-  return { $, state, context };
+  return { $, state, context, timers };
 }
+const verification = revision => ({ status: 'verified', configuration_revision: revision, checked_at: '2026-10-04T00:00:00Z', expires_at: '2026-10-04T00:15:00Z', valid_for_seconds: 899, detail: 'Recent model connection check passed.' });
 const config = { provider: 'ollama', adapter: 'openai_compatible', model: 'qwen3:8b', endpoint: 'http://127.0.0.1:11434/v1', schema_profile: 'ollama', reasoning_effort: null, timeout_seconds: 300, max_output_tokens: 1024, api_key_configured: true, deployment_egress_enabled: false, allow_external_egress: false };
 
 test('saved provider configuration never fills a credential and respects deployment egress ceiling', () => {
@@ -38,7 +40,7 @@ test('saved provider configuration never fills a credential and respects deploym
 test('successful save sends a key only to backend configuration endpoint and invalidates old probe', async () => {
   const f = fixture(); f.context.fillProviderForm(config); f.$('#modelApiKey').value = 'fixture-secret';
   let request;
-  f.context.api = async (path, options) => { request = { path, ...JSON.parse(options.body) }; assert.equal(f.$('#modelApiKey').value, ''); return config; };
+  f.context.api = async (path, options) => { if (path === '/api/providers/current') return {}; request = { path, ...JSON.parse(options.body) }; assert.equal(f.$('#modelApiKey').value, ''); return config; };
   await f.context.saveProviderConfiguration({ preventDefault() {} });
   assert.equal(request.path, '/api/providers/configuration'); assert.equal(request.api_key, 'fixture-secret');
   assert.equal(request.max_output_tokens, 1024);
@@ -221,7 +223,7 @@ test('status refresh failure after a successful probe does not leave green compl
 
 test('model status pill reflects successful and failed connection tests', async () => {
   const success = fixture(); success.context.fillProviderForm({ ...config, revision: 'same' }); success.state.providerDirty = false;
-  success.context.api = async path => path.endsWith('/test') ? { ok: true, configuration_revision: 'same' } : { ...config, revision: 'same' };
+  success.context.api = async path => path.endsWith('/test') ? { ok: true, configuration_revision: 'same' } : path === '/api/providers/current' ? { verification: verification('same') } : { ...config, revision: 'same' };
   await success.context.testProvider();
   assert.equal(success.$('#trustModel').textContent, 'Model reachable');
   assert.equal(success.$('#trustModel').className, 'trust-signal good');
@@ -241,5 +243,159 @@ test('disconnect during configuration load or save discards late responses', asy
     f.state.authEpoch++; f.state.providerConfiguration = null;
     resolve({ ...config, model: 'different' }); await pending;
     assert.equal(f.state.providerConfiguration, null);
+  }
+});
+
+test('authenticated status restores only a current matching model verification', async () => {
+  const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+  f.context.api = async () => ({ verification: verification('same') });
+  await f.context.loadProvider();
+  assert.equal(f.state.modelTested, true);
+  assert.equal(f.$('#trustModel').textContent, 'Model reachable');
+  assert.equal(f.timers.size, 1);
+  f.context.api = async () => ({ verification: verification('different') });
+  await f.context.loadProvider();
+  assert.equal(f.state.modelTested, false);
+  assert.equal(f.timers.size, 0);
+});
+
+test('expired, failed, checking and invalid verification never mark the model ready', () => {
+  const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+  for (const status of ['untested', 'expired', 'failed', 'checking']) {
+    f.context.applyProviderVerification({ ...verification('same'), status });
+    assert.equal(f.state.modelTested, false);
+  }
+  for (const seconds of [0, -1, 901, NaN, Infinity]) {
+    f.context.applyProviderVerification({ ...verification('same'), valid_for_seconds: seconds });
+    assert.equal(f.state.modelTested, false);
+  }
+});
+
+test('dirty provider fields prevent server verification from turning green', async () => {
+  const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+  f.context.markProviderDirty();
+  f.context.api = async () => ({ verification: verification('same') });
+  await f.context.loadProvider();
+  assert.equal(f.state.modelTested, false);
+  assert.equal(f.timers.size, 0);
+});
+
+test('one-shot expiry clears model readiness and cannot expire a newer check', () => {
+  const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+  f.context.applyProviderVerification(verification('same'));
+  const old = [...f.timers.values()][0];
+  f.context.applyProviderVerification(verification('same'));
+  old(); assert.equal(f.state.modelTested, true);
+  [...f.timers.values()][0]();
+  assert.equal(f.state.modelTested, false);
+  assert.equal(f.$('#trustModel').textContent, 'Model check expired');
+  assert.equal(f.timers.size, 0);
+});
+
+test('late status responses cannot restore an invalidated probe', async () => {
+  const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+  let resolve;
+  f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.loadProvider();
+  f.state.providerTestToken++;
+  resolve({ verification: verification('same') });
+  await pending; assert.equal(f.state.modelTested, false);
+});
+
+test('status refresh failure clears earlier verification and its expiry timer', async () => {
+  const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+  f.context.applyProviderVerification(verification('same'));
+  f.context.api = async () => { throw new Error('Connection lost'); };
+  await assert.rejects(f.context.loadProvider(), /Connection lost/);
+  assert.equal(f.state.modelTested, false);
+  assert.equal(f.timers.size, 0);
+});
+
+test('submission refreshes verification before posting and refuses stale or unavailable status', async () => {
+  for (const outcome of ['verified', 'expired', 'changed', 'offline']) {
+    const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+    f.context.applyProviderVerification(verification('same'));
+    f.state.busy = false; f.$('#submitRun').disabled = false;
+    f.$('#investigationSource').value = 'source-a';
+    f.$('#investigationQuestion').value = 'Count failed payments';
+    const calls = [];
+    Object.assign(f.context, { openRun: async () => {}, crypto: { randomUUID: () => 'request-id' } });
+    f.context.api = async path => {
+      calls.push(path);
+      if (path === '/api/providers/current') {
+        if (outcome === 'offline') throw new Error('Connection lost');
+        return { verification: { ...verification(outcome === 'changed' ? 'different' : 'same'), status: outcome === 'expired' ? 'expired' : 'verified' } };
+      }
+      return { id: 'run-id' };
+    };
+    const begin = source.indexOf('  async function submitRun(');
+    const end = source.indexOf('  async function cancelRun(', begin);
+    vm.runInContext(source.slice(begin, end), f.context);
+    await f.context.submitRun({ preventDefault() {} });
+    assert.deepEqual(calls, outcome === 'verified' ? ['/api/providers/current', '/api/runs'] : ['/api/providers/current']);
+    assert.equal(f.state.busy, false);
+    if (outcome !== 'verified') assert.equal(f.state.modelTested, false);
+  }
+});
+
+test('retry refreshes verification and refuses expired, failed, changed or unavailable status', async () => {
+  for (const outcome of ['verified', 'expired', 'failed', 'changed', 'offline']) {
+    const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+    f.context.applyProviderVerification(verification('same'));
+    f.state.run = { id: 'failed-run', source_id: 'source-a', status: 'failed' };
+    f.state.busy = false;
+    const calls = [];
+    f.context.openRun = async () => {};
+    f.context.api = async path => {
+      calls.push(path);
+      if (path === '/api/providers/current') {
+        if (outcome === 'offline') throw new Error('Connection lost');
+        return { verification: { ...verification(outcome === 'changed' ? 'different' : 'same'), status: ['expired', 'failed'].includes(outcome) ? outcome : 'verified' } };
+      }
+      return { id: 'retry-run' };
+    };
+    const begin = source.indexOf('  async function retryRun()');
+    const end = source.indexOf('  function newInvestigation()', begin);
+    vm.runInContext(source.slice(begin, end), f.context);
+    await f.context.retryRun();
+    assert.deepEqual(calls, outcome === 'verified' ? ['/api/providers/current', '/api/runs/failed-run/retry'] : ['/api/providers/current']);
+    assert.equal(f.state.busy, false);
+    assert.equal(f.$('#retryRun').disabled, false);
+    if (outcome !== 'verified') assert.equal(f.state.modelTested, false);
+  }
+});
+
+test('retry refuses dirty provider or source settings even after a successful status refresh', async () => {
+  for (const dirty of ['provider', 'source']) {
+    const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+    f.state.run = { id: 'failed-run', source_id: 'source-a' };
+    f.state.providerDirty = dirty === 'provider';
+    f.state.sourceDirty = dirty === 'source'; f.state.sourceEditingId = 'source-a';
+    const calls = [];
+    f.context.api = async path => { calls.push(path); return { verification: verification('same') }; };
+    const begin = source.indexOf('  async function retryRun()');
+    const end = source.indexOf('  function newInvestigation()', begin);
+    vm.runInContext(source.slice(begin, end), f.context);
+    await f.context.retryRun();
+    assert.deepEqual(calls, ['/api/providers/current']);
+    assert.match(f.$('#runError').textContent, /Review the source settings/);
+  }
+});
+
+test('disconnect or selecting another run during retry status refresh prevents retry submission', async () => {
+  for (const change of ['disconnect', 'run']) {
+    const f = fixture(); f.context.fillProviderForm({ ...config, revision: 'same' });
+    f.state.run = { id: 'failed-run', source_id: 'source-a' };
+    const calls = []; let resolve;
+    f.context.api = path => { calls.push(path); return new Promise(done => { resolve = done; }); };
+    const begin = source.indexOf('  async function retryRun()');
+    const end = source.indexOf('  function newInvestigation()', begin);
+    vm.runInContext(source.slice(begin, end), f.context);
+    const pending = f.context.retryRun();
+    if (change === 'disconnect') { f.state.authEpoch++; f.state.authenticated = false; }
+    else f.state.run = { id: 'another-run', source_id: 'source-a' };
+    resolve({ verification: verification('same') });
+    await pending;
+    assert.deepEqual(calls, ['/api/providers/current']);
   }
 });

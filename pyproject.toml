@@ -78,6 +78,7 @@ exclude = ["/PKG-INFO", "/docs"]
 "docs/release/notices/pglast-7.18-project-header.txt" = "docs/release/notices/pglast-7.18-project-header.txt"
 "docs/release/notices/pglast-extracted-notices.json" = "docs/release/notices/pglast-extracted-notices.json"
 "docs/release/release-notes-1.0.0.md" = "docs/release/release-notes-1.0.0.md"
+"docs/release/next-milestone.md" = "docs/release/next-milestone.md"
 "docs/release/support-matrix.md" = "docs/release/support-matrix.md"
 "docs/release/third-party-notices.md" = "docs/release/third-party-notices.md"
 "docs/release/walkthrough.md" = "docs/release/walkthrough.md"

@@ -223,6 +223,70 @@ def test_installer_errors_do_not_echo_subprocess_output(tmp_path, monkeypatch, c
     assert "private" not in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(
+    ("details", "expected"),
+    [
+        ("failed to open cache: Read-only file system (os error 30)", "installer cache"),
+        ("cache: Permission denied (os error 13)", "installer cache"),
+        ("cache: Access is denied", "installer cache"),
+        ("No space left on device (os error 28)", "free disk space"),
+        ("Disk quota exceeded", "free disk space"),
+        ("Permission denied writing build directory", "cannot write to a required directory"),
+        ("invalid peer certificate: UnknownIssuer", "certificate could not be verified"),
+        ("CERTIFICATE_VERIFY_FAILED", "certificate could not be verified"),
+        ("dns error: failed to lookup address", "could not reach a download service"),
+        ("Connection timed out", "could not reach a download service"),
+        ("No interpreter found for Python >=3.11,<3.14", "compatible Python runtime"),
+        ("package requires a different Python", "compatible Python runtime"),
+    ],
+)
+def test_installer_classifies_failure_without_exposing_raw_output(
+    tmp_path, monkeypatch, details, expected
+):
+    private_value = "fixture-only-proxy-password"
+    private_path = "/private/fixture-only-local-path"
+    monkeypatch.setattr(
+        first_run.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(
+            a,
+            1,
+            stdout=f"https://user:{private_value}@example.invalid {private_path}".encode(),
+            stderr=details.encode(),
+        ),
+    )
+    with pytest.raises(first_run.StartError) as failure:
+        first_run.command(["fixture"], tmp_path, {}, "safe fallback")
+    message = str(failure.value)
+    assert expected in message
+    assert "Private workspace configuration is unchanged" in message
+    assert private_value not in message
+    assert private_path not in message
+    assert "example.invalid" not in message
+
+
+def test_cache_recovery_uses_supported_environment_without_restoring_uv_overrides(monkeypatch):
+    monkeypatch.setenv("XDG_CACHE_HOME", "/fixture/writable-cache")
+    monkeypatch.setenv("UV_CACHE_DIR", "/fixture/unapproved-cache")
+    environment = first_run.install_environment()
+    assert environment["XDG_CACHE_HOME"] == "/fixture/writable-cache"
+    assert "UV_CACHE_DIR" not in environment
+    message = first_run.installation_failure(b"", b"cache: Read-only file system", "fallback")
+    assert 'XDG_CACHE_HOME="$HOME/opsgraph-cache"' in message
+    assert "UV_CACHE_DIR" not in message
+
+
+def test_successful_installer_output_is_not_treated_as_a_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        first_run.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(
+            a, 0, stdout=b"cached previous Permission denied", stderr=b""
+        ),
+    )
+    assert first_run.command(["fixture"], tmp_path, {}, "safe fallback") is None
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX symlink boundary")
 def test_missing_uv_rejects_symlink_bootstrap_directory(tmp_path, monkeypatch):
     monkeypatch.setattr(first_run.shutil, "which", lambda *a, **k: None)

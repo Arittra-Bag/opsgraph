@@ -1,10 +1,19 @@
-# OpsGraph 1.0 — v1.0.0
+# OpsGraph 1.0 release candidate
 
-OpsGraph 1.0 is the first stable release inside a deliberately narrow boundary:
+These notes describe the intended stable release inside a deliberately narrow boundary:
 one trusted operator, a private self-hosted instance, PostgreSQL sources, and
 bounded read-only investigations.
 
+Publication is pending the exact-revision gates in production readiness.
+The package version alone does not establish a published stable release.
+
 ## What changed
+
+- Model readiness requires a real connection check. Checks expire after 15
+  minutes and are invalidated by new tests, configuration changes, or restart.
+  Concurrent and failed checks cannot restore an older successful result.
+- Incident Markdown exports preserve readable quotes, timestamps, and ordinary
+  punctuation while retaining protection against report markup injection.
 
 - A four-step first-run path connects the workspace, inspects an exact source,
   tests a real model configuration, and requires an operator-approved bounded
@@ -53,8 +62,8 @@ missing definitions before acting on a finding.
 
 ## Release artifacts
 
-Use only artifacts that match `v1.0.0` and verify the release-level
-`SHA256SUMS` before installation. Native CPython 3.11 bundles are published for
+When `v1.0.0` is published, use matching artifacts and verify the release-level
+`SHA256SUMS` before installation. Native CPython 3.11 bundles are intended for
 Ubuntu 24.04 x64, Windows Server 2025 x64, and macOS 26 arm64. Each bundle
 contains a generated inventory for its exact wheelhouse and has a matching
 acceptance receipt.

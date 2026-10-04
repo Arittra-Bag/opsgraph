@@ -33,12 +33,85 @@ def install_environment() -> dict[str, str]:
     }
 
 
+def installation_failure(stdout: bytes, stderr: bytes, fallback: str) -> str:
+    """Recognize common failures without including any installer output."""
+    details = (stdout + b"\n" + stderr).decode("utf-8", errors="replace").lower()
+    recovery = None
+    if any(value in details for value in ("no space left on device", "disk quota exceeded")):
+        recovery = "There is not enough free disk space. Free space and rerun your command."
+    elif any(
+        value in details
+        for value in ("permission denied", "read-only file system", "access is denied")
+    ):
+        if "cache" in details:
+            recovery = (
+                "The installer cache cannot be written. Choose a writable cache directory "
+                "you own. On macOS or Linux, prefix your original command with "
+                'XDG_CACHE_HOME="$HOME/opsgraph-cache". On Windows, check that your '
+                "LOCALAPPDATA cache directory is writable. Do not run the installer as "
+                "an administrator to bypass this error."
+            )
+        else:
+            recovery = (
+                "The installer cannot write to a required directory. Check that you own "
+                "the checkout and can write to its installation and temporary directories, "
+                "then rerun your command."
+            )
+    elif any(
+        value in details
+        for value in (
+            "certificate verify failed",
+            "certificate_verify_failed",
+            "invalid peer certificate",
+            "unknown issuer",
+        )
+    ):
+        recovery = (
+            "A download certificate could not be verified. Check your computer's clock "
+            "and trusted certificates, or ask your network administrator about a proxy "
+            "certificate. Keep certificate verification enabled, then rerun your command."
+        )
+    elif any(
+        value in details
+        for value in (
+            "network is unreachable",
+            "connection refused",
+            "connection timed out",
+            "dns error",
+            "temporary failure in name resolution",
+            "failed to lookup address",
+        )
+    ):
+        recovery = (
+            "The installer could not reach a download service. Check internet access, "
+            "DNS and any network proxy, then rerun your command."
+        )
+    elif any(
+        value in details
+        for value in (
+            "no interpreter found",
+            "no python installation found",
+            "does not satisfy the python requirement",
+            "requires a different python",
+            "unsupported python version",
+        )
+    ):
+        recovery = (
+            "A compatible Python runtime was not available. OpsGraph needs Python "
+            "3.11 through 3.13. Install a supported version or allow the installer to "
+            "download one, then rerun your command."
+        )
+    if recovery is None:
+        return fallback
+    return f"Installation stopped. {recovery} Private workspace configuration is unchanged."
+
+
 def command(args: list[str], root: Path, environment: dict[str, str], failure: str) -> None:
     result = subprocess.run(  # noqa: S603
         args, cwd=root, env=environment, capture_output=True, check=False
     )
     if result.returncode:
-        raise StartError(failure)
+        raise StartError(installation_failure(result.stdout, result.stderr, failure))
 
 
 def bootstrap_uv(root: Path, environment: dict[str, str]) -> str:
