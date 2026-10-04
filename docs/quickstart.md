@@ -7,10 +7,12 @@ install a model, download an ISO, or transmit your source records during setup.
 
 ## Start from a source checkout
 
-After cloning and entering the repository, run `python3 Start.py` on macOS/Linux
-or `py Start.py` on Windows. The installer explains downloads and prepares the
-locked application runtime. Choose Quick for recommended defaults, or Advanced
-to configure schema scope, endpoint and inference options. Review before saving.
+After cloning and entering the repository, run `python3 Start.py --no-code` on
+macOS/Linux or `py Start.py --no-code` on Windows. Choose practice data or connect
+your database. See [No-code setup](#no-code-setup) for prerequisites and the guided
+steps. The installer explains downloads and prepares the locked runtime.
+For the original Quick or Advanced workspace, run `python3 Start.py` instead.
+Review before saving.
 The workspace key is generated privately and the browser connects automatically.
 
 For hosted inference, choose the provider, supply its exact structured-output
