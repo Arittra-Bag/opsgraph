@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated stable tag to verify and publish
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,7 +26,7 @@ env:
 jobs:
   validate-tag:
     name: Validate exact annotated tag
-    if: github.event.deleted == false
+    if: github.event_name == 'workflow_dispatch' || github.event.deleted == false
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -34,15 +40,18 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.tag || github.sha }}
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
       - id: release
         name: Bind the release to the reviewed main commit and project version
+        env:
+          TAG_NAME: ${{ inputs.tag || github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
+          tag="${TAG_NAME}"
           if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Stable release tags must match vMAJOR.MINOR.PATCH." >&2
             exit 1
