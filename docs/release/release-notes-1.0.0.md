@@ -42,7 +42,8 @@ Back up your complete private workspace first. Reinspect existing sources,
 run their readiness checks and test the saved model connection after restarting.
 Remote PostgreSQL connections require `sslmode=verify-full` by default.
 
-See the [upgrade guide](../migration.md) and [setup guide](../quickstart.md).
+See the [upgrade guide](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/migration.md)
+and [setup guide](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/quickstart.md).
 
 ## Packages and validation
 
@@ -53,7 +54,8 @@ amd64 and arm64 container images. The arm64 container check runs under QEMU.
 Download matching artifacts and verify `SHA256SUMS` before installation.
 Packages include the application wheel, source distribution, offline bundles,
 third-party source archives and validation receipts. See the
-[distribution guide](distribution.md) for platforms, files and checksum scopes.
+[distribution guide](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/release/distribution.md)
+for platforms, files and checksum scopes.
 
 ## Scope and limitations
 
@@ -66,4 +68,5 @@ connection guidance does not certify every provider or network configuration.
 Review the SQL, captured records and missing business definitions before acting
 on a finding. Reports do not automatically redact sensitive data.
 
-See the [support matrix](support-matrix.md) for tested environments and limits.
+See the [support matrix](https://github.com/Arittra-Bag/opsgraph/blob/v1.0.0/docs/release/support-matrix.md)
+for tested environments and limits.
