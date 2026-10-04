@@ -25,7 +25,7 @@ def wizard(tmp_path, *, flow="quick", answers=(), secret="", existing=None):
 
     def ask(label):
         labels.append(label)
-        return next(supplied, "")
+        return "" if label.startswith("Connection options") else next(supplied, "")
 
     result = setup.run_setup(
         directory, flow=flow, input_fn=ask, secret_fn=lambda _: secret, output_fn=output.append

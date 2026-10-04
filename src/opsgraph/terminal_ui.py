@@ -51,11 +51,25 @@ class TerminalUI:
 
     def heading(self, title: str) -> None:
         self.output("")
-        rule = "=" * self.width
-        self.output(self.style(rule))
+        self.output(self.style("┌" if self.rich else "+", "36"))
         for line in textwrap.wrap(safe_text(title), self.width):
             self.output(self.style(line))
-        self.output(self.style(rule))
+        self.output(self.style(("─" if self.rich else "-") * min(self.width, 40), "36"))
+
+    def note(self, title: str, lines: tuple[str, ...]) -> None:
+        """Show a small help card instead of an uninterrupted documentation dump."""
+        self.output("")
+        for line in textwrap.wrap(safe_text(title), self.width):
+            self.output(self.style(line, "1;36"))
+        rail = "│" if self.rich else "|"
+        for text in lines:
+            for line in textwrap.wrap(safe_text(text), self.width - 4) or [""]:
+                self.output(self.style(rail, "36") + "  " + line)
+        self.output(self.style("└" if self.rich else "+", "36"))
+
+    def literal(self, text: str) -> None:
+        """Preserve a copyable example without inserting line breaks into its value."""
+        self.output("  " + safe_text(text))
 
     def question(self, label: str) -> str:
         lines = textwrap.wrap(safe_text(label).strip().removesuffix(":"), self.width - 4)
@@ -64,7 +78,8 @@ class TerminalUI:
     def menu(self, choices: tuple[tuple[str, str], ...], default: str) -> None:
         for index, (value, label) in enumerate(choices, 1):
             suffix = " [default]" if value == default else ""
-            self.write(f"  {index}. {label}{suffix}")
+            marker = "›" if self.rich and value == default else " "
+            self.write(f"{marker} {index}. {label}{suffix}")
         self.write("Type a number, then press Enter.")
 
     @contextmanager

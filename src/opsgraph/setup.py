@@ -24,7 +24,7 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from opsgraph.brokers.postgres import ConnectorUnavailable, PsycopgReadOnlyExecutor
 from opsgraph.postgres_diagnostics import connection_diagnostic
-from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide
+from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide, terminal_connection_help
 from opsgraph.providers.models import FIXED_HOSTED_PRESETS, PROVIDER_DEFAULT_ENDPOINTS
 from opsgraph.terminal_ui import TerminalUI
 
@@ -301,7 +301,7 @@ def run_setup(
     prepared_database: str | None = None,
 ) -> int:
     """Prompt for backend configuration; browser inspection/probing stays mandatory."""
-    ui = TerminalUI(output_fn)
+    ui = TerminalUI(None if output_fn is print else output_fn)
     ask = input_fn or (lambda label: input(ui.question(label)))
     hidden = secret_fn or (lambda label: getpass.getpass(ui.question(label)))
     output_fn = ui.write
@@ -401,50 +401,73 @@ def run_setup(
             )
         guide = hosting_guide(selected_hosting)
         output_fn(f"Selected: {guide.name}.")
-        if prepared_database is None:
-            output_fn(
-                "Paste your read-only connection string below. It contains the database address, "
-                "port, database name and login. Typing is hidden to protect its password."
-            )
-            output_fn(
-                "For a database on this computer, use its local address and port."
-                if selected_hosting == "local"
-                else "Remote connections must use sslmode=verify-full "
-                "and the provider's trusted certificate."
-            )
-            output_fn(
-                "Need connection instructions? Enter ? below. "
-                "Connection checks run later in Sources."
-            )
-        database_help = "\n".join(
-            (
-                "A connection string is also called a DSN. Ask your database administrator for "
-                "a read-only login. Sources includes an administrator role guide.",
-                guide.endpoint,
-                guide.network,
-                guide.tls,
-                *guide.steps,
-                *guide.checks,
-                f"Provider instructions: {guide.documentation}",
-            )
-        )
+
+        def show_connection_help(*, details: bool = False) -> None:
+            steps, template, extra = terminal_connection_help(selected_hosting)
+            if details:
+                ui.note("Before you connect", extra)
+            else:
+                ui.note(
+                    f"{guide.name}: get your connection",
+                    tuple(f"{index}. {step}" for index, step in enumerate(steps, 1)),
+                )
+                output_fn("Example only. Replace the CAPITAL parts with your own details:")
+                ui.literal(template)
+                output_fn("Use your read-only login, not the database owner's login.")
+            output_fn(f"Official guide: {guide.documentation}")
 
         if prepared_database is not None:
             dsn = normalize_guided_dsn(prepared_database)
         else:
+            output_fn(
+                "Choose what to do next. Help and choices are visible. Only the connection "
+                "you paste is hidden because it can contain a password. "
+                "Connection checks run later in Sources."
+            )
             while True:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("error", getpass.GetPassWarning)
-                    dsn = hidden(
-                        "Database connection string (hidden). Enter keeps a saved connection "
-                        "or skips. "
-                        "? shows help: "
-                    ).strip()
-                if dsn == "?":
-                    output_fn(database_help)
+                ui.menu(
+                    (
+                        ("paste", "Paste my connection string"),
+                        ("help", f"Show {guide.name} setup steps (?)"),
+                        (
+                            "skip",
+                            "Keep my saved connection"
+                            if existing.get("OPSGRAPH_SOURCE_DSN")
+                            else "Set up the database later",
+                        ),
+                        ("details", "Help with read-only access, passwords and certificates"),
+                    ),
+                    "paste",
+                )
+                action = ask("Connection options: 1 / 2 / 3 / 4 / ?: ").strip().lower()
+                if action in {"?", "2", "help"}:
+                    show_connection_help()
                     continue
-                if not dsn:
+                if action in {"4", "details"}:
+                    show_connection_help(details=True)
+                    continue
+                if action in {"3", "skip"}:
                     dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
+                elif action in {"", "1", "paste"}:
+                    output_fn(
+                        "Paste below, then press Enter. Characters stay hidden to protect "
+                        "the password. Enter without pasting keeps a saved connection or skips."
+                    )
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("error", getpass.GetPassWarning)
+                        dsn = hidden("Paste connection string (hidden): ").strip()
+                    if dsn == "?":
+                        output_fn("? Help requested. Your connection was not changed.")
+                        show_connection_help()
+                        continue
+                    if not dsn:
+                        dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
+                else:
+                    output_fn(
+                        "Choose 1 to paste, 2 or ? for steps, 3 to continue without changes, "
+                        "or 4 for more help. Never paste a password into this visible menu."
+                    )
+                    continue
                 if dsn:
                     try:
                         dsn = normalize_guided_dsn(dsn)

@@ -208,6 +208,12 @@ installer. No SQL or configuration-file editing is required.
    download or healthy API never stands in for this test. Start an investigation
    only after the source and model checks pass.
 
+When connecting your own database, choose its hosting company, then type `?`
+at the visible connection menu for short setup steps and an example. Choose
+**Paste my connection string** only when it is ready. The paste prompt hides
+its password. **Set up the database later** lets you continue without a login.
+Optional help explains read-only access, certificate files and password symbols.
+
 Practice mode creates 1,000 orders and 1,000 payments for an invented shop.
 Amounts are integer cents and timestamps use UTC. There are 50 failed fastpay
 payments with `gateway_timeout`, 450 succeeded fastpay payments and 500 succeeded

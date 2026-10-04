@@ -212,3 +212,76 @@ HOSTING_GUIDES = (
 
 def hosting_guide(profile: str) -> HostingGuide:
     return next(item for item in HOSTING_GUIDES if item.id == profile)
+
+
+def terminal_connection_help(profile: str) -> tuple[tuple[str, ...], str, tuple[str, ...]]:
+    """Short setup steps, a placeholder-only example, and optional recovery details."""
+    instructions = {
+        "local": (
+            "Open your database app or ask the person who installed PostgreSQL for its address.",
+            "Get the database name, port and a login that can read only your chosen tables.",
+            "Use 127.0.0.1 when PostgreSQL runs on this computer. Paste the connection below.",
+        ),
+        "self_hosted": (
+            "Ask your server administrator for the database address and port.",
+            "Request a separate read-only login for the tables you want to investigate.",
+            "Ask for the server's certificate file and make sure this computer can reach it.",
+        ),
+        "supabase": (
+            "Sign in at supabase.com/dashboard and open your project.",
+            "Click Connect at the top. Choose Session pooler, then copy its connection string.",
+            "Use your read-only login instead of postgres. Its username is LOGIN.PROJECT_REF.",
+            "Open Database settings, find SSL configuration, and download the certificate.",
+            "Use sslmode=verify-full and point sslrootcert to the downloaded file.",
+        ),
+        "neon": (
+            "Sign in to the Neon console and open your project and database branch.",
+            "Open Connect. Select your database and dedicated read-only login.",
+            "Use the direct connection for your first setup. Copy its connection string.",
+            "Keep sslmode=verify-full so OpsGraph checks the server's identity.",
+        ),
+        "aws_rds": (
+            "Sign in to AWS. Open RDS, then Databases, and select your PostgreSQL database.",
+            "Find its endpoint and port under Connectivity & security.",
+            "Ask your database administrator for a read-only login and the RDS certificate bundle.",
+            "The security group must allow this computer. Private databases need your VPN.",
+        ),
+        "google_cloud_sql": (
+            "Open Google Cloud Console, then SQL, and select your PostgreSQL instance.",
+            "Ask your administrator to set up the Cloud SQL Auth Proxy on this computer.",
+            "Get a read-only database login. Use the proxy's local address and chosen port.",
+            "If connecting directly instead, ask for the approved address and certificate file.",
+        ),
+        "azure": (
+            "Open Azure Portal and select your Azure Database for PostgreSQL server.",
+            "Find its server name and connection details. Ask for a separate read-only login.",
+            "Check Networking: this computer needs firewall access or the correct private network.",
+            "Ask for the trusted certificate settings. Use the server name, not its IP address.",
+        ),
+        "digitalocean": (
+            "Open DigitalOcean Control Panel, then Databases, and select your PostgreSQL cluster.",
+            "Open Connection Details. Choose the database, read-only user and reachable network.",
+            "Copy the connection string and download the cluster's certificate file.",
+            "Add this computer as a trusted source. Keep the port shown in Connection Details.",
+        ),
+    }
+    user = "READ_ONLY_LOGIN.PROJECT_REF" if profile == "supabase" else "READ_ONLY_LOGIN"
+    host = "YOUR_POOLER_HOST" if profile == "supabase" else "YOUR_DATABASE_HOST"
+    port = "YOUR_PORT" if profile == "digitalocean" else "5432"
+    if profile in {"local", "google_cloud_sql"}:
+        host = "127.0.0.1"
+    if profile == "google_cloud_sql":
+        port = "YOUR_PROXY_PORT"
+    template = f"postgresql://{user}:YOUR_PASSWORD@{host}:{port}/YOUR_DATABASE"
+    if profile not in {"local", "google_cloud_sql"}:
+        template += "?sslmode=verify-full&sslrootcert=/path/to/certificate.crt"
+    details = (
+        "No read-only login yet? Choose Set up later. In browser Sources, use the "
+        "read-only login guide for your database administrator. OpsGraph does not "
+        "use an administrator password or change your real database automatically.",
+        "Copy the exact address and username from your provider. A web address "
+        "starting with https:// is not the PostgreSQL connection string used here.",
+        "If the password has symbols such as @, # or ?, they must be URL-encoded. "
+        "Ask your administrator for a ready-to-paste connection string if unsure.",
+    )
+    return instructions[profile], template, details
