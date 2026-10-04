@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/Arittra-Bag/opsgraph/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-65d6ce.svg)](LICENSE)
-[![Latest release](https://img.shields.io/github/v/release/Arittra-Bag/opsgraph?sort=date&label=release&color=65d6ce)](https://github.com/Arittra-Bag/opsgraph/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/Arittra-Bag/opsgraph?include_prereleases&sort=date&label=release&color=65d6ce)](https://github.com/Arittra-Bag/opsgraph/releases)
 
 A private, self-hosted workspace for investigating missing records, failed
 payments and stuck jobs. Ask a question, inspect the SQL and saved results,
