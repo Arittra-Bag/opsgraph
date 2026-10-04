@@ -61,9 +61,9 @@
     };
     const events = ['focusin', 'pointerdown', 'keydown'];
     events.forEach(type => document.addEventListener(type, track, true));
-    return () => {
+    return (restore = true) => {
       events.forEach(type => document.removeEventListener(type, track, true));
-      if (moved || document.activeElement !== document.body) return;
+      if (!restore || moved || document.activeElement !== document.body) return;
       const available = node => node?.isConnected && !node.disabled && node.getClientRects().length;
       const target = available(control) ? control : available(fallback) ? fallback : null;
       if (!target) return;
@@ -1097,7 +1097,7 @@
       if (!current()) return;
       state.savedSkill = definition.id; $('#publishSkill').disabled = false; $('#skillStatus').textContent = 'Validated draft saved. Review its scope before publishing.';
     } catch (error) { if (current()) { notice('#skillError', error.message); $('#skillStatus').textContent = 'Draft was not saved.'; } }
-    finally { if (current()) { $('#saveSkill').disabled = false; restoreFocus(); } }
+    finally { const active = current(); if (active) $('#saveSkill').disabled = false; restoreFocus(active); }
   }
   async function publishSkill() {
     if (!state.authenticated || !state.savedSkill) return;
@@ -1112,7 +1112,7 @@
       if (!current()) return;
       $('#skillStatus').textContent = 'Playbook published and available for selection.'; state.savedSkill = null;
     } catch (error) { if (current()) { notice('#skillError', error.message); $('#publishSkill').disabled = false; } }
-    finally { if (epoch === state.authEpoch && token === state.skillEditToken) restoreFocus(); }
+    finally { restoreFocus(epoch === state.authEpoch && token === state.skillEditToken); }
   }
   document.addEventListener('click', event => {
     const view = event.target.closest('[data-view]'); if (view) showView(view.dataset.view);

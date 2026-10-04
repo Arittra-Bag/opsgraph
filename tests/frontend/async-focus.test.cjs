@@ -50,6 +50,15 @@ test('moving focus to another control prevents late action completion from steal
   assert.equal(f.listeners.size, 0);
 });
 
+test('obsolete requests remove focus listeners without restoring focus', () => {
+  const f = fixture(), button = f.control(); f.document.activeElement = button;
+  const restore = f.guard(button); f.document.activeElement = f.document.body;
+  assert.equal(f.listeners.size, 3);
+  restore(false);
+  assert.equal(f.listeners.size, 0);
+  assert.equal(f.document.activeElement, f.document.body);
+});
+
 test('keyboard or pointer navigation intent is respected even if focus is later body', () => {
   for (const event of ['keydown', 'pointerdown']) {
     const f = fixture(), button = f.control(); f.document.activeElement = button;

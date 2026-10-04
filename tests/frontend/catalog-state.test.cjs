@@ -44,7 +44,8 @@ test('older audit requests cannot overwrite a newer successful refresh', async (
   assert.equal(f.$('#auditDetails').textContent, '[{"question":"Current question"}]');
 });
 test('editing a pending playbook prevents publishing the old validated draft', async () => {
-  const f = fixture(); let resolve;
+  const f = fixture(); let resolve; let focusCleanup;
+  f.context.guardAsyncFocus = () => restore => { focusCleanup = restore; };
   f.$('#skillJson').value = '{"id":"old-playbook"}';
   f.context.api = () => new Promise(done => { resolve = done; });
   const pending = f.context.saveSkill({ preventDefault() {} });
@@ -53,6 +54,7 @@ test('editing a pending playbook prevents publishing the old validated draft', a
   resolve({}); await pending;
   assert.equal(f.state.savedSkill, null); assert.equal(f.$('#publishSkill').disabled, true);
   assert.equal(f.$('#skillStatus').textContent, 'Edited'); assert.equal(f.$('#saveSkill').disabled, false);
+  assert.equal(focusCleanup, false);
 });
 test('a failed playbook save cannot repaint the disconnected workspace', async () => {
   const f = fixture(); let reject;
@@ -65,7 +67,8 @@ test('a failed playbook save cannot repaint the disconnected workspace', async (
   assert.equal(f.state.savedSkill, null);
 });
 test('publishing captures the approved draft identity and ignores edited-form callbacks', async () => {
-  const f = fixture(); let resolve; let url; let refreshed = false;
+  const f = fixture(); let resolve; let url; let refreshed = false; let focusCleanup;
+  f.context.guardAsyncFocus = () => restore => { focusCleanup = restore; };
   f.state.savedSkill = 'approved-playbook';
   f.context.api = path => { url = path; return new Promise(done => { resolve = done; }); };
   f.context.loadSkills = async () => { refreshed = true; };
@@ -74,6 +77,7 @@ test('publishing captures the approved draft identity and ignores edited-form ca
   resolve({}); await pending;
   assert.equal(url, '/api/skills/approved-playbook/publish');
   assert.equal(refreshed, false); assert.equal(f.$('#skillStatus').textContent, 'Edited');
+  assert.equal(focusCleanup, false);
 });
 test('current validated drafts save and publish normally', async () => {
   const f = fixture(); f.$('#skillJson').value = '{"id":"reviewed-playbook"}';
