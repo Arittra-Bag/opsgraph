@@ -19,6 +19,7 @@ dependencies = [
   "langgraph>=1.0,<2",
   "pglast>=7,<8",
   "psycopg[binary]>=3.2,<4",
+  "prompt-toolkit>=3.0.52,<4",
 ]
 
 [project.optional-dependencies]

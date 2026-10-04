@@ -215,7 +215,7 @@ def start(argv: list[str] | None = None) -> int:
     if args.no_code and args.flow:
         parser.error("Choose --no-code or --flow, not both.")
     root = Path(__file__).resolve().parent
-    ui = TerminalUI()
+    ui = TerminalUI(full_screen=False)
     try:
         if sys.version_info < (3, 9):  # noqa: UP036
             raise StartError(

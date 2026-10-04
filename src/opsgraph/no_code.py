@@ -29,7 +29,7 @@ from opsgraph.setup import (
     run_setup,
     write_private_config,
 )
-from opsgraph.terminal_ui import TerminalUI
+from opsgraph.terminal_ui import TerminalScreenError, TerminalUI
 
 PRACTICE_TABLES = ("public.practice_orders", "public.practice_payments")
 PRACTICE_QUESTION = (
@@ -540,7 +540,7 @@ def run_no_code(
     from opsgraph.launcher import bind_loopback, launch
 
     ui = TerminalUI()
-    ask = input_fn or (lambda label: input(ui.question(label)))
+    ask = input_fn or ui.ask
     database = None
     on_ready = None
     try:
@@ -654,6 +654,7 @@ def run_no_code(
                             connect_practice(origin, values, external=external)
                     else:
                         ui.write("No source approval granted. You can finish in Sources later.")
+                ui.flush()
                 return launch(
                     workspace,
                     selected_port,
@@ -672,6 +673,9 @@ def run_no_code(
     except (KeyboardInterrupt, EOFError):
         ui.write("Cancelled. Saved settings and practice data are preserved.")
         return 1
+    except TerminalScreenError as error:
+        ui.write(str(error))
+        return 1
     except (NoCodeError, SetupError) as error:
         ui.write(str(error))
         return 1
@@ -681,3 +685,5 @@ def run_no_code(
             "service availability. Saved data is preserved."
         )
         return 1
+    finally:
+        ui.flush()

@@ -213,6 +213,28 @@ at the visible connection menu for short setup steps and an example. Choose
 **Paste my connection string** only when it is ready. The paste prompt hides
 its password. **Set up the database later** lets you continue without a login.
 Optional help explains read-only access, certificate files and password symbols.
+Choose **Open provider instructions in my browser** for the official setup guide.
+Opening a guide does not authorise access or change your database.
+
+Interactive setup uses a full-screen interface with keyboard selection, masked
+credential fields, scrollable guidance and a review before saving. Use arrow keys
+and Enter, or a number for a menu choice. Tab changes focus, Page Up and Page Down
+scroll help, F1 opens help, and Escape or Ctrl+C cancels without saving. Wide
+terminals show the setup steps beside the form. Smaller terminals use one column.
+
+Set `OPSGRAPH_PLAIN=1` for line-based setup, including screen-reader workflows.
+Redirected output, `NO_COLOR`, `TERM=dumb` and very small terminals also use the
+line-based flow. The source installer stays dependency-free until the application
+is installed. Both presentations use the same configuration validation and save
+logic. No password or API key is added to an input history.
+
+Provider browser authorisation and a PostgreSQL read-only login are separate.
+OpsGraph currently uses the login provided by your database administrator.
+Supabase Management API OAuth is not implemented. It would require a registered
+integration, protected token exchange and a separately reviewed approach to
+provisioning database access. A provider API key or MCP session is not accepted
+as a PostgreSQL password. Manual setup remains available for private networks,
+self-hosted databases and deployments without provider authorisation services.
 
 Practice mode creates 1,000 orders and 1,000 payments for an invented shop.
 Amounts are integer cents and timestamps use UTC. There are 50 failed fastpay

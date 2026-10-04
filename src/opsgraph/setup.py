@@ -15,6 +15,7 @@ import stat
 import sys
 import tempfile
 import warnings
+import webbrowser
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -26,7 +27,7 @@ from opsgraph.brokers.postgres import ConnectorUnavailable, PsycopgReadOnlyExecu
 from opsgraph.postgres_diagnostics import connection_diagnostic
 from opsgraph.postgres_hosting import HOSTING_GUIDES, hosting_guide, terminal_connection_help
 from opsgraph.providers.models import FIXED_HOSTED_PRESETS, PROVIDER_DEFAULT_ENDPOINTS
-from opsgraph.terminal_ui import TerminalUI
+from opsgraph.terminal_ui import TerminalScreenError, TerminalUI
 
 ConfigValues = dict[str, str | None]
 _IDENTIFIER = re.compile(r"[a-z_][a-z0-9_]{0,62}\Z")
@@ -302,8 +303,8 @@ def run_setup(
 ) -> int:
     """Prompt for backend configuration; browser inspection/probing stays mandatory."""
     ui = TerminalUI(None if output_fn is print else output_fn)
-    ask = input_fn or (lambda label: input(ui.question(label)))
-    hidden = secret_fn or (lambda label: getpass.getpass(ui.question(label)))
+    ask = input_fn or ui.ask
+    hidden = secret_fn or (lambda label: ui.ask(label, secret=True))
     output_fn = ui.write
     try:
         workspace = ensure_private_directory(directory or default_workspace_directory())
@@ -436,15 +437,31 @@ def run_setup(
                             else "Set up the database later",
                         ),
                         ("details", "Help with read-only access, passwords and certificates"),
+                        ("browser", "Open provider instructions in my browser"),
                     ),
                     "paste",
                 )
-                action = ask("Connection options: 1 / 2 / 3 / 4 / ?: ").strip().lower()
+                action = ask("Connection options: 1 / 2 / 3 / 4 / 5 / ?: ").strip().lower()
                 if action in {"?", "2", "help"}:
                     show_connection_help()
                     continue
                 if action in {"4", "details"}:
                     show_connection_help(details=True)
+                    continue
+                if action in {"5", "browser"}:
+                    try:
+                        opened = webbrowser.open(guide.documentation, new=2)
+                    except (OSError, webbrowser.Error):
+                        opened = False
+                    output_fn(
+                        "Opened the official setup guide. "
+                        "Return here when your connection is ready."
+                        if opened
+                        else f"Open this guide yourself: {guide.documentation}"
+                    )
+                    output_fn(
+                        "This opens instructions only. It does not connect or change your database."
+                    )
                     continue
                 if action in {"3", "skip"}:
                     dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
@@ -465,7 +482,8 @@ def run_setup(
                 else:
                     output_fn(
                         "Choose 1 to paste, 2 or ? for steps, 3 to continue without changes, "
-                        "or 4 for more help. Never paste a password into this visible menu."
+                        "4 for more help, or 5 for browser instructions. "
+                        "Never paste a password into this visible menu."
                     )
                     continue
                 if dsn:
@@ -729,10 +747,11 @@ def run_setup(
             "If you already saved model choices in browser Settings, those are used instead. "
             "Change them there when needed."
         )
+        ui.menu((("save", "Save these settings"), ("cancel", "Cancel without saving")), "save")
         decision = prompt(
             "Save configuration? save / cancel",
             "save",
-            lambda value: _choice(value, {"save", "cancel"}),
+            lambda value: _menu_choice(value, ("save", "cancel")),
         )
         if decision == "cancel":
             output_fn("Setup cancelled. Existing configuration was not replaced.")
@@ -761,6 +780,9 @@ def run_setup(
     except (EOFError, KeyboardInterrupt):
         output_fn("Setup cancelled. Existing configuration was not replaced.")
         return 1
+    except TerminalScreenError as error:
+        output_fn(str(error))
+        return 1
     except getpass.GetPassWarning:
         output_fn(
             "A private terminal is required for hidden credential entry. "
@@ -773,3 +795,5 @@ def run_setup(
             "permissions, path safety and configuration syntax; existing files were preserved."
         )
         return 1
+    finally:
+        ui.flush()

@@ -1,17 +1,17 @@
 {
   "schema_version": 2,
   "release_version": "1.0.0",
-  "recorded_on": "2026-09-22",
-  "scope": "Stable 1.0.0 third-party source supplement for the unchanged requirements.lock dependency set. Source identities derive from the verified Beta 1 manifest and are revalidated by exact size and SHA-256 during assembly. OpsGraph application source is distributed separately as the tag-matching sdist.",
+  "recorded_on": "2026-10-04",
+  "scope": "1.0.0 release candidate source supplement. Previously verified dependency source identities are preserved. The terminal interface adds two PyPI source archives, verified by exact size and SHA-256. OpsGraph application source is distributed separately as the revision-matching sdist.",
   "dependency_lock": {
     "file": "requirements.lock",
-    "sha256": "76121485e8a5d362fa1907bc49ee08b3493510c3e7c6c57c5b42f0b64981ee90",
-    "package_count": 55
+    "sha256": "0863f7edd3823e4b99953609819c59d1a752652e09b6e2cc0028438e146268ac",
+    "package_count": 57
   },
   "historical_source_manifest": {
     "file": "beta-source-manifest.json",
     "sha256": "ea3653d750b690041ebc3216afe969f483fcfdd04d894711af0e1ca6db9579e6",
-    "relationship": "Historical Beta 1 evidence supplied the source identities. The dependency lock is byte-identical; this 1.0.0 manifest does not promote Beta application artifacts or their source revision as final-tag evidence."
+    "relationship": "Historical Beta 1 evidence supplied the original source identities, which remain unchanged. The current dependency lock additionally includes prompt-toolkit and wcwidth. This manifest does not promote historical application artifacts as current release evidence."
   },
   "package_source_mappings": {
     "orjson": {
@@ -609,6 +609,22 @@
       "source": "https://files.pythonhosted.org/packages/fd/aa/3e0508d5a5dd96529cdc5a97011299056e14c6505b678fd58938792794b1/zstandard-0.25.0.tar.gz",
       "sha256": "7713e1179d162cf5c7906da876ec2ccb9c3a9dcbdffef0cc7f70c3667a205f0b",
       "size": 711513
+    },
+    {
+      "name": "prompt-toolkit",
+      "version": "3.0.53",
+      "file": "prompt_toolkit-3.0.53.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/7d/ea/39b988c938f75cb75d7045b5c69f8bfed47ee2152c8837fb403de29d6fb8/prompt_toolkit-3.0.53.tar.gz",
+      "sha256": "9ec8a0ad96d5c56148b3f914aa79c1564c3fde5d2e6b876e7bc327e353cf8fa6",
+      "size": 435492
+    },
+    {
+      "name": "wcwidth",
+      "version": "0.9.1",
+      "file": "wcwidth-0.9.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/dc/ac/3a943d2792c9bb368aaa8b50121c0f778460ba2d7fbdc0a0366201d9e761/wcwidth-0.9.1.tar.gz",
+      "sha256": "5823209b0d43af322ce698c689380d7c15ca31fa8e6e3be8459f27031bef0af5",
+      "size": 952410
     }
   ],
   "notices": [

@@ -39,6 +39,29 @@ def test_visible_help_and_skip_do_not_request_database_secret(tmp_path):
     assert not setup.read_private_config(directory / ".env").get("OPSGRAPH_SOURCE_DSN")
 
 
+@pytest.mark.parametrize("opened", [True, False])
+def test_browser_instructions_use_only_the_official_url(tmp_path, monkeypatch, opened):
+    directory = private_directory(tmp_path)
+    requests = []
+    choices = iter(("5", "3"))
+    monkeypatch.setattr(setup.webbrowser, "open", lambda url, **_: requests.append(url) or opened)
+    output = []
+
+    def answer(label):
+        if label.startswith("PostgreSQL hosting"):
+            return "supabase"
+        if label.startswith("Connection options"):
+            return next(choices)
+        return ""
+
+    assert (
+        setup.run_setup(directory, input_fn=answer, secret_fn=lambda _: "", output_fn=output.append)
+        == 0
+    )
+    assert requests == [setup.hosting_guide("supabase").documentation]
+    assert "does not connect or change your database" in " ".join(output)
+
+
 @pytest.mark.parametrize("profile", [guide.id for guide in setup.HOSTING_GUIDES])
 def test_provider_help_has_placeholder_example_and_correct_transport(profile):
     steps, example, details = setup.terminal_connection_help(profile)
