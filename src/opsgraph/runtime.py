@@ -39,7 +39,7 @@ class Runtime:
     tools: ToolRegistry
     skills: SkillRepository
     provider: ModelProvider
-    provider_lock: object = field(default_factory=RLock)
+    provider_lock: AbstractContextManager[bool] = field(default_factory=RLock)
     provider_revision: str = field(default_factory=lambda: uuid4().hex)
     provider_verification: ProviderVerification = field(default_factory=ProviderVerification)
     skill_lock: AbstractContextManager[bool] = field(default_factory=RLock)

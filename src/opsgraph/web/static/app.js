@@ -292,7 +292,10 @@
       const labels = { untested: 'Model untested', checking: 'Checking model', failed: 'Model unreachable', expired: 'Model check expired' };
       $('#trustModel').textContent = labels[effective] || 'Model unverified';
       $('#trustModel').className = effective === 'failed' ? 'trust-signal failed' : 'trust-signal checking';
-      $('#providerTestStatus').textContent = state.providerDirty ? 'Configuration changed. Save and run a new actual model connection test.' : matches && verification?.detail ? verification.detail : 'Run an actual model connection test before investigating.';
+      let detail = 'Run an actual model connection test before investigating.';
+      if (state.providerDirty) detail = 'Configuration changed. Save and run a new actual model connection test.';
+      else if (matches && verification?.detail) detail = verification.detail;
+      $('#providerTestStatus').textContent = detail;
     }
     readiness();
   }

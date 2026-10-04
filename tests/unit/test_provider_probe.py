@@ -198,4 +198,5 @@ def test_ollama_failure_explains_missing_model_recovery(probe_api):
     provider.invoke_structured = missing
     response = client.post("/api/providers/current/test", headers=headers)
     assert response.status_code == 422
-    assert "ollama list" in response.text and "ollama pull" in response.text
+    assert "ollama list" in response.text
+    assert "ollama pull" in response.text

@@ -18,8 +18,10 @@ def test_check_is_revision_bound_and_expires_monotonically(monkeypatch):
     assert check.public("one")["status"] == "checking"
     assert check.finish("one", generation, success=True)
     result = check.public("one")
-    assert result["status"] == "verified" and result["valid_for_seconds"] == 900
-    assert result["checked_at"] and result["expires_at"]
+    assert result["status"] == "verified"
+    assert result["valid_for_seconds"] == 900
+    assert result["checked_at"]
+    assert result["expires_at"]
     assert check.public("two")["status"] == "untested"
     clock[0] = 1000
     assert check.public("one")["status"] == "expired"
