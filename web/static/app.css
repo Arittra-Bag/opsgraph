@@ -588,3 +588,59 @@ dialog.report-drawer { margin: 0 0 0 auto; padding: 0; max-height: none; max-wid
 .capture-summary dt { font-size: 11px; color: var(--muted); }
 .capture-summary dd { margin: 4px 0 0; text-align: left; color: var(--text-2); overflow-wrap: anywhere; }
 .capture-summary > div:last-child { grid-column: 1 / -1; }
+
+/* Disclosure and select indicators share a centered slot and a clear text gap. */
+.view summary, .drawer summary, summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding-block: 6px;
+  list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::marker { content: ""; }
+summary::before {
+  content: "";
+  box-sizing: border-box;
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  margin: 0 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transform-origin: center;
+}
+details[open] > summary::before { transform: rotate(45deg); }
+select {
+  appearance: none;
+  padding-inline-end: 44px;
+  background-image: url("/assets/static/chevron-down.svg");
+  background-position: right 12px center;
+  background-size: 18px 18px;
+  background-repeat: no-repeat;
+}
+select:disabled { background-image: none; }
+.composer-field.is-locked select { background-image: none; }
+.control-chevron {
+  display: inline-block;
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform-origin: center;
+}
+.control-chevron-left { transform: rotate(135deg); }
+.control-chevron-right { transform: rotate(-45deg); }
+.history-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding-inline: 8px; }
+.history-rail { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.history-rail .control-chevron { margin: 0; }
+@media (max-width: 900px) {
+  .history-rail { flex-direction: row; justify-content: center; gap: 10px; padding: 10px 16px; }
+  .history-rail .control-chevron { display: inline-block; margin: 0; }
+}
+@media (forced-colors: active) {
+  select { appearance: auto; background-image: none; padding-inline-end: 12px; }
+}

@@ -38,12 +38,12 @@
       <section class="view active" data-view-panel="investigations" aria-labelledby="investigationsTitle">
         <div class="investigation-layout">
           <aside class="case-list" id="historyPanel" aria-label="Investigation history">
-            <div class="history-heading"><div><p class="eyebrow">Saved work</p><h1 id="investigationsTitle">Investigations</h1></div><button class="history-toggle" id="toggleHistory" aria-controls="historyPanel" aria-expanded="true">Hide ‹</button></div>
+            <div class="history-heading"><div><p class="eyebrow">Saved work</p><h1 id="investigationsTitle">Investigations</h1></div><button class="history-toggle" id="toggleHistory" aria-controls="historyPanel" aria-expanded="true" aria-label="Hide investigation history">Hide<span class="control-chevron control-chevron-left" aria-hidden="true"></span></button></div>
             <label for="caseSearch">Search history</label><input id="caseSearch" type="search" placeholder="Question or source">
             <p class="helper" id="historyMessage">Connect your workspace to load saved investigations.</p>
             <div id="caseList"></div>
           </aside>
-          <button class="history-rail" id="showHistory" aria-controls="historyPanel" aria-expanded="false" hidden><span>History</span><b aria-hidden="true">›</b></button>
+          <button class="history-rail" id="showHistory" aria-controls="historyPanel" aria-expanded="false" hidden><span>History</span><b class="control-chevron control-chevron-right" aria-hidden="true"></b></button>
           <section class="case-workspace" aria-label="Current investigation">
             <section class="setup-card" id="onboarding" aria-labelledby="setupTitle">
               <p class="eyebrow">Before you begin</p><h2 id="setupTitle">Set up an investigation</h2>
