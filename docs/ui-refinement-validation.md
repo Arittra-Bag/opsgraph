@@ -120,3 +120,22 @@ The full regression suite passed again: 1,056 Python tests and 183 frontend test
 One earlier local run stopped progressing in the simulated process-interruption
 fixture. That fixture passed independently and the fresh complete suite passed;
 no fixture, dependency or backend behavior was changed to obtain the result.
+
+## Icons and header glass
+
+Navigation, evidence references and the report action use local 20 px line icons.
+Labels remain visible and accessible, with 10 px gaps and at least 44 px controls.
+All six navigation destinations, evidence keyboard activation, report preview and
+Escape focus return passed in Chromium using copied synthetic history.
+At 320, 390, 768, 901 and 1280 px, labels fit and page width matches viewport width.
+No warning or error console entries were recorded. No live model or database was called.
+
+Glass is limited to the workspace header and drawer headers. Captured records,
+SQL and findings remain opaque. Solid backgrounds work without backdrop-filter;
+reduced transparency and forced colors disable blur. These fallbacks were reviewed
+in source, not browser emulated. Parallax was omitted after design review because
+the working canvas has no suitable decorative surface.
+
+The full suite passed: 1,056 Python tests, 10 opt-in/platform skips and 183 frontend
+tests. The existing dependency warning remains. Lint, format, syntax, mirror and
+diff checks passed, and the built wheel retains the new sprite and exact UI assets.
