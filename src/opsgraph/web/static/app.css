@@ -700,3 +700,7 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
 input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); cursor: pointer; }
 
 .settings-grid input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; padding: 10px 12px; }
+@media (max-width: 600px) {
+  .composer-section { padding: 16px; }
+  .composer-scope, .composer-scope:not([open]) { padding: 12px; }
+}
