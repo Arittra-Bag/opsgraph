@@ -67,7 +67,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:17.7-bookworm
+        image: mirror.gcr.io/library/postgres:17.7-bookworm@sha256:86e0b703649d7a792bd9243ee28afc9d8f7c6b2b5638077c9d6882d4d472bbfd
         env:
           POSTGRES_DB: opsgraph_ci
           POSTGRES_USER: postgres
@@ -218,7 +218,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Build container
-        run: docker build --tag opsgraph-ci --file deploy/container/Dockerfile .
+        # Use the public Docker Hub cache to avoid shared-runner pull limits.
+        run: >-
+          docker build --tag opsgraph-ci --file deploy/container/Dockerfile
+          --build-arg PYTHON_REGISTRY=mirror.gcr.io .
       - name: Start and verify configuration-only container
         run: |
           docker volume create opsgraph-ci-state >/dev/null

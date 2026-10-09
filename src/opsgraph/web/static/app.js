@@ -101,7 +101,12 @@
   function showView(name, focus = true) {
     $$('[data-view-panel]').forEach(panel => { panel.hidden = panel.dataset.viewPanel !== name; panel.classList.toggle('active', !panel.hidden); });
     $$('.nav-item').forEach(button => { const active = button.dataset.view === name; button.classList.toggle('active', active); active ? button.setAttribute('aria-current', 'page') : button.removeAttribute('aria-current'); });
-    if (focus) { const heading = $(`[data-view-panel="${name}"] h1`); heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true }); }
+    if (focus) {
+      const heading = name === 'investigations' && $('#historyPanel').hidden
+        ? ($('#runWorkspace').hidden ? $('#composerTitle') : $('#caseTitle'))
+        : $(`[data-view-panel="${name}"] h1`);
+      heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true });
+    }
     const epoch = state.authEpoch;
     const showError = error => { if (epoch === state.authEpoch) notice('#globalError', error.message); };
     if (state.authenticated && name === 'audit') loadAudit().catch(showError);
@@ -186,11 +191,11 @@
     $('#sourceLockBadge').hidden = !linkedFollowup;
     $('#sourceFieldHelp').textContent = linkedFollowup ? 'Follow-ups use the same source. Start a new investigation to change it.' : sourceHasUnsavedEdits ? 'This source has unsaved edits. Save, inspect, and run readiness again before investigating.' : selectedSource && !selectedVerified ? 'Run this source’s bounded readiness check before investigating.' : 'Choose an inspected and readiness-checked source.';
     $('#investigationSkill').disabled = state.busy || Boolean(active);
-    $('#playbookFieldHelp').textContent = active ? 'Available when the current run reaches a terminal state.' : linkedFollowup ? 'Choose the playbook for this follow-up.' : 'Choose the playbook for this investigation.';
+    $('#playbookFieldHelp').textContent = active ? 'Available when the current investigation finishes or stops.' : linkedFollowup ? 'Choose the playbook for this follow-up.' : 'Choose the playbook for this investigation.';
     $('#investigationQuestion').disabled = state.busy || Boolean(active);
     $('#submitRun').textContent = state.busy ? 'Submitting…' : state.run ? 'Send message' : 'Start investigation';
     $('#composerTitle').textContent = state.run ? 'Continue the conversation' : 'Start an investigation';
-    $('#composerContext').textContent = active ? 'This investigation is still active. You can cancel it or wait for a terminal state.' : state.run ? 'Ask a follow-up, discuss the findings, or ask what OpsGraph can do. Your conversation stays together and earlier evidence is preserved.' : !state.authenticated ? 'Connect your workspace, inspect a source, and test your model before asking.' : !ready.length ? 'Configure a source in Sources. Model availability does not block source inspection.' : !modelReady ? state.providerDirty ? 'Save and test the edited model configuration before your first question.' : 'Test the actual model connection in Settings before your first question.' : sourceHasUnsavedEdits ? 'Save and inspect the edited source, then run its bounded readiness check again.' : !selectedVerified ? 'Review and run the selected source’s bounded readiness check before your first question.' : 'Choose a bounded operational question, including a time range where relevant.';
+    $('#composerContext').textContent = active ? 'This investigation is still running. Wait for it to finish or cancel it.' : state.run ? 'Ask a follow-up, discuss the findings, or ask what OpsGraph can do. Your conversation stays together and earlier evidence is preserved.' : !state.authenticated ? 'Connect your workspace, inspect a source, and test your model before asking.' : !ready.length ? 'Configure a source in Sources. Model availability does not block source inspection.' : !modelReady ? state.providerDirty ? 'Save and test the edited model configuration before your first question.' : 'Test the actual model connection in Settings before your first question.' : sourceHasUnsavedEdits ? 'Save and inspect the edited source, then run its bounded readiness check again.' : !selectedVerified ? 'Review and run the selected source’s bounded readiness check before your first question.' : 'Choose a bounded operational question, including a time range where relevant.';
     if (state.run?.error?.code === 'clarification_required') {
       $('#composerTitle').textContent = 'Clarify your question';
       $('#composerContext').textContent = 'Answer the clarification above with the needed definitions, join keys or time rules. Your answer continues this conversation. No completed evidence is assumed from the question awaiting clarification.';
@@ -685,7 +690,7 @@
         });
         label.append(checkbox, document.createTextNode(name)); $('#tableChoices').append(label);
       }
-      $('#tableDiscoveryStatus').textContent = result.tables.length ? 'Select up to 100 tables, then save and check access. Nothing is approved automatically.' : 'No readable tables found in your approved database groups. Check the login permissions or enter table names below.';
+      $('#tableDiscoveryStatus').textContent = result.tables.length ? 'Select up to 100 tables, then save and check access. Nothing is approved automatically.' : 'No readable tables found in your allowed schemas. Check the login permissions or enter table names below.';
       if (result.truncated) $('#tableDiscoveryStatus').textContent += ' Showing the first 500 tables. You can enter other exact names below.';
       if (result.unsupported_count) $('#tableDiscoveryStatus').textContent += ' Some names need quoted identifiers, which this version does not support.';
     } catch (error) {
@@ -705,7 +710,7 @@
       $('#sourceName').value = 'PostgreSQL read-only';
       $('#sourceSecretRef').value = state.savedConnection?.secret_ref || 'OPSGRAPH_SOURCE_DSN';
       $('#sourceSchemas').value = (state.savedConnection?.allowed_schemas || state.policy?.obligations?.allowed_schemas || ['public']).join(', ');
-      if (state.savedConnection) $('#sourceStatus').textContent = 'Your connection is saved. Enter the table names below, then save and check access.';
+      if (state.savedConnection) $('#sourceStatus').textContent = 'Your connection is saved. Choose the tables below, then save and check access.';
     }
     if (source) {
       $('#sourceId').value = source.id; $('#sourceName').value = source.name; $('#sourceSecretRef').value = source.secret_ref || '';
@@ -919,13 +924,15 @@
     $('#openReport').disabled = conversational;
     $('.run-scope').hidden = conversational;
     const answer = conversational ? null : run.answer; $('#answerThread').hidden = conversational || (!answer && !(run.evidence || []).length); $('#conclusionCard').hidden = conversational || !answer;
+    $('#answerContext').textContent = answer ? 'Model assessment · review against saved evidence' : 'Saved captures · no completed model assessment';
     $('#conclusionTitle').textContent = answer?.summary || '';
     $('#limitations').innerHTML = (answer?.limitations || []).map(limit => `<li>${esc(limit)}</li>`).join('') || (answer ? '<li>No additional limitation recorded by the model. This does not establish completeness.</li>' : '<li>No completed model assessment was recorded. Inspect retained captures as partial evidence.</li>');
+    const expandedClassifications = new Set([...($('#findingGrid').querySelectorAll?.('.classification-detail[open] > summary') || [])].map(node => node.dataset.focusKey));
     const classes = new Set(['supported', 'possible', 'unknown', 'contradictory']);
     $('#findingGrid').innerHTML = (answer?.findings || []).map((finding, index) => {
       const classification = classes.has(finding.classification) ? finding.classification : 'unknown';
       const referenceCount = (finding.evidence_ids || []).length;
-      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(classification.toUpperCase())} · MODEL ASSESSMENT</span><small>${referenceCount} ${referenceCount === 1 ? 'reference' : 'references'}</small></div><h3>${esc(finding.claim)}</h3><p class="helper">${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.</p>${referenceCount ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}">Inspect referenced evidence →</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
+      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(classification.toUpperCase())} · MODEL ASSESSMENT</span><small>${referenceCount} ${referenceCount === 1 ? 'reference' : 'references'}</small></div><h3>${esc(finding.claim)}</h3><details class="classification-detail"${expandedClassifications.has(`classification:${run.id}:${index}`) ? ' open' : ''}><summary data-focus-key="classification:${esc(run.id)}:${index}">About this classification</summary><p class="helper">${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.</p></details>${referenceCount ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}">Inspect referenced evidence →</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
     }).join('');
     $('#evidenceSection').hidden = !(run.evidence || []).length;
     $('#toggleEvidence').dataset.count = String((run.evidence || []).length);
@@ -948,12 +955,28 @@
     const title = saved?.title || state.run?.question || 'Investigation';
     const count = Number(saved?.turn_count) || saved?.turns?.length || 1;
     $('#runIdentity').textContent = `${title} · ${count} ${count === 1 ? 'turn' : 'turns'}`;
+    const latest = state.conversation && state.conversation.id === state.run?.conversation_id ? state.conversation.turns?.at(-1) : null;
+    const sameTurn = latest && (latest.turn_id && state.run.turn_id
+      ? latest.turn_id === state.run.turn_id
+      : latest.id === state.run.id || (latest.attempts || []).some(attempt => attempt.id === state.run.id));
+    const earlier = Boolean(latest && !sameTurn);
+    $('#earlierTurnNotice').hidden = !earlier;
+    $('#earlierTurnNotice').textContent = earlier ? 'Viewing an earlier turn. A follow-up continues from the latest turn in this investigation.' : '';
+    const returnButton = $('#returnLatestTurn');
+    returnButton.hidden = !earlier;
+    if (earlier) {
+      returnButton.setAttribute('data-run-id', latest.id);
+      returnButton.setAttribute('data-focus-key', `latest:${state.run.conversation_id}`);
+    } else {
+      returnButton.removeAttribute('data-run-id');
+      returnButton.removeAttribute('data-focus-key');
+    }
   }
   function historicalAttempts(turn, expanded) {
     const attempts = turn.attempts || [];
     if (attempts.length < 2) return '';
     const key = `attempts:${turn.turn_id || turn.id}`;
-    return `<details class="historical-attempt retry-history" data-attempt="${esc(key)}"${expanded.has(key) ? ' open' : ''}><summary>Attempts in this turn (${attempts.length})</summary>${attempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.assistant_message || attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}" data-focus-key="attempt:${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>`;
+    return `<details class="historical-attempt retry-history" data-attempt="${esc(key)}"${expanded.has(key) ? ' open' : ''}><summary data-focus-key="attempt-summary:${esc(key)}">Attempts in this turn (${attempts.length})</summary>${attempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.assistant_message || attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}" data-focus-key="attempt:${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>`;
   }
   function renderConversation() {
     const panel = $('#previousTurn');
@@ -963,7 +986,7 @@
     const otherAttempts = currentIndex < 0 ? [] : (turns[currentIndex].attempts || []).filter(attempt => attempt.id !== state.run.id);
     panel.hidden = !previous.length && !otherAttempts.length;
     const expanded = new Set([...(panel.querySelectorAll?.('details[open]') || [])].map(node => node.dataset.attempt));
-    panel.innerHTML = previous.map(turn => `<article class="historical-turn"><header class="message-author"><span aria-hidden="true">OP</span><div><b>You</b><small>${esc(stamp(turn.turn_created_at || turn.created_at))}</small></div></header><h2>${esc(turn.question)}</h2><div class="historical-response"><header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>${turn.response_kind === 'conversation' ? 'Conversation · no database query' : 'Saved response · evidence remains unchanged'}</small></div></header><p class="historical-summary">${esc(turn.assistant_message || turn.answer?.summary || turn.error?.message || `Saved state: ${turn.status}`)}</p>${turn.response_kind !== 'conversation' ? `<details class="historical-attempt" data-attempt="${esc(turn.id)}"${expanded.has(turn.id) ? ' open' : ''}><summary>${esc(turn.error?.code === 'clarification_required' ? 'Clarification needed' : turn.status)} · ${(turn.evidence || []).length} captures · inspect this turn</summary>${(turn.answer?.findings || []).map(finding => `<p><strong>${esc(finding.classification)}</strong> · ${esc(finding.claim)}</p>`).join('')}<p class="helper">Earlier findings remain model assessments. Open this turn to inspect its evidence, execution details or report.</p><button class="secondary" data-run-id="${esc(turn.id)}" data-focus-key="attempt:${esc(turn.id)}">Inspect saved turn</button></details>` : ''}${historicalAttempts(turn, expanded)}</div></article>`).join('') + (otherAttempts.length ? `<details class="historical-attempt retry-history"><summary>Other attempts in this turn (${otherAttempts.length})</summary>${otherAttempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>` : '');
+    preserveFocus(() => { panel.innerHTML = previous.map(turn => `<article class="historical-turn"><header class="message-author"><span aria-hidden="true">OP</span><div><b>You</b><small>${esc(stamp(turn.turn_created_at || turn.created_at))}</small></div></header><h2>${esc(turn.question)}</h2><div class="historical-response"><header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>${turn.response_kind === 'conversation' ? 'Conversation · no database query' : 'Saved response · evidence remains unchanged'}</small></div></header><p class="historical-summary">${esc(turn.assistant_message || turn.answer?.summary || turn.error?.message || `Saved state: ${turn.status}`)}</p>${turn.response_kind !== 'conversation' ? `<details class="historical-attempt" data-attempt="${esc(turn.id)}"${expanded.has(turn.id) ? ' open' : ''}><summary data-focus-key="turn-summary:${esc(turn.id)}">${esc(turn.error?.code === 'clarification_required' ? 'Clarification needed' : turn.status)} · ${(turn.evidence || []).length} captures · inspect this turn</summary>${(turn.answer?.findings || []).map(finding => `<p><strong>${esc(finding.classification)}</strong> · ${esc(finding.claim)}</p>`).join('')}<p class="helper">Earlier findings remain model assessments. Open this turn to inspect its evidence, execution details or report.</p><button class="secondary" data-run-id="${esc(turn.id)}" data-focus-key="attempt:${esc(turn.id)}">Inspect saved turn</button></details>` : ''}${historicalAttempts(turn, expanded)}</div></article>`).join('') + (otherAttempts.length ? `<details class="historical-attempt retry-history" data-attempt="other-attempts:${esc(state.run.turn_id || state.run.id)}"${expanded.has(`other-attempts:${state.run.turn_id || state.run.id}`) ? ' open' : ''}><summary data-focus-key="other-attempt-summary:${esc(state.run.turn_id || state.run.id)}">Other attempts in this turn (${otherAttempts.length})</summary>${otherAttempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.assistant_message || attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}" data-focus-key="attempt:${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>` : ''); });
   }
   async function loadConversation(run, token) {
     if (!run.conversation_id) { state.conversation = null; renderConversation(); return; }
@@ -981,7 +1004,9 @@
       : '<p class="helper">Exact canonical hash input was not retained for this historical capture. Typed values may prevent independently reconstructing its hash from displayed rows.</p>';
     const columns = item.columns || [];
     const rows = item.rows || [];
-    return `<p class="helper">${esc(viewState.captureStatus(run))}</p><p class="helper">Captured database evidence. Hashes identify recorded bytes; they do not verify the model's interpretation.</p><dl class="detail-list">${Object.entries(fields).map(([name, value]) => `<div><dt>${esc(name)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>${integrityMarkup}<h3>Executed query</h3><pre><code>${esc(provenance.sql || 'Exact SQL was not retained for this capture. Do not infer it from a different query.')}</code></pre><h3>Captured rows</h3>${columns.length ? `<div class="evidence-table-wrap" tabindex="0" role="region" aria-label="Captured rows, horizontally scrollable"><table class="evidence-table"><thead><tr>${columns.map(column => `<th scope="col">${esc(column)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map((column, index) => { const value = Array.isArray(row) ? row[index] : row[column]; return `<td>${esc(typeof value === 'object' && value !== null ? JSON.stringify(value) : value ?? 'null')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>` : `<pre>${esc(json(rows))}</pre>`}`;
+    const compactFields = ['Source identity', 'Collection finished', 'Effective query row limit', 'Effective query timeout', 'Truncated'];
+    const fieldMarkup = entries => entries.map(([name, value]) => `<div><dt>${esc(name)}</dt><dd>${esc(value)}</dd></div>`).join('');
+    return `<p class="helper">${esc(viewState.captureStatus(run))}</p><p class="helper">Captured database evidence. Hashes identify recorded bytes; they do not verify the model's interpretation.</p><dl class="detail-list capture-summary">${fieldMarkup(Object.entries(fields).filter(([name]) => compactFields.includes(name)))}</dl><h3>Executed query</h3><pre><code>${esc(provenance.sql || 'Exact SQL was not retained for this capture. Do not infer it from a different query.')}</code></pre><h3>Captured rows</h3>${columns.length ? `<div class="evidence-table-wrap" tabindex="0" role="region" aria-label="Captured rows, horizontally scrollable"><table class="evidence-table"><thead><tr>${columns.map(column => `<th scope="col">${esc(column)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map((column, index) => { const value = Array.isArray(row) ? row[index] : row[column]; return `<td>${esc(typeof value === 'object' && value !== null ? JSON.stringify(value) : value ?? 'null')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>` : `<pre>${esc(json(rows))}</pre>`}<details class="evidence-provenance"><summary>Capture details and hash input</summary><dl class="detail-list">${fieldMarkup(Object.entries(fields).filter(([name]) => !compactFields.includes(name)))}</dl>${integrityMarkup}</details>`;
   }
   function showEvidence(index, trigger) {
     const item = state.run?.evidence?.[index]; if (!item) return;
@@ -997,7 +1022,16 @@
     }).join('');
     openDrawer('evidenceDrawer', trigger);
   }
+  function positionSelectedTurn() {
+    if (state.activeDrawer || $('[data-view-panel="investigations"]').hidden) return;
+    if (window.matchMedia('(max-width: 900px)').matches) setHistoryHidden(true);
+    const heading = $('#caseTitle');
+    heading.setAttribute('tabindex', '-1');
+    heading.focus({ preventScroll: true });
+    ($('.operator-message') || heading).scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
   async function openRun(id) {
+    const selectionFocus = viewState.focusBookmark(document);
     if (state.activeDrawer?.id === 'reportDrawer') closeDrawer(false);
     stopStream(); const token = state.streamToken; notice('#composerError'); notice('#globalError');
     try {
@@ -1006,6 +1040,8 @@
       if (token !== state.streamToken) return;
       $('#activityLog').replaceChildren(); state.lastEventId = 0; state.lastEvent = null; state.runEvents = []; state.runEventsLoaded = false; $('#evidencePanel').hidden = true; $('#toggleEvidence').setAttribute('aria-expanded', 'false'); $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = false; renderRun(run); showView('investigations', false); void streamRun(id, token);
       try { await loadConversation(run, token); } catch (error) { if (token === state.streamToken) notice('#globalError', `Conversation history could not load: ${error.message}. Select this investigation again to retry. The selected turn remains available.`); }
+      if (token === state.streamToken && state.run?.id === id &&
+          (document.activeElement === document.body || document.activeElement === viewState.focusTarget(selectionFocus, document))) positionSelectedTurn();
     } catch (error) { notice('#globalError', error.message); }
   }
   function addEvent(event) {
@@ -1070,25 +1106,37 @@
   }
   async function cancelRun() {
     if (!state.run || terminal(state.run.status)) return;
+    const epoch = state.authEpoch; const token = state.streamToken; const id = state.run.id;
+    const current = () => epoch === state.authEpoch && token === state.streamToken && state.run?.id === id;
     const restoreFocus = guardAsyncFocus($('#cancelRun'), $('#currentOperation'));
     $('#cancelRun').disabled = true; notice('#runError');
-    try { renderRun(await api(`/api/runs/${encodeURIComponent(state.run.id)}/cancel`, { method: 'POST' })); }
-    catch (error) { notice('#runError', error.message); $('#cancelRun').disabled = false; }
-    finally { restoreFocus(); }
+    try {
+      const run = await api(`/api/runs/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+      if (current()) renderRun(run);
+    }
+    catch (error) { if (current()) { notice('#runError', error.message); $('#cancelRun').disabled = false; } }
+    finally { restoreFocus(current()); }
   }
   async function retryRun() {
     if (!state.run || state.busy) return;
+    const epoch = state.authEpoch; const token = state.streamToken; const original = state.run;
+    const current = () => epoch === state.authEpoch && token === state.streamToken && state.run?.id === original.id;
     const restoreFocus = guardAsyncFocus($('#retryRun'), $('#currentOperation'));
     state.busy = true; $('#retryRun').disabled = true;
-    const epoch = state.authEpoch; const original = state.run;
+    let openedRunId = null;
     try {
       await loadProvider();
-      if (epoch !== state.authEpoch || state.run !== original) return;
+      if (!current()) return;
       if (state.providerDirty || !state.modelTested || (state.sourceDirty && state.sourceEditingId === original.source_id)) throw new Error('Review the source settings and run a current model connection check before retrying.');
-      const run = await api(`/api/runs/${encodeURIComponent(original.id)}/retry`, { method: 'POST' }); await openRun(run.id);
+      const run = await api(`/api/runs/${encodeURIComponent(original.id)}/retry`, { method: 'POST' });
+      if (!current()) return;
+      openedRunId = run.id; await openRun(run.id);
     }
-    catch (error) { notice('#runError', error.message); }
-    finally { state.busy = false; $('#retryRun').disabled = false; readiness(); restoreFocus(); }
+    catch (error) { if (current()) notice('#runError', error.message); }
+    finally {
+      state.busy = false; $('#retryRun').disabled = false; readiness();
+      restoreFocus(current() || (epoch === state.authEpoch && openedRunId !== null && state.run?.id === openedRunId));
+    }
   }
   function newInvestigation() {
     if (state.activeDrawer?.id === 'reportDrawer') closeDrawer(false);

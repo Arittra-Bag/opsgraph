@@ -25,9 +25,11 @@ browser accepts only approved source environment-variable references.
 - Reconnect resumes recorded events for the existing run without submitting again.
   Network disconnection and backend run state are displayed separately.
 - Cancellation waits for backend confirmation. Interrupted runs require explicit
-  retry as a new attempt. Follow-ups retain the preceding turn and its evidence.
+  retry as a new attempt. Follow-ups stay in the same investigation and retain earlier evidence. When
+  inspecting an older turn, use Return to latest turn before continuing.
 - Claim references open matching captures, exact SQL, source identity, timestamps,
-  effective query limits and truncation. Model classification and evidence hashes
+  effective query limits and truncation. Query and rows precede detailed provenance.
+  Model classification and evidence hashes
   do not establish semantic support or causality.
 - Export downloads the full saved investigation. No sample replay, prewritten
   conclusion, invented source status or timed execution animation is used.

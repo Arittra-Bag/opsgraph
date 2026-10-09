@@ -1,5 +1,6 @@
 # Python 3.11 slim multi-architecture manifest, pinned for reproducible releases.
-FROM python:3.11-slim@sha256:a630a63cdb314e2d138a2fca3e375e319e8568346ffafac5b980f888630ac4f1
+ARG PYTHON_REGISTRY=docker.io
+FROM ${PYTHON_REGISTRY}/library/python:3.11-slim@sha256:a630a63cdb314e2d138a2fca3e375e319e8568346ffafac5b980f888630ac4f1
 
 ARG OPSGRAPH_VERSION=0.0.0-dev
 ARG OPSGRAPH_REVISION=unknown

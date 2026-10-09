@@ -27,6 +27,9 @@ def test_health_and_bootstrap_are_public():
     assert bootstrap["trust"]["sample_model_calls"] == 0
     assert client.get("/").status_code == 200
     assert client.get("/assets/static/app.js").status_code == 200
+    chevron = client.get("/assets/static/chevron-down.svg")
+    assert chevron.status_code == 200
+    assert chevron.headers["content-type"].startswith("image/svg+xml")
 
 
 def test_authenticated_api_responses_prohibit_caching():
