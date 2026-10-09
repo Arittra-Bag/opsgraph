@@ -14,5 +14,6 @@ def test_browser_preview_mirrors_packaged_ui_assets():
         "static/view-state.js",
         "static/favicon.svg",
         "static/chevron-down.svg",
+        "static/icons.svg",
     ):
         assert (PREVIEW / relative).read_bytes() == (CANONICAL / relative).read_bytes()

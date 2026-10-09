@@ -27,6 +27,9 @@ def test_health_and_bootstrap_are_public():
     assert bootstrap["trust"]["sample_model_calls"] == 0
     assert client.get("/").status_code == 200
     assert client.get("/assets/static/app.js").status_code == 200
+    icons = client.get("/assets/static/icons.svg")
+    assert icons.status_code == 200
+    assert icons.headers["content-type"].startswith("image/svg+xml")
     chevron = client.get("/assets/static/chevron-down.svg")
     assert chevron.status_code == 200
     assert chevron.headers["content-type"].startswith("image/svg+xml")
