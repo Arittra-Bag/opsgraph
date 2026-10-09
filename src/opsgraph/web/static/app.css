@@ -613,7 +613,10 @@ summary::before {
   transform-origin: center;
 }
 details[open] > summary::before { transform: rotate(45deg); }
-select {
+select, .settings-grid select {
+  min-height: 44px;
+  padding-block: 10px;
+  padding-inline-start: 12px;
   appearance: none;
   padding-inline-end: 44px;
   background-image: url("/assets/static/chevron-down.svg");
@@ -642,5 +645,58 @@ select:disabled { background-image: none; }
   .history-rail .control-chevron { display: inline-block; margin: 0; }
 }
 @media (forced-colors: active) {
-  select { appearance: auto; background-image: none; padding-inline-end: 12px; }
+  select, .settings-grid select { appearance: auto; background-image: none; padding-inline-end: 12px; }
 }
+
+/* Control spacing and feedback stay stable while the user presses or focuses. */
+:root { --feedback-duration: 120ms; --indicator-duration: 140ms; }
+.primary, .secondary, .finding .citation-button, .drawer-close, .icon-button,
+.history-toggle, .nav-item, .new-investigation, .run-toolbar .case-actions button {
+  min-height: 44px;
+}
+.icon-button, .drawer-close {
+  min-width: 44px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+}
+button, summary, select {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(103, 221, 211, .12);
+  transition: background-color var(--feedback-duration) ease,
+    border-color var(--feedback-duration) ease, color var(--feedback-duration) ease,
+    filter var(--feedback-duration) ease;
+}
+summary { border-radius: 6px; }
+summary::before { transition: transform var(--indicator-duration) ease; }
+button:not(:disabled):active { filter: brightness(.88); }
+summary:active { background-color: var(--panel-3); }
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible,
+textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 3px;
+}
+.composer-scope, .composer-scope:not([open]) { padding: 16px; }
+.composer-scope .composer-controls { margin-top: 12px; gap: 16px; }
+.composer-controls label { margin-top: 0; margin-bottom: 8px; }
+.field-help { margin-top: 8px; }
+.composer-actions { gap: 16px; margin-top: 20px; }
+.select-shell select { width: 100%; }
+@media (hover: hover) and (pointer: fine) {
+  summary:hover { background-color: var(--panel-2); }
+  select:not(:disabled):hover { border-color: #45615f; }
+  .drawer-close:hover, .icon-button:hover { color: var(--text); background-color: var(--panel-3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  button, summary, select, summary::before { transition: none !important; }
+}
+.checkbox-label {
+  min-height: 44px;
+  padding-block: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); cursor: pointer; }
+
+.settings-grid input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; padding: 10px 12px; }
