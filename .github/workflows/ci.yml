@@ -218,7 +218,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Build container
-        run: docker build --tag opsgraph-ci --file deploy/container/Dockerfile .
+        # Use the public Docker Hub cache to avoid shared-runner pull limits.
+        run: >-
+          docker build --tag opsgraph-ci --file deploy/container/Dockerfile
+          --build-arg PYTHON_REGISTRY=mirror.gcr.io .
       - name: Start and verify configuration-only container
         run: |
           docker volume create opsgraph-ci-state >/dev/null
