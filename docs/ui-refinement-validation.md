@@ -18,7 +18,7 @@ It is a design reference, not proof of backend behavior. Theme switching is defe
 | UI and accessibility | Narrower navigation initially clipped the New investigation label. Wrapping fixes it. Long toolbar titles truncate visually while the complete question remains available. Native disclosures retain keyboard behavior. |
 | Product | Evidence inspection buried SQL below detailed provenance. SQL and rows now follow a compact source/time/bounds summary. Older-turn inspection explains where a follow-up continues and offers Return to latest turn. Partial captures are labelled separately from completed assessments. |
 | Build and deployment | Canonical and preview assets remain identical. Hash-constrained wheel and source builds include the UI. This PR does not invoke release publication or deploy production. |
-| Performance | No new dependencies, image requests or animations. The measured intermediate patch added approximately 1.2 KB compressed across HTML/CSS/JS. Historical rendering still grows with turn count, as before. |
+| Performance | No new dependencies. Select indicators use one shared local SVG. Control feedback changes color and rotates disclosure indicators without moving controls. The earlier intermediate layout patch added approximately 1.2 KB compressed across HTML/CSS/JS. Historical rendering still grows with turn count, as before. |
 
 ## Browser journey notes
 
@@ -97,3 +97,26 @@ Native [details and summary](https://developer.mozilla.org/en-US/docs/Web/HTML/R
 keep disclosure controls keyboard accessible. [Focus with preventScroll](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/focus)
 and [scrollIntoView](https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollIntoView)
 separate focus restoration from selected-turn positioning.
+
+## Control alignment follow-up
+
+Disclosure indicators share an 8 px centered chevron with a 10 px label gap.
+Select indicators are centered vertically, inset 12 px from the right edge,
+with 44 px reserved so text cannot overlap them. Settings-specific styles no
+longer override these dimensions. Native select menus and details semantics remain.
+
+Browser checks cover composer, model settings, source setup, execution stages,
+classification, evidence provenance and history controls. Disclosures and key
+actions have at least 44 px targets. Drawer close is 44 by 44 px. Space, Enter,
+Escape and focus return were verified. Feedback uses 120 ms color changes and
+140 ms chevron rotation, with no spatial movement on press. Reduced motion
+disables these transitions and forced colors restores native select indicators.
+The media-query fallbacks were reviewed in source, not emulated in the browser.
+
+The follow-up also checked 320, 390, 768 and 1280 px layouts with no page-wide
+horizontal overflow or console warnings/errors. At narrow widths, nested padding
+is 16 px for the composer and 12 px for scope, giving select fields more room.
+The full regression suite passed again: 1,056 Python tests and 183 frontend tests.
+One earlier local run stopped progressing in the simulated process-interruption
+fixture. That fixture passed independently and the fresh complete suite passed;
+no fixture, dependency or backend behavior was changed to obtain the result.
