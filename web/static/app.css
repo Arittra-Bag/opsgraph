@@ -704,3 +704,29 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); cursor:
   .composer-section { padding: 16px; }
   .composer-scope, .composer-scope:not([open]) { padding: 12px; }
 }
+
+/* Decorative icons share one baseline and leave the text label accessible. */
+.ui-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+#primaryNav .nav-item, .icon-label, .finding .citation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+#primaryNav .nav-item { justify-content: flex-start; }
+#primaryNav .ui-icon { color: var(--muted); }
+#primaryNav .active .ui-icon { color: var(--teal); }
+.finding .citation-button { text-align: left; }
+@media (hover: hover) and (pointer: fine) {
+  #primaryNav .nav-item:hover .ui-icon { color: var(--teal); }
+}

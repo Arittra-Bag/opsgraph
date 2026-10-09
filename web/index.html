@@ -24,12 +24,12 @@
     <aside class="sidebar" aria-label="Primary navigation">
       <button class="new-investigation" id="newInvestigation"><span aria-hidden="true">＋</span><b>New investigation</b></button>
       <nav id="primaryNav">
-        <button class="nav-item active" data-view="investigations" aria-current="page">Investigations</button>
-        <button class="nav-item" data-view="sources">Sources</button>
-        <button class="nav-item" data-view="playbooks">Playbooks</button>
-        <button class="nav-item" data-view="policies">Policies</button>
-        <button class="nav-item" data-view="audit">Audit</button>
-        <button class="nav-item" data-view="settings">Settings</button>
+        <button class="nav-item active" data-view="investigations" aria-current="page"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#search"></use></svg>Investigations</button>
+        <button class="nav-item" data-view="sources"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#database"></use></svg>Sources</button>
+        <button class="nav-item" data-view="playbooks"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#book-open"></use></svg>Playbooks</button>
+        <button class="nav-item" data-view="policies"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#shield-check"></use></svg>Policies</button>
+        <button class="nav-item" data-view="audit"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#scroll-text"></use></svg>Audit</button>
+        <button class="nav-item" data-view="settings"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#sliders"></use></svg>Settings</button>
       </nav>
       <div class="local-runtime"><b>Evidence before certainty</b><p>Inspect sources, queries and limitations. A citation alone does not prove a conclusion.</p></div>
     </aside>
@@ -56,7 +56,7 @@
               </ol>
             </section>
             <section id="runWorkspace" hidden>
-              <header class="run-toolbar"><div class="run-toolbar-meta"><span>Investigation · <b id="runIdentity"></b></span><span class="run-state-badge" id="runState" aria-live="polite"></span><details class="run-scope"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details></div><div class="case-actions"><button class="primary" id="openReport">Create report</button><button class="secondary" id="exportEvidence">Export JSON</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry this turn</button></div></header>
+              <header class="run-toolbar"><div class="run-toolbar-meta"><span>Investigation · <b id="runIdentity"></b></span><span class="run-state-badge" id="runState" aria-live="polite"></span><details class="run-scope"><summary id="runScopeSummary">Recorded investigation scope</summary><div id="runScope"></div></details></div><div class="case-actions"><button class="primary icon-label" id="openReport"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#file-down"></use></svg>Create report</button><button class="secondary" id="exportEvidence">Export JSON</button><button class="secondary" id="cancelRun" hidden>Cancel run</button><button class="secondary" id="retryRun" hidden>Retry this turn</button></div></header>
               <div class="earlier-turn-banner"><p id="earlierTurnNotice" class="helper" hidden></p><button id="returnLatestTurn" type="button" class="secondary" hidden>Return to latest turn</button></div>
               <div class="canvas-scroll conversation">
                 <section class="previous-turn" id="previousTurn" aria-label="Earlier conversation turns" hidden></section>
