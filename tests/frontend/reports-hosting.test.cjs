@@ -7,11 +7,11 @@ const source = fs.readFileSync('src/opsgraph/web/static/app.js', 'utf8');
 function fixture() {
   const nodes = new Map();
   const $ = id => {
-    if (!nodes.has(id)) nodes.set(id, { value: '', checked: false, hidden: false, disabled: false, textContent: '', innerHTML: '', children: [], setAttribute() {}, replaceChildren() { this.children = []; }, append(item) { this.children.push(item); } });
+    if (!nodes.has(id)) nodes.set(id, { value: '', checked: false, hidden: false, disabled: false, textContent: '', innerHTML: '', children: [], setAttribute() {}, removeAttribute() {}, replaceChildren() { this.children = []; }, append(item) { this.children.push(item); } });
     return nodes.get(id);
   };
   const state = { authenticated: true, authEpoch: 0, hostingToken: 0, hostingGuides: [], sourceDirty: false, reportToken: 0, reportRunId: 'run-a', run: { id: 'run-a', updated_at: 'saved-time' }, activeDrawer: { id: 'reportDrawer' } };
-  const context = vm.createContext({ $, state, URL, readiness() {}, document: { createElement: tag => ({ tag, textContent: '', children: [], append(...items) { this.children.push(...items); } }) }, esc: value => String(value).replace(/</g, '&lt;'), stamp: value => value, runId: value => value, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, value = '') => { $(id).textContent = value; }, api: async () => ({}) });
+  const context = vm.createContext({ $, state, URL, preserveFocus: update => update(), readiness() {}, document: { createElement: tag => ({ tag, textContent: '', children: [], append(...items) { this.children.push(...items); } }) }, esc: value => String(value).replace(/</g, '&lt;'), stamp: value => value, runId: value => value, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, value = '') => { $(id).textContent = value; }, api: async () => ({}) });
   vm.runInContext(source.slice(source.indexOf('  function renderHostingGuide()'), source.indexOf('  async function loadSources()')), context);
   return { $, state, context };
 }
@@ -118,6 +118,7 @@ test('failed runs expose retained captures without fabricating a completed asses
   assert.equal(f.$('#answerThread').hidden, false); assert.equal(f.$('#conclusionCard').hidden, true);
   assert.equal(f.$('#evidenceSection').hidden, false); assert.match(f.$('#limitations').innerHTML, /No completed model assessment/);
   assert.match(f.$('#evidenceLedger').innerHTML, /Partial evidence/);
+  assert.equal(f.$('#answerContext').textContent, 'Saved captures · no completed model assessment');
 });
 
 
@@ -243,4 +244,21 @@ test('automatic table discovery preserves setup focus and handles failure with a
   assert.match(f.$('#tableDiscoveryStatus').textContent, /Connection unavailable.*Retry/);
   assert.equal(f.$('#retryTableDiscovery').disabled, false);
   assert.equal(f.$('#sourceSecretRef').value, 'OPSGRAPH_SOURCE_DSN');
+});
+
+test('classification disclosure stays expanded during refresh of the same finding only', () => {
+  const f = fixture(); f.state.runs = []; f.state.report = null;
+  const original = f.context.$;
+  f.context.$ = selector => { const node = original(selector); node.dataset ||= {}; node.options ||= []; node.insertAdjacentHTML = () => {}; return node; };
+  f.context.viewState = { focusBookmark: () => ({}), currentOperation: () => 'Completed', captureStatus: () => 'Recorded evidence', classificationExplanation: () => 'Model assessment, not independently verified.' };
+  f.context.document = {}; f.context.sessionStorage = { setItem() {} }; f.context.terminal = () => true;
+  f.context.renderExecutionProgress = () => {}; f.context.renderHistory = () => {}; f.context.readiness = () => {};
+  vm.runInContext(source.slice(source.indexOf('  function renderRun('), source.indexOf('  function evidenceMarkup(')), f.context);
+  f.$('#findingGrid').querySelectorAll = () => [{ dataset: { focusKey: 'classification:run-a:0' } }];
+  const run = { id: 'run-a', source_id: 'source-a', status: 'completed', question: 'Bounded question', answer: { summary: 'Saved answer', findings: [{ claim: 'One captured result', classification: 'supported', evidence_ids: [] }] }, evidence: [] };
+  f.context.renderRun(run);
+  assert.match(f.$('#findingGrid').innerHTML, /class="classification-detail" open/);
+  assert.match(f.$('#findingGrid').innerHTML, /not independently verified/);
+  f.context.renderRun({ ...run, id: 'run-b' });
+  assert.doesNotMatch(f.$('#findingGrid').innerHTML, /class="classification-detail" open/);
 });

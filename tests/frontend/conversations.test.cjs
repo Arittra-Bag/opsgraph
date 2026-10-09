@@ -185,3 +185,40 @@ test('history errors after workspace reset are silently discarded', async () => 
   requests[0].reject(new Error('Old workspace failure')); requests[1].resolve([]); await assert.doesNotReject(pending);
   assert.equal(f.$('#historyMessage').textContent, 'Connect workspace');
 });
+
+test('earlier-turn inspection explains follow-up behavior and links back to the latest turn', () => {
+  const f = fixture();
+  f.state.run = { id: 'inv-old', conversation_id: 'case-1', turn_id: 'turn-old' };
+  f.state.conversation = { id: 'case-1', turns: [f.state.run, { id: 'inv-latest', turn_id: 'turn-latest' }] };
+  f.context.renderConversationTitle();
+  assert.equal(f.$('#earlierTurnNotice').hidden, false);
+  assert.match(f.$('#earlierTurnNotice').textContent, /Viewing an earlier turn.*follow-up continues from the latest turn/);
+  assert.equal(f.$('#returnLatestTurn').hidden, false);
+  assert.equal(f.$('#returnLatestTurn').attributes['data-run-id'], 'inv-latest');
+  assert.equal(f.$('#returnLatestTurn').attributes['data-focus-key'], 'latest:case-1');
+  f.state.run = f.state.conversation.turns[1]; f.state.run.conversation_id = 'case-1';
+  f.context.renderConversationTitle();
+  assert.equal(f.$('#earlierTurnNotice').hidden, true);
+  assert.equal(f.$('#returnLatestTurn').hidden, true);
+  assert.equal(f.$('#returnLatestTurn').attributes['data-run-id'], undefined);
+});
+
+test('retry inspection within the latest turn is not labelled an earlier turn', () => {
+  for (const identified of [true, false]) {
+    const f = fixture();
+    f.state.run = { id: 'inv-original', conversation_id: 'case-1', ...(identified ? { turn_id: 'same-turn' } : {}) };
+    f.state.conversation = { id: 'case-1', turns: [{ id: 'inv-retry', ...(identified ? { turn_id: 'same-turn' } : {}), attempts: [f.state.run, { id: 'inv-retry' }] }] };
+    f.context.renderConversationTitle();
+    assert.equal(f.$('#earlierTurnNotice').hidden, true);
+    assert.equal(f.$('#returnLatestTurn').hidden, true);
+  }
+});
+
+test('missing or unrelated conversation never exposes an invented latest-turn link', () => {
+  for (const conversation of [undefined, null, { id: 'other-case', turns: [{ id: 'other-run' }] }, { id: 'case-1', turns: [] }]) {
+    const f = fixture(); f.state.conversation = conversation;
+    f.context.renderConversationTitle();
+    assert.equal(f.$('#earlierTurnNotice').hidden, true);
+    assert.equal(f.$('#returnLatestTurn').hidden, true);
+  }
+});
