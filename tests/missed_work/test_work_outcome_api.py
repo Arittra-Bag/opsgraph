@@ -115,7 +115,9 @@ def body(pg):  # noqa: ANN001
 def wait(api, run_id):  # noqa: ANN001
     for _ in range(500):
         run = api["client"].get(f"/api/runs/{run_id}", headers=api["headers"]).json()
-        if run["status"] in {"completed", "failed", "blocked", "cancelled"}:
+        if run["status"] in {"completed", "failed", "blocked", "cancelled"} and run.get(
+            "terminal_audited"
+        ):
             return run
         time.sleep(0.01)
     pytest.fail("audit did not finish")
