@@ -23,6 +23,7 @@ SPEC.loader.exec_module(demo)
         "http://127.0.0.1:4187/api/runs",
         "http://127.0.0.1:80",
         "http://127.0.0.1:65536",
+        # URL userinfo is rejected before any request; this supplies no credential.
         "http://user@127.0.0.1:4187",
         "file:///private/tmp/config",
         "http://127.0.0.1:04187",
