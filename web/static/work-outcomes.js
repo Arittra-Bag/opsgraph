@@ -1,6 +1,16 @@
 (() => {
   'use strict';
-  const labels = { overdue_unresolved: 'Overdue unresolved', ready: 'Ready', cancelled: 'Cancelled', terminal_failure: 'Terminal failure', pending_within_deadline: 'Within deadline', unknown: 'Unknown' };
+  const labels = { overdue_unresolved: 'Overdue and still not ready', ready: 'Recorded as ready', cancelled: 'Cancelled', terminal_failure: 'Recorded as permanently failed', pending_within_deadline: 'Still within deadline', unknown: 'Cannot determine' };
+  // Presentation only: saved answers, calculation inputs and hashes are untouched.
+  function readable(value) {
+    const limitations = {
+      'Outcome definitions and source coverage are operator-reviewed premises, not verified business truth.': 'These results use the rules and data-completeness assumptions you reviewed. OpsGraph cannot verify those assumptions.',
+      'Examples are bounded; state totals come from the full selected population.': 'Totals include every export request in your chosen period. The list shows only a limited number of examples.',
+      'Ready database records do not prove customer access or an incident cause.': 'Recorded as ready does not prove the customer can open the export or explain what caused a problem.'
+    };
+    if (Object.prototype.hasOwnProperty.call(limitations, value)) return limitations[value];
+    return String(value ?? '').replace(/^(\d+) overdue unresolved exports across (\d+) customers; (\d+) terminal failures and (\d+) unknown among (\d+) accepted promises\.$/, (_, overdue, customers, failed, unknown, total) => `${overdue} exports are overdue and still not ready, affecting ${customers} customers. Of ${total} accepted export requests, ${failed} are recorded as permanently failed and ${unknown} have results we cannot determine.`);
+  }
   const terminal = status => ['completed', 'failed', 'blocked', 'cancelled', 'interrupted'].includes(status);
   // datetime-local is explicitly labelled UTC; never interpret it in browser-local time.
   function utc(value) {
@@ -11,10 +21,10 @@
     return date.toISOString();
   }
   function scope(contract, values) {
-    if (!contract) throw new Error('Select a reviewed contract first.');
+    if (!contract) throw new Error('Select reviewed export rules first.');
     const result = { contract_id: contract.id, version: contract.version, tenant_id: values.tenant.trim(), start: utc(values.start), end: utc(values.end), as_of: utc(values.cutoff) };
     if (!result.tenant_id) throw new Error('Enter the tenant identifier.');
-    if (!(result.start < result.end && result.end <= result.as_of)) throw new Error('Use start < end ≤ cutoff.');
+    if (!(result.start < result.end && result.end <= result.as_of)) throw new Error('The acceptance period must end after it starts. Check results at or after the period ends.');
     if (new Date(result.end) - new Date(result.start) > 31 * 86400000) throw new Error('Use an acceptance window of at most 31 days.');
     return result;
   }
@@ -24,17 +34,17 @@
   function comparison(before, after) {
     if (!before || !after || !sameCohort(before.scope, after.scope) || before.scope.as_of >= after.scope.as_of) return '';
     const left = before.facts, right = after.facts;
-    if (left.population !== right.population) return 'The accepted population changed between reads. A recovery comparison is not established.';
+    if (left.population !== right.population) return 'The number of accepted export requests changed between checks. We cannot compare which exports became ready.';
     const a = left.examples.filter(item => item.state === 'overdue_unresolved');
     const b = new Map(right.examples.map(item => [item.promise_id, item]));
     const recovered = a.filter(item => b.get(item.promise_id)?.state === 'ready').length;
     const complete = left.overdue_examples_complete && a.every(item => b.has(item.promise_id));
-    return `Overdue unresolved: ${left.counts.overdue_unresolved} → ${right.counts.overdue_unresolved}. ${complete ? recovered : `At least ${recovered}`} previously overdue promises have captured readiness${complete ? '' : ' in these bounded examples'}. This does not establish why they recovered.`;
+    return `Overdue and still not ready: ${left.counts.overdue_unresolved} → ${right.counts.overdue_unresolved}. ${complete ? recovered : `At least ${recovered}`} previously overdue export requests are now recorded as ready${complete ? '' : ' in the limited examples'}. This does not explain why they became ready.`;
   }
   function mount({ request, authenticated, openRun, download, document: doc = document, schedule = setTimeout, unschedule = clearTimeout }) {
     const $ = id => doc.getElementById(id);
     if (!$('mwForm')) return null;
-    let generation = 0, connected = false, busy = false, contracts = [], run = null, timer = null, previous = null;
+    let generation = 0, connected = false, busy = false, contracts = [], run = null, timer = null, previous = null, history = [];
     const text = (id, value) => { $(id).textContent = value; };
     const error = (value = '') => { text('mwError', value); $('mwError').hidden = !value; };
     const current = token => connected && authenticated() && token === generation;
@@ -54,9 +64,20 @@
       $('mwHistory').querySelectorAll('button').forEach(node => { node.disabled = busy; });
     }
     function node(tag, value) { const element = doc.createElement(tag); element.textContent = value; return element; }
+    function renderHistory() {
+      $('mwHistory').replaceChildren();
+      history.forEach(item => {
+        const scope = item.answer?.work_outcome?.scope || item.work_outcome;
+        const button = node('button', `${item.status} · ${scope.tenant_id} · checked through ${scope.as_of} · ${item.id}`);
+        button.type = 'button'; button.className = 'outcome-history secondary';
+        button.addEventListener('click', () => void load(item.id)); $('mwHistory').append(button);
+      });
+      if (!history.length) text('mwHistory', 'No saved export audits yet.');
+      controls();
+    }
     function definition() {
       const selected = $('mwContract').value === '' ? null : contracts[Number($('mwContract').value)];
-      text('mwDefinition', selected ? JSON.stringify(selected.definition, null, 2) : 'No contract selected.');
+      text('mwDefinition', selected ? JSON.stringify(selected.definition, null, 2) : 'No export rules selected.');
     }
     function clearResult() {
       run = null; previous = null; $('mwResult').hidden = true;
@@ -64,9 +85,9 @@
       $('mwLater').value = '';
     }
     function reset() {
-      generation++; connected = false; busy = false; unschedule(timer); timer = null; contracts = [];
-      clearResult(); $('mwForm').reset(); $('mwReviewForm').reset(); $('mwContract').replaceChildren(node('option', 'Select a reviewed contract')); $('mwContract').firstChild.value = '';
-      text('mwDefinition', 'No contract selected.'); text('mwHistory', 'No audits loaded.'); text('mwStatus', 'Connect workspace to load reviewed contracts.'); error(); controls();
+      generation++; connected = false; busy = false; unschedule(timer); timer = null; contracts = []; history = [];
+      clearResult(); $('mwForm').reset(); $('mwReviewForm').reset(); $('mwContract').replaceChildren(node('option', 'Select reviewed export rules')); $('mwContract').firstChild.value = '';
+      text('mwDefinition', 'No export rules selected.'); text('mwHistory', 'No audits loaded.'); text('mwStatus', 'Connect workspace to load reviewed export rules.'); error(); controls();
     }
     async function refresh() {
       if (!connected || busy) return;
@@ -77,15 +98,12 @@
         if (!current(token)) return;
         const selected = contracts[Number($('mwContract').value)]?.definition;
         contracts = definitions;
-        $('mwContract').replaceChildren(node('option', 'Select a reviewed contract')); $('mwContract').firstChild.value = '';
+        $('mwContract').replaceChildren(node('option', 'Select reviewed export rules')); $('mwContract').firstChild.value = '';
         contracts.forEach((item, index) => { const option = node('option', `${item.definition.id} · v${item.definition.version} · ${item.definition.source_id}`); option.value = String(index); $('mwContract').append(option); });
         const selectedIndex = contracts.findIndex(item => item.definition.id === selected?.id && item.definition.version === selected?.version && item.definition.source_id === selected?.source_id);
         $('mwContract').value = selectedIndex >= 0 ? String(selectedIndex) : contracts.length === 1 ? '0' : '';
-        definition(); $('mwHistory').replaceChildren();
-        const saved = audits.filter(item => item.work_outcome);
-        saved.forEach(item => { const button = node('button', `${item.status} · ${item.work_outcome.tenant_id} · ${item.work_outcome.as_of}`); button.type = 'button'; button.className = 'outcome-history secondary'; button.addEventListener('click', () => void load(item.id)); $('mwHistory').append(button); });
-        if (!saved.length) text('mwHistory', 'No saved export audits yet.');
-        text('mwStatus', contracts.length ? `${contracts.length} reviewed contract(s). PostgreSQL readiness and permissions are checked again for every run.` : 'No reviewed contracts. Review a definition below after source setup.');
+        definition(); history = audits.filter(item => item.work_outcome); renderHistory();
+        text('mwStatus', contracts.length ? `${contracts.length} reviewed export rule set(s). PostgreSQL readiness and permissions are checked again for every run.` : 'No reviewed export rules. Review the advanced setup below after connecting a source.');
       } catch (failure) { if (current(token)) error(failure.message); }
       finally { if (current(token)) { busy = false; controls(); } }
     }
@@ -95,7 +113,7 @@
       text('mwResultTitle', `Export audit · ${saved.status}`);
       const calc = saved.answer?.work_outcome;
       const capturedScope = calc?.scope || saved.work_outcome;
-      text('mwScope', capturedScope ? `Tenant ${capturedScope.tenant_id} · accepted [${capturedScope.start}, ${capturedScope.end}) · cutoff ${capturedScope.as_of} · ${capturedScope.contract_id} v${capturedScope.version}` : 'No scope captured.');
+      text('mwScope', capturedScope ? `Tenant ${capturedScope.tenant_id} · exports accepted from ${capturedScope.start} (included) to ${capturedScope.end} (excluded) · checked through ${capturedScope.as_of} · export rules ${capturedScope.contract_id} v${capturedScope.version}` : 'No scope captured.');
       $('mwCounts').replaceChildren(); $('mwExamples').replaceChildren(); $('mwLimitations').replaceChildren();
       text('mwComparison', ''); text('mwQuality', ''); text('mwSampleNote', '');
       if (calc) {
@@ -103,20 +121,20 @@
           const card = node('div', ''); card.className = `outcome-count outcome-${state}`;
           card.append(node('strong', String(calc.facts.counts[state])), node('span', label)); $('mwCounts').append(card);
         }
-        text('mwQuality', `${calc.facts.population} accepted promises · ${calc.facts.affected_customers} customers with overdue unresolved work · ${calc.facts.orphan_events} orphan events · ${calc.facts.unassignable_events} unassignable events. Unknowns are counted separately.`);
+        text('mwQuality', `${calc.facts.population} accepted export requests · ${calc.facts.affected_customers} customers with overdue exports still not ready · ${calc.facts.orphan_events} events with no matching export request · ${calc.facts.unassignable_events} events that cannot be linked to an export request. Results we cannot determine are counted separately.`);
         text('mwComparison', comparison(previous, calc));
         const examples = calc.facts.examples.filter(item => item.state === 'overdue_unresolved');
-        text('mwSampleNote', `${examples.length} of ${calc.facts.counts.overdue_unresolved} overdue unresolved promises shown. ${calc.facts.overdue_examples_complete ? 'This overdue list is complete for this captured scope.' : 'Bounded examples; this is not a complete overdue list.'}`);
+        text('mwSampleNote', `${examples.length} of ${calc.facts.counts.overdue_unresolved} exports overdue and still not ready shown. ${calc.facts.overdue_examples_complete ? 'This overdue list is complete for this saved check.' : 'Only some examples are shown; this is not a complete overdue list.'}`);
         examples.forEach(item => { const row = node('tr', ''); [item.promise_id, item.customer_id, item.due_at ? new Date(item.due_at).toISOString() : 'Unknown'].forEach(value => row.append(node('td', value ?? 'Unknown'))); $('mwExamples').append(row); });
         if (!examples.length) { const cell = node('td', 'No overdue examples retained in this capture.'); cell.colSpan = 3; const row = node('tr', ''); row.append(cell); $('mwExamples').append(row); }
-        (saved.answer.limitations || []).forEach(value => $('mwLimitations').append(node('li', value)));
+        (saved.answer.limitations || []).forEach(value => $('mwLimitations').append(node('li', readable(value))));
         text('mwEvidence', JSON.stringify({ run_id: saved.id, calculation: calc, captures: saved.evidence }, null, 2));
         // Default is a suggestion; the user explicitly submits the new cutoff.
-        if (!$('mwLater').value) $('mwLater').value = new Date(new Date(capturedScope.as_of).getTime() + 300000).toISOString().slice(0, 19);
+        if (!$('mwLater').value || new Date(`${$('mwLater').value}Z`).getTime() <= new Date(capturedScope.as_of).getTime()) $('mwLater').value = new Date(new Date(capturedScope.as_of).getTime() + 300000).toISOString().slice(0, 19);
       } else {
         text('mwEvidence', JSON.stringify({ run_id: saved.id, scope: saved.work_outcome, captures: saved.evidence, error: saved.error }, null, 2));
       }
-      text('mwStatus', terminal(saved.status) ? `Saved ${saved.status} audit ${saved.id}.` : `Audit ${saved.id} is ${saved.status}. Waiting for its bounded read…`);
+      text('mwStatus', terminal(saved.status) ? `Saved ${saved.status} audit ${saved.id}.` : `Audit ${saved.id} is ${saved.status}. Waiting for its database read…`);
       if (saved.error) error(saved.error.message || saved.error.code);
     }
     async function poll(id, token) {
@@ -125,7 +143,11 @@
         const saved = await request(`/api/runs/${identifier(id)}`);
         if (!current(token)) return;
         render(saved);
-        if (terminal(saved.status)) { busy = false; controls(); }
+        if (terminal(saved.status)) {
+          // Use this already-authorized saved response; no second read or stale refresh.
+          history = [saved, ...history.filter(item => item.id !== saved.id)];
+          busy = false; renderHistory();
+        }
         else timer = schedule(() => void poll(id, token), 800);
       } catch (failure) { if (current(token)) { busy = false; controls(); error(`${failure.message} Saved audit ${id} can be reopened using Refresh saved audits.`); } }
     }
@@ -136,7 +158,7 @@
     }
     async function submit(capturedScope, sourceId, parent = null) {
       const token = ++generation; busy = true; unschedule(timer); error(); controls();
-      text('mwStatus', 'Submitting the explicit audit scope…');
+      text('mwStatus', 'Starting the export check…');
       try {
         const created = await request('/api/runs', { method: 'POST', body: JSON.stringify({ question: 'Which approved customer exports missed their deadline?', source_id: sourceId, work_outcome: capturedScope, ...(parent ? { parent_run_id: parent } : {}) }) });
         if (!current(token)) return;
@@ -148,7 +170,7 @@
       try {
         const contract = contracts[Number($('mwContract').value)]?.definition;
         // An empty select must not accidentally select index zero.
-        if ($('mwContract').value === '') throw new Error('Select a reviewed contract first.');
+        if ($('mwContract').value === '') throw new Error('Select reviewed export rules first.');
         const input = scope(contract, { tenant: $('mwTenant').value, start: $('mwStart').value, end: $('mwEnd').value, cutoff: $('mwCutoff').value });
         clearResult(); void submit(input, contract.source_id);
       } catch (failure) { error(failure.message); }
@@ -158,7 +180,7 @@
       try {
         const cutoff = utc($('mwLater').value);
         const original = run.answer.work_outcome;
-        if (cutoff <= original.scope.as_of) throw new Error('Choose a cutoff later than the saved audit.');
+        if (cutoff <= original.scope.as_of) throw new Error(`Choose a check time after ${original.scope.as_of} (UTC), the time of the saved check.`);
         previous = original; void submit({ ...original.scope, as_of: cutoff }, original.contract.source_id, run.id);
       } catch (failure) { error(failure.message); }
     });
@@ -192,5 +214,5 @@
     });
     reset(); return { connect, reset, refresh, load };
   }
-  window.OpsGraphWorkOutcomes = { mount, utc, scope, comparison, sameCohort };
+  window.OpsGraphWorkOutcomes = { mount, utc, scope, comparison, sameCohort, readable };
 })();
