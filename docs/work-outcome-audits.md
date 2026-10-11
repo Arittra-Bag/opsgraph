@@ -91,4 +91,77 @@ Set `OPSGRAPH_MISSED_WORK_OWNER_DSN` and run:
 
 The existing connected CI job runs these PostgreSQL comparisons. Offline fixture
 jobs skip live tests explicitly. None of this is a model-quality or competitor
-benchmark. The UI and self-contained practice/smoke flow are a separate PR.
+benchmark.
+
+## Browser workflow
+
+Open **Export audits** in the existing workspace. Select a reviewed contract and
+enter a tenant, acceptance window and cutoff. Every date/time field is labelled
+UTC. Run the audit to see all six full-population totals, affected customers,
+unknowns and the bounded overdue list. The source must pass normal readiness
+checks; a model is not required for this explicit audit.
+
+Use **Recheck original cohort** to submit a later cutoff with the saved contract,
+tenant and window. Changes in overdue counts are not themselves evidence of
+recovery. The comparison counts previously overdue IDs with captured readiness
+in the later examples; incomplete membership is labelled as a lower bound. It
+does not establish causality. Population-count changes block that comparison;
+equal counts alone do not prove the entire population's identities were stable.
+
+**Developer evidence** retains the SQL, original captures and calculation.
+**Open saved evidence / report** uses the existing investigation evidence and
+selectable Markdown report workflow. Contract audits are labelled as application
+calculations. **Export audit JSON** retains the original evidence hash and the
+separate calculation hash. Sensitive data may be present in any export.
+
+Operator setup remains explicit: use the reviewed-contract JSON form after
+configuring, inspecting and verifying the source. The confirmation covers the
+promise grain, joins, deadline, terminal vocabulary, legitimate cancellations
+and authoritative completeness meaning. Editing JSON clears confirmation.
+Versions are immutable; use a new version after source/schema changes.
+
+## Run your own synthetic smoke test
+
+This development-only script requires a source checkout with its installed
+dependencies, plus local PostgreSQL 15–18 or local Docker Desktop. It reuses the
+existing isolated practice-database machinery. It never uses an ambient database
+connection, existing OpsGraph configuration, or a model. If it uses Docker, the
+existing practice setup may pull its pinned PostgreSQL image.
+
+From the repository root, after the normal `python Start.py --yes --install-only`
+installation:
+
+```sh
+PYTHONPATH=src .venv/bin/python scripts/missed_work_demo.py
+```
+
+On Windows PowerShell, use `$env:PYTHONPATH="src"` and
+`.venv\Scripts\python.exe scripts/missed_work_demo.py`. The command runs in the
+foreground, opens a browser with the existing one-use connection handoff, and
+creates a fresh private temporary workspace and database service. With
+`--no-browser`, connect using the private key in that temporary workspace's
+`.env`, as printed by the launcher; never paste the key into a URL.
+
+1. Open **Export audits**, then open its saved completed synthetic audit. Confirm
+   **1,000 accepted promises**, **12 overdue**, **8 affected customers**, **930
+   ready**, **20 cancelled**, **5 terminal failures**, **30 within deadline**, and
+   **3 unknown**. All 12 overdue IDs fit in the example list. There are 96 failed
+   attempt records; these do not become 96 missed promises.
+2. Recheck at **2026-10-11 12:05 UTC**. Confirm **0 overdue**, **942 ready**, and
+   **1,000 accepted promises**. The other four state totals are unchanged. The
+   comparison identifies the 12 previously overdue IDs as ready. Their captured
+   `breach` stays `true`. The new request accepted at 12:02 is outside the original
+   acceptance window and cannot inflate this cohort's recovery count.
+3. Inspect the SQL and calculation; export JSON. Open saved evidence/report,
+   select the sections you want, and inspect the preview before downloading or
+   copying it. Reopen the original saved audit to confirm its evidence remains
+   unchanged.
+4. Stop with **Ctrl+C** in the demo terminal. The script stops its isolated
+   practice service and removes its temporary workspace. Save any exports you
+   want before stopping. It does not stop any existing database/server.
+
+The records are invented and the fixed dates are a historical replay. The ready
+events already exist at 12:01; changing the cutoff reveals them. No repair or
+remediation is performed. Screenshots from the local browser smoke show the
+[baseline](assets/missed-work/baseline.jpg) and
+[later recheck](assets/missed-work/recheck.jpg).
