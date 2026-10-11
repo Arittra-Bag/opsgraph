@@ -641,7 +641,8 @@
     const rejected = results.filter(item => item.status === 'rejected');
     if (rejected.some(item => item.reason.status === 401)) { state.authenticated = false; throw rejected.find(item => item.reason.status === 401).reason; }
     if (rejected.length) notice('#globalError', rejected.map(item => item.reason.message).join('\n'));
-    await workOutcomes?.connect();
+    // Audit loading handles its own errors and must not delay V1 connection/history.
+    void workOutcomes?.connect();
     if (epoch !== state.authEpoch) return;
     readiness();
     if (state.savedConnection && !state.sources.length && $('#sourceSetup').hidden) sourceSetup();

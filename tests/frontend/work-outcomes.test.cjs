@@ -51,6 +51,17 @@ test('both deferred refresh responses and failures are discarded after reset', a
     assert.equal(f.$('mwError').textContent, ''); assert.equal(f.$('mwHistory').textContent, 'No audits loaded.');
   }
 });
+test('catalog failures stay in the audit view and a fresh refresh can recover', async () => {
+  const f = fixture();
+  f.setReply(async () => { throw new Error('Audit catalog unavailable'); });
+  await f.mounted.connect();
+  assert.equal(f.$('mwError').textContent, 'Audit catalog unavailable');
+  assert.equal(f.$('mwRefresh').disabled, false);
+  f.setReply(path => path.includes('contracts') ? [{ definition: { id: 'customer-exports', version: 1, source_id: 'exports-db' } }] : []);
+  await f.mounted.refresh();
+  assert.equal(f.$('mwError').textContent, '');
+  assert.match(f.$('mwStatus').textContent, /1 reviewed contract/);
+});
 test('recheck freezes the saved cohort even when input fields are edited', async () => {
   const f = fixture(); await f.mounted.connect(); f.setReply(path => path === '/api/runs' ? saved() : saved());
   await f.mounted.load('run-test');
