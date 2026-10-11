@@ -1,10 +1,11 @@
-# Export contract and reconciliation reference (PR 1)
+# Export contract and reconciliation reference
 
-This is an inactive foundation for the application incident verification milestone.
-Only `src/opsgraph/domain/work_outcome.py` is production package code. It has no
-execution or registration hooks and is not imported by the existing V1 source API,
-planner, broker, policy, persistence, reports or UI. No runtime defaults, dependency
-locks, state schemas, source grants or release version change in this slice.
+The export audit flow is implemented in `src/opsgraph/missed_work/*`, the reviewed
+contract and run APIs, reports, and the browser workspace. It uses the existing
+bounded read-only broker and does not invoke a model. See
+[the operator guide](../../docs/work-outcome-audits.md) for the current integration
+and evidence boundaries. No runtime defaults, dependency locks, source grants,
+or release version change for this feature.
 
 The contract is bounded declarative data: distinct schema-qualified relations,
 column identifiers, status vocabularies, explicit seconds or a recorded deadline,
@@ -62,11 +63,11 @@ the same accepted-at cohort has 942 ready and zero currently overdue; all 12
 recoveries retain their breach history and a newly accepted request is excluded.
 
 Run `.venv/bin/python -m pytest -q tests/missed_work` from the repository root.
-These tests establish definition/fixture behavior. They do not constitute live
-PostgreSQL acceptance, model-quality evaluation, or a competitor benchmark.
+Offline tests establish definition and fixture behavior. `test_postgres.py` and
+`test_work_outcome_api.py` additionally run against disposable real PostgreSQL in
+the connected CI job; they skip without an explicitly supplied loopback owner
+DSN. They are not model-quality evaluations or competitor benchmarks.
 
-PR 2 owns schema/scope admission, deterministic SQL through the existing broker,
-captured inputs and typed derived checks. Runtime wiring, reports/UI, continuous
-monitoring, additional connectors, team identity and remediation remain outside
-PR 1. Existing V1 runtime and its supported private single-operator boundary stay
-the authority until a later, separately reviewed integration.
+Continuous monitoring, additional connectors, team identity and remediation
+remain outside this export-audit implementation. Existing V1 investigations and
+the supported private single-operator boundary remain in place.

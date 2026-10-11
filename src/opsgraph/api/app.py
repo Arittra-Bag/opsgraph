@@ -903,6 +903,8 @@ def check_source_readiness(
             "source_values_returned": 0,
             "timeout_ms": obligations.timeout_ms,
             "max_rows": obligations.max_rows,
+            "previous_source_revision": stable_hash(stored),
+            "source_access_revision": source_readiness_basis(stored),
         },
     )
 

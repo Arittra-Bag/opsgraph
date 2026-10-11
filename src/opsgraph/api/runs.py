@@ -33,7 +33,7 @@ from opsgraph.providers import (
     ProviderTimeoutError,
     StructuredRequest,
 )
-from opsgraph.readiness import source_readiness_basis
+from opsgraph.readiness import reviewed_source_matches, source_readiness_basis
 from opsgraph.reports import ReportOptions, ReportTooLarge, build_incident_report
 from opsgraph.schema_service import SchemaSnapshot
 from opsgraph.skills import SkillRepository
@@ -257,7 +257,9 @@ class RunAPI:
                     )
                 ):
                     raise ValueError("Contract has no matching immutable review receipt.")
-                if saved_contract["source_revision"] != stable_hash(source):
+                if not reviewed_source_matches(
+                    saved_contract, source, workspace, runtime.audit.entries
+                ):
                     raise ValueError("Source configuration changed. Review a new contract version.")
                 admit(contract, source["id"], snapshot, obligations)
             except (KeyError, ValueError) as exc:
