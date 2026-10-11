@@ -6,10 +6,12 @@ Stop with Ctrl+C. The new temporary workspace and practice database are removed.
 
 import argparse
 import json
+import re
 import secrets
 import tempfile
 import time
 from pathlib import Path
+from urllib.parse import quote, urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 
 import psycopg
@@ -80,13 +82,43 @@ COMMIT;
 """
 
 
+def demo_origin(value: str) -> str:
+    try:
+        address = urlsplit(value)
+        port = address.port
+    except ValueError:
+        raise NoCodeError("Synthetic setup requires its exact loopback launcher address.") from None
+    if (
+        address.scheme != "http"
+        or port is None
+        or not 1024 <= port <= 65535
+        or value != f"http://127.0.0.1:{port}"
+    ):
+        raise NoCodeError("Synthetic setup requires its exact loopback launcher address.")
+    return value
+
+
+def demo_path(path: str) -> str:
+    allowed = {
+        "/api/sources",
+        "/api/sources/exports-db/inspect",
+        "/api/sources/exports-db/readiness",
+        "/api/work-outcomes/contracts",
+        "/api/runs",
+    }
+    if path not in allowed and not re.fullmatch(r"/api/runs/inv-[a-f0-9]{32}", path):
+        raise NoCodeError("The synthetic setup response contained an invalid API path.")
+    return path
+
+
 def provision(origin: str, key: str) -> None:
     """Review the synthetic mapping using the normal source/readiness/review APIs."""
+    origin = demo_origin(origin)
     opener = build_opener(ProxyHandler({}), NoRedirect())
 
     def request(path: str, body: dict | None = None):
         req = Request(  # noqa: S310 -- origin is the bound loopback launcher address
-            origin + path,
+            origin + demo_path(path),
             data=None if body is None else json.dumps(body).encode(),
             headers={"X-OpsGraph-Key": key, "Content-Type": "application/json"},
         )
@@ -123,9 +155,13 @@ def provision(origin: str, key: str) -> None:
             "work_outcome": SCOPE,
         },
     )
+    run_id = created.get("id")
+    if not isinstance(run_id, str) or not re.fullmatch(r"inv-[a-f0-9]{32}", run_id):
+        raise NoCodeError("The synthetic setup response contained an invalid audit identifier.")
+    run_path = "/api/runs/" + quote(run_id, safe="")
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
-        saved = request("/api/runs/" + created["id"])
+        saved = request(run_path)
         if saved["status"] == "completed":
             facts = saved["answer"]["work_outcome"]["facts"]
             if facts["population"] != 1000 or facts["counts"]["overdue_unresolved"] != 12:
