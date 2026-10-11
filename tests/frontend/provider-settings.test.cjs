@@ -150,12 +150,13 @@ test('workspace loads provider configuration before rendering provider status', 
     loadSources: async () => {}, loadSkills: async () => {}, loadHistory: async () => {}, loadPolicy: async () => {}, loadHostingGuides: async () => {},
     loadProviderConfiguration: async () => { calls.push('configuration'); },
     loadProvider: async () => { calls.push('status'); },
+    workOutcomes: { connect: async () => { calls.push('audits'); } },
   });
   const begin = source.indexOf('  async function loadWorkspace()');
   const end = source.indexOf('  async function connectWorkspace(', begin);
   vm.runInContext(source.slice(begin, end), context);
   await context.loadWorkspace();
-  assert.deepEqual(calls, ['configuration', 'status']);
+  assert.deepEqual(calls, ['configuration', 'status', 'audits']);
 });
 
 test('submission refuses a stale tested state while provider edits are unsaved', async () => {
