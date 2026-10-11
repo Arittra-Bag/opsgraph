@@ -1,9 +1,11 @@
 """Real broker SQL versus independently labelled synthetic outcomes."""
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from psycopg import sql
 
 from opsgraph.brokers.postgres import PsycopgReadOnlyExecutor
 from opsgraph.brokers.query import QueryBroker, SelectOnlyValidator
@@ -15,10 +17,15 @@ from opsgraph.missed_work.service import checked_facts
 from opsgraph.orchestration.coordinator import RunBlocked
 from opsgraph.policy import FailClosedPolicy, StaticPolicyEvaluator
 
-from .export_oracle import reconcile
+from .export_oracle import InvalidPopulation, reconcile
 from .test_export_fixtures import large_cohort
 
 FIXTURE = json.loads(Path(__file__).with_name("export-cases.json").read_text())
+BLANK_IDS = ("", "   ", "\t\n\r\v\f", "\u00a0", "\u2003\u202f\u3000")
+
+
+def ready_case():
+    return deepcopy(next(c["data"] for c in FIXTURE["cases"] if c["id"] == "ready-on-time"))
 
 
 def capture(pg, contract=None, max_rows=100):  # noqa: ANN001
@@ -83,3 +90,89 @@ def test_full_totals_do_not_count_only_retained_examples(postgres):
 def test_low_row_budget_cannot_hide_quality_checks(postgres):
     with pytest.raises(ValueError, match="six state totals"):
         fact_query(postgres["contract"], postgres["scope"], 9)
+
+
+@pytest.mark.parametrize("event_id", BLANK_IDS)
+@pytest.mark.parametrize("kind", ("outcomes", "attempts", "cancellations"))
+def test_blank_event_identity_preserves_uncertainty(postgres, kind, event_id):
+    data = ready_case()
+    event = {**data["outcomes"][0], "event_id": event_id}
+    if kind != "outcomes":
+        event["status"] = "failed" if kind == "attempts" else "cancelled"
+        data["outcomes"] = []
+    data[kind] = [event]
+    expected = reconcile(data, FIXTURE["scope"])
+    assert expected["counts"]["unknown"] == 1
+    postgres["load"](data)
+    _, facts = capture(postgres)
+    assert facts["counts"] == expected["counts"]
+    assert facts["examples"][0]["breach"] is None
+
+
+@pytest.mark.parametrize("promise_id", BLANK_IDS)
+def test_blank_promise_identity_blocks_population(postgres, promise_id):
+    data = ready_case()
+    data["promises"][0]["promise_id"] = promise_id
+    data["outcomes"][0]["promise_id"] = promise_id
+    with pytest.raises(InvalidPopulation, match="promise key is missing"):
+        reconcile(data, FIXTURE["scope"])
+    postgres["load"](data)
+    with pytest.raises(RunBlocked, match="prevent a valid population"):
+        capture(postgres)
+
+
+def test_nonblank_identity_is_not_trimmed_or_rejoined(postgres):
+    data = ready_case()
+    data["promises"][0]["promise_id"] = " export-1 "
+    data["outcomes"][0].update(promise_id=" export-1 ", event_id=" event-1 ")
+    postgres["load"](data)
+    _, facts = capture(postgres)
+    assert facts["counts"] == reconcile(data, FIXTURE["scope"])["counts"]
+    assert facts["examples"][0]["promise_id"] == " export-1 "
+
+
+@pytest.mark.parametrize("key_type", ("integer", "bigint", "uuid"))
+def test_nonblank_typed_identities_remain_supported(postgres, key_type):
+    data = ready_case()
+    promise_id = "00000000-0000-0000-0000-000000000001" if key_type == "uuid" else "0"
+    event_id = "00000000-0000-0000-0000-000000000002" if key_type == "uuid" else "1"
+    data["promises"][0]["promise_id"] = promise_id
+    data["outcomes"][0].update(promise_id=promise_id, event_id=event_id)
+    postgres["load"](data)
+    columns = [("export_requests", "promise_id")]
+    columns += [
+        (table, column)
+        for table in ("export_outcomes", "export_attempts", "export_cancellations")
+        for column in ("promise_id", "event_id")
+    ]
+    changed = []
+
+    def change(table, column, target):  # noqa: ANN001
+        postgres["owner"].execute(
+            sql.SQL("ALTER TABLE {}.{} ALTER COLUMN {} TYPE {} USING {}::{}").format(
+                sql.Identifier(postgres["schema"]),
+                sql.Identifier(table),
+                sql.Identifier(column),
+                sql.SQL(target),
+                sql.Identifier(column),
+                sql.SQL(target),
+            )
+        )
+
+    try:
+        for table, column in columns:
+            change(table, column, key_type)
+            changed.append((table, column))
+        snapshot = PsycopgReadOnlyExecutor(postgres["dsn"]).discover_snapshot(
+            allowed_schemas=postgres["bounds"].allowed_schemas,
+            allowed_tables=postgres["bounds"].allowed_tables,
+        )
+        definition = postgres["contract"].model_dump()
+        definition["schema_fingerprint"] = snapshot.fingerprint
+        typed = {**postgres, "snapshot": snapshot, "contract": WorkOutcomeContract(**definition)}
+        _, facts = capture(typed)
+        assert facts["counts"] == reconcile(data, FIXTURE["scope"])["counts"]
+        assert facts["examples"][0]["promise_id"] == promise_id
+    finally:
+        for table, column in changed:
+            change(table, column, "text")

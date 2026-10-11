@@ -169,3 +169,10 @@ def test_incomplete_or_inconsistent_captures_cannot_become_checked_facts(problem
 def test_empty_examples_do_not_imply_complete_population():
     facts = checked_facts(artifact(healthy_rows()))
     assert facts["population"] == 1 and not facts["examples_complete"]
+
+
+@pytest.mark.parametrize("promise_id", (" ", "\t\n", "\u00a0", "\u2003"))
+def test_blank_example_identity_cannot_become_checked_facts(promise_id):
+    rows = healthy_rows() + [("example", "ready", promise_id, "customer-1", None, None, False)]
+    with pytest.raises(RunBlocked, match="membership is ambiguous"):
+        checked_facts(artifact(rows))

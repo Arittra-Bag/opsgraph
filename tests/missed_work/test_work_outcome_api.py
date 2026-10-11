@@ -18,6 +18,7 @@ from opsgraph.runtime import build_runtime
 
 from .pg_fixture import DisposableDatabase
 from .test_export_fixtures import large_cohort
+from .test_postgres import ready_case
 
 
 @pytest.fixture
@@ -243,3 +244,33 @@ def test_retry_retains_explicit_audit_scope(audit_api, postgres):
     assert second["status"] == "completed"
     assert second["work_outcome"] == first["work_outcome"]
     assert second["id"] != first["id"] and len(second["evidence"]) == 1
+
+
+@pytest.mark.parametrize("kind", ("promises", "outcomes", "attempts", "cancellations"))
+def test_blank_identity_cannot_produce_definitive_api_outcome(audit_api, postgres, kind):
+    data = ready_case()
+    if kind == "promises":
+        data["promises"][0]["promise_id"] = "\t\u00a0 "
+        data["outcomes"][0]["promise_id"] = "\t\u00a0 "
+    else:
+        event = {**data["outcomes"][0], "event_id": "\t\u00a0 "}
+        if kind != "outcomes":
+            event["status"] = "failed" if kind == "attempts" else "cancelled"
+            data["outcomes"] = []
+        data[kind] = [event]
+    postgres["load"](data)
+    assert review(audit_api, postgres).status_code == 200
+    response = audit_api["client"].post(
+        "/api/runs", headers=audit_api["headers"], json=body(postgres)
+    )
+    assert response.status_code == 202
+    run = wait(audit_api, response.json()["id"])
+    assert len(run["evidence"]) == 1
+    if kind == "promises":
+        assert run["status"] == "blocked" and run["answer"] is None
+    else:
+        assert run["status"] == "completed"
+        facts = run["answer"]["work_outcome"]["facts"]
+        assert facts["population"] == 1 and facts["counts"]["unknown"] == 1
+        assert sum(facts["counts"].values()) == 1
+        assert facts["examples"][0]["breach"] is None

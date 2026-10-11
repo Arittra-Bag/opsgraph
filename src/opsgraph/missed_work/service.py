@@ -49,7 +49,7 @@ def checked_facts(artifact):  # noqa: ANN001
     if sum(summaries.values()) != metadata["population"]:
         raise RunBlocked("Outcome states do not reconcile with the captured promise population.")
     ids = [r["promise_id"] for r in examples]
-    if len(ids) != len(set(ids)) or any(not isinstance(v, str) or not v for v in ids):
+    if len(ids) != len(set(ids)) or any(not isinstance(v, str) or not v.strip() for v in ids):
         raise RunBlocked("Example membership is ambiguous.")
     if (
         len(examples) > metadata["population"]
