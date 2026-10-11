@@ -8,8 +8,10 @@ const app = fs.readFileSync('src/opsgraph/web/static/app.js', 'utf8');
 function fixture() {
   class Node {
     constructor(tag = '') { this.tag = tag; this.value = ''; this.children = []; this.listeners = {}; this.disabled = false; this.hidden = false; this.checked = false; this.textContent = ''; }
+    get textContent() { return this.text || ''; }
+    set textContent(value) { this.text = value; this.children = []; }
     append(...values) { this.children.push(...values); }
-    replaceChildren(...values) { this.children = values; this.textContent = ''; }
+    replaceChildren(...values) { this.textContent = ''; this.children = values; }
     get firstChild() { return this.children[0]; }
     addEventListener(type, handler) { this.listeners[type] = handler; }
     querySelectorAll() { return this.children.filter(n => n.tag === 'button'); }
@@ -47,7 +49,7 @@ test('both deferred refresh responses and failures are discarded after reset', a
     const connect = f.mounted.connect(); f.disconnect();
     for (const p of pending) reject ? p.fail(new Error('Old private error')) : p.resolve([]);
     await connect;
-    assert.equal(f.$('mwStatus').textContent, 'Connect workspace to load reviewed contracts.');
+    assert.equal(f.$('mwStatus').textContent, 'Connect workspace to load reviewed export rules.');
     assert.equal(f.$('mwError').textContent, ''); assert.equal(f.$('mwHistory').textContent, 'No audits loaded.');
   }
 });
@@ -60,7 +62,7 @@ test('catalog failures stay in the audit view and a fresh refresh can recover', 
   f.setReply(path => path.includes('contracts') ? [{ definition: { id: 'customer-exports', version: 1, source_id: 'exports-db' } }] : []);
   await f.mounted.refresh();
   assert.equal(f.$('mwError').textContent, '');
-  assert.match(f.$('mwStatus').textContent, /1 reviewed contract/);
+  assert.match(f.$('mwStatus').textContent, /1 reviewed export rule set/);
 });
 test('recheck freezes the saved cohort even when input fields are edited', async () => {
   const f = fixture(); await f.mounted.connect(); f.setReply(path => path === '/api/runs' ? saved() : saved());
@@ -74,7 +76,7 @@ test('recheck freezes the saved cohort even when input fields are edited', async
 test('empty contract selection cannot silently choose the first definition', async () => {
   const f = fixture(); await f.mounted.connect(); f.$('mwContract').value = '';
   f.$('mwForm').listeners.submit({ preventDefault() {} }); await flush();
-  assert.match(f.$('mwError').textContent, /Select a reviewed contract/); assert.equal(f.calls.some(c => c.options?.method === 'POST'), false);
+  assert.match(f.$('mwError').textContent, /Select reviewed export rules/); assert.equal(f.calls.some(c => c.options?.method === 'POST'), false);
 });
 test('stale run responses and scheduled polls cannot repopulate forgotten evidence', async () => {
   const f = fixture(); await f.mounted.connect(); let resolve;
@@ -109,9 +111,9 @@ test('reset stops scheduled polling before another API request', async () => {
 });
 test('recovery comparisons require same cohort and visible membership, not just count subtraction', () => {
   const f = fixture(); const before = calculation(12, [{ promise_id: 'p', state: 'overdue_unresolved' }]); const after = calculation(0, [{ promise_id: 'p', state: 'cancelled' }]); after.scope.as_of = '2026-10-11T12:05:00Z';
-  assert.match(f.api.comparison(before, after), /0 previously overdue promises have captured readiness/);
+  assert.match(f.api.comparison(before, after), /0 previously overdue export requests are now recorded as ready/);
   after.facts.examples = []; assert.match(f.api.comparison(before, after), /At least 0/);
-  after.facts.population = 1001; assert.match(f.api.comparison(before, after), /population changed/);
+  after.facts.population = 1001; assert.match(f.api.comparison(before, after), /number of accepted export requests changed/);
   after.scope.tenant_id = 'tenant-b'; assert.equal(f.api.comparison(before, after), '');
 });
 test('failed audits show their saved error and cannot recheck an absent calculation', async () => {
@@ -136,4 +138,53 @@ test('saved contract audits do not inherit a fictitious model stage count', () =
   const context = vm.createContext({ $, state: { run: { id: 'run-test', status: 'completed', configuration: { execution_kind: 'work_outcome' }, evidence: [{}] }, runEvents: [] }, viewState: { stageProgress: () => ({}) } });
   vm.runInContext(app.slice(app.indexOf('  function renderExecutionProgress('), app.indexOf('  function renderComposerScope(')), context);
   context.renderExecutionProgress(); assert.match($('#stageSummary').textContent, /no model invocation · 1 capture/); assert.doesNotMatch($('#stageSummary').textContent, /0 of 4/);
+});
+
+test('completed recheck advances the next suggestion but preserves an explicitly later time', async () => {
+  const f = fixture(); await f.mounted.connect(); let result = saved();
+  f.setReply(() => result); await f.mounted.load('run-test');
+  assert.equal(f.$('mwLater').value, '2026-10-11T12:05:00');
+  const later = calculation(0); later.scope.as_of = '2026-10-11T12:05:00.000Z';
+  result = { ...saved(later), id: 'run-next', work_outcome: later.scope };
+  f.$('mwRecheckForm').listeners.submit({ preventDefault() {} }); await flush();
+  assert.equal(f.$('mwLater').value, '2026-10-11T12:10:00');
+  f.$('mwLater').value = '2026-10-11T13:00';
+  f.$('mwRecheckForm').listeners.submit({ preventDefault() {} }); await flush();
+  assert.equal(f.$('mwLater').value, '2026-10-11T13:00');
+});
+test('terminal results enter history without refresh, distinguish duplicate scopes and deduplicate IDs', async () => {
+  const f = fixture(); await f.mounted.connect(); let result = saved(); f.setReply(() => result);
+  await f.mounted.load('run-test'); assert.equal(f.$('mwHistory').children.length, 1);
+  await f.mounted.load('run-test'); assert.equal(f.$('mwHistory').children.length, 1);
+  result = { ...saved(), id: 'run-other' }; await f.mounted.load('run-other');
+  assert.equal(f.$('mwHistory').children.length, 2);
+  assert.notEqual(f.$('mwHistory').children[0].textContent, f.$('mwHistory').children[1].textContent);
+  f.disconnect(); assert.equal(f.$('mwHistory').children.length, 0);
+});
+test('late terminal result cannot enter history after workspace reset', async () => {
+  const f = fixture(); await f.mounted.connect(); let resolve;
+  f.setReply(() => new Promise(done => { resolve = done; }));
+  const pending = f.mounted.load('run-test'); f.disconnect(); resolve(saved()); await pending;
+  assert.equal(f.$('mwHistory').children.length, 0);
+  assert.equal(f.$('mwHistory').textContent, 'No audits loaded.');
+});
+test('same-time recheck names the saved UTC time without creating a run', async () => {
+  const f = fixture(); await f.mounted.connect(); f.setReply(() => saved()); await f.mounted.load('run-test');
+  f.$('mwLater').value = '2026-10-11T12:00';
+  f.$('mwRecheckForm').listeners.submit({ preventDefault() {} }); await flush();
+  assert.match(f.$('mwError').textContent, /after 2026-10-11T12:00:00.000Z \(UTC\)/);
+  assert.equal(f.calls.some(c => c.options?.method === 'POST'), false);
+});
+test('plain limitations and summary do not rewrite the saved calculation, answer or export', async () => {
+  const f = fixture(); await f.mounted.connect(); const result = saved();
+  result.answer.summary = '12 overdue unresolved exports across 8 customers; 5 terminal failures and 3 unknown among 1000 accepted promises.';
+  result.answer.limitations = ['Outcome definitions and source coverage are operator-reviewed premises, not verified business truth.', 'Ready database records do not prove customer access or an incident cause.'];
+  const original = JSON.stringify(result); f.setReply(() => result); await f.mounted.load('run-test');
+  assert.match(f.$('mwLimitations').children[0].textContent, /cannot verify those assumptions/);
+  assert.match(f.api.readable(result.answer.summary), /accepted export requests/);
+  assert.equal(f.api.readable('constructor'), 'constructor');
+  assert.match(f.$('mwLimitations').children[1].textContent, /does not prove the customer can open/);
+  await f.$('mwExport').listeners.click(); assert.equal(JSON.stringify(f.downloads[0][1]), original);
+  assert.equal(JSON.stringify(result), original);
+  assert.deepEqual(JSON.parse(f.$('mwEvidence').textContent).calculation, result.answer.work_outcome);
 });
