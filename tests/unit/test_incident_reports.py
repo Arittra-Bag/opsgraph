@@ -180,3 +180,27 @@ def test_oversized_selection_can_be_retried_without_rows(record):
 def test_options_do_not_coerce_sharing_consent(options):
     with pytest.raises(ValidationError):
         ReportOptions(**options)
+
+
+def test_outcome_report_distinguishes_calculation_and_honors_section_selection(record):
+    record["configuration"]["execution_kind"] = "work_outcome"
+    record["work_outcome"] = {"tenant_id": "sensitive-tenant", "as_of": "2026-10-11T12:00:00Z"}
+    record["answer"]["work_outcome"] = {
+        "method": "export-reconciliation-v1",
+        "calculation_hash": "separate-calculation-hash",
+        "facts": {
+            "population": 1000,
+            "affected_customers": 8,
+            "counts": {"overdue_unresolved": 12, "unknown": 3},
+            "overdue_examples_complete": False,
+        },
+    }
+    metadata = build_incident_report(record, ReportOptions())["markdown"]
+    assert "separate-calculation-hash" not in metadata and "sensitive-tenant" not in metadata
+    findings = build_incident_report(record, ReportOptions(include_findings=True))["markdown"]
+    assert "## Contract reconciliation" in findings and "## Model assessment" not in findings
+    assert "Accepted promises: 1000" in findings and "overdue\\_unresolved: 12" in findings
+    assert "Overdue examples complete: False" in findings
+    assert "separate-calculation-hash" in findings and "sensitive-tenant" not in findings
+    scope = build_incident_report(record, ReportOptions(include_scope=True))["markdown"]
+    assert "sensitive-tenant" in scope and "separate-calculation-hash" not in scope

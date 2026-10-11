@@ -21,6 +21,7 @@
   };
   const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, skillEditToken: 0, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
+  const workOutcomes = window.OpsGraphWorkOutcomes?.mount({ request: api, authenticated: () => state.authenticated, openRun, download });
   // A launcher supplies only a short-lived single-use token, never the API key.
   const launchToken = new URLSearchParams(location.hash.slice(1)).get('connect');
   if (launchToken !== null) history.replaceState(null, '', location.pathname + location.search);
@@ -112,6 +113,7 @@
     if (state.authenticated && name === 'audit') loadAudit().catch(showError);
     if (state.authenticated && name === 'policies') loadPolicy().catch(showError);
     if (state.authenticated && name === 'investigations') loadHistory().catch(showError);
+    if (state.authenticated && name === 'work-outcomes') void workOutcomes?.refresh();
   }
   function openDrawer(id, trigger) {
     if (state.activeDrawer) closeDrawer(false);
@@ -136,7 +138,8 @@
   function download(filename, value) {
     const url = URL.createObjectURL(new Blob([json(value)], { type: 'application/json' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename;
-    document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    document.body.append(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function stopStream() { state.streamToken++; state.stream?.abort(); state.stream = null; }
   const sourceReady = source => source?.kind === 'postgresql' && source.status === 'ready';
@@ -229,6 +232,11 @@
     };
     $('#executionTitle').textContent = state.run.error?.code === 'clarification_required' ? 'A little more context is needed' : titles[state.run.status] || 'Investigation in progress';
     $('.execution-card').dataset.state = state.run.error?.code === 'clarification_required' ? 'clarification' : state.run.status;
+    if (state.run.configuration?.execution_kind === 'work_outcome') {
+      $('#stageSummary').textContent = `Contract audit · no model invocation · ${(state.run.evidence || []).length} capture(s) retained`;
+      $('#stageList').innerHTML = '<li class="stage-unavailable">Model stages do not apply to this audit. Inspect its recorded activity and captures.</li>';
+      return;
+    }
     if (!state.runEvents.length) {
       $('#stageSummary').textContent = state.runEventsLoaded || state.run.legacy_provenance
         ? 'Detailed stage history is unavailable for this saved attempt.'
@@ -633,6 +641,9 @@
     const rejected = results.filter(item => item.status === 'rejected');
     if (rejected.some(item => item.reason.status === 401)) { state.authenticated = false; throw rejected.find(item => item.reason.status === 401).reason; }
     if (rejected.length) notice('#globalError', rejected.map(item => item.reason.message).join('\n'));
+    // Audit loading handles its own errors and must not delay V1 connection/history.
+    void workOutcomes?.connect();
+    if (epoch !== state.authEpoch) return;
     readiness();
     if (state.savedConnection && !state.sources.length && $('#sourceSetup').hidden) sourceSetup();
   }
@@ -656,6 +667,7 @@
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
   function clearWorkspace() {
+    workOutcomes?.reset();
     state.authEpoch++; state.skillEditToken++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); $('#tableChoices').replaceChildren(); $('#tableDiscovery').hidden = true; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
     state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.conversations = []; state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
@@ -924,7 +936,9 @@
     $('#openReport').disabled = conversational;
     $('.run-scope').hidden = conversational;
     const answer = conversational ? null : run.answer; $('#answerThread').hidden = conversational || (!answer && !(run.evidence || []).length); $('#conclusionCard').hidden = conversational || !answer;
-    $('#answerContext').textContent = answer ? 'Model assessment · review against saved evidence' : 'Saved captures · no completed model assessment';
+    const outcomeAudit = run.configuration?.execution_kind === 'work_outcome';
+    $('#answerContext').textContent = outcomeAudit ? 'Application calculation · operator-reviewed premises' : answer ? 'Model assessment · review against saved evidence' : 'Saved captures · no completed model assessment';
+    $('#conclusionCard .eyebrow').textContent = outcomeAudit ? 'Contract reconciliation · inspect captured facts' : 'Model overview · unverified interpretation';
     $('#conclusionTitle').textContent = answer?.summary || '';
     $('#limitations').innerHTML = (answer?.limitations || []).map(limit => `<li>${esc(limit)}</li>`).join('') || (answer ? '<li>No additional limitation recorded by the model. This does not establish completeness.</li>' : '<li>No completed model assessment was recorded. Inspect retained captures as partial evidence.</li>');
     const expandedClassifications = new Set([...($('#findingGrid').querySelectorAll?.('.classification-detail[open] > summary') || [])].map(node => node.dataset.focusKey));
@@ -932,7 +946,7 @@
     $('#findingGrid').innerHTML = (answer?.findings || []).map((finding, index) => {
       const classification = classes.has(finding.classification) ? finding.classification : 'unknown';
       const referenceCount = (finding.evidence_ids || []).length;
-      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(classification.toUpperCase())} · MODEL ASSESSMENT</span><small>${referenceCount} ${referenceCount === 1 ? 'reference' : 'references'}</small></div><h3>${esc(finding.claim)}</h3><details class="classification-detail"${expandedClassifications.has(`classification:${run.id}:${index}`) ? ' open' : ''}><summary data-focus-key="classification:${esc(run.id)}:${index}">About this classification</summary><p class="helper">${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.</p></details>${referenceCount ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#file-search"></use></svg>Inspect referenced evidence</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
+      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(classification.toUpperCase())} · ${outcomeAudit ? 'APPLICATION CALCULATION' : 'MODEL ASSESSMENT'}</span><small>${referenceCount} ${referenceCount === 1 ? 'reference' : 'references'}</small></div><h3>${esc(finding.claim)}</h3><details class="classification-detail"${expandedClassifications.has(`classification:${run.id}:${index}`) ? ' open' : ''}><summary data-focus-key="classification:${esc(run.id)}:${index}">About this classification</summary><p class="helper">${outcomeAudit ? 'Computed from the captured fact pack using the reviewed contract. Business meanings and source coverage remain operator-reviewed premises.' : `${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.`}</p></details>${referenceCount ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#file-search"></use></svg>Inspect referenced evidence</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
     }).join('');
     $('#evidenceSection').hidden = !(run.evidence || []).length;
     $('#toggleEvidence').dataset.count = String((run.evidence || []).length);
@@ -986,7 +1000,7 @@
     const otherAttempts = currentIndex < 0 ? [] : (turns[currentIndex].attempts || []).filter(attempt => attempt.id !== state.run.id);
     panel.hidden = !previous.length && !otherAttempts.length;
     const expanded = new Set([...(panel.querySelectorAll?.('details[open]') || [])].map(node => node.dataset.attempt));
-    preserveFocus(() => { panel.innerHTML = previous.map(turn => `<article class="historical-turn"><header class="message-author"><span aria-hidden="true">OP</span><div><b>You</b><small>${esc(stamp(turn.turn_created_at || turn.created_at))}</small></div></header><h2>${esc(turn.question)}</h2><div class="historical-response"><header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>${turn.response_kind === 'conversation' ? 'Conversation · no database query' : 'Saved response · evidence remains unchanged'}</small></div></header><p class="historical-summary">${esc(turn.assistant_message || turn.answer?.summary || turn.error?.message || `Saved state: ${turn.status}`)}</p>${turn.response_kind !== 'conversation' ? `<details class="historical-attempt" data-attempt="${esc(turn.id)}"${expanded.has(turn.id) ? ' open' : ''}><summary data-focus-key="turn-summary:${esc(turn.id)}">${esc(turn.error?.code === 'clarification_required' ? 'Clarification needed' : turn.status)} · ${(turn.evidence || []).length} captures · inspect this turn</summary>${(turn.answer?.findings || []).map(finding => `<p><strong>${esc(finding.classification)}</strong> · ${esc(finding.claim)}</p>`).join('')}<p class="helper">Earlier findings remain model assessments. Open this turn to inspect its evidence, execution details or report.</p><button class="secondary" data-run-id="${esc(turn.id)}" data-focus-key="attempt:${esc(turn.id)}">Inspect saved turn</button></details>` : ''}${historicalAttempts(turn, expanded)}</div></article>`).join('') + (otherAttempts.length ? `<details class="historical-attempt retry-history" data-attempt="other-attempts:${esc(state.run.turn_id || state.run.id)}"${expanded.has(`other-attempts:${state.run.turn_id || state.run.id}`) ? ' open' : ''}><summary data-focus-key="other-attempt-summary:${esc(state.run.turn_id || state.run.id)}">Other attempts in this turn (${otherAttempts.length})</summary>${otherAttempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.assistant_message || attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}" data-focus-key="attempt:${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>` : ''); });
+    preserveFocus(() => { panel.innerHTML = previous.map(turn => `<article class="historical-turn"><header class="message-author"><span aria-hidden="true">OP</span><div><b>You</b><small>${esc(stamp(turn.turn_created_at || turn.created_at))}</small></div></header><h2>${esc(turn.question)}</h2><div class="historical-response"><header class="message-author"><span aria-hidden="true">OG</span><div><b>OpsGraph</b><small>${turn.response_kind === 'conversation' ? 'Conversation · no database query' : 'Saved response · evidence remains unchanged'}</small></div></header><p class="historical-summary">${esc(turn.assistant_message || turn.answer?.summary || turn.error?.message || `Saved state: ${turn.status}`)}</p>${turn.response_kind !== 'conversation' ? `<details class="historical-attempt" data-attempt="${esc(turn.id)}"${expanded.has(turn.id) ? ' open' : ''}><summary data-focus-key="turn-summary:${esc(turn.id)}">${esc(turn.error?.code === 'clarification_required' ? 'Clarification needed' : turn.status)} · ${(turn.evidence || []).length} captures · inspect this turn</summary>${(turn.answer?.findings || []).map(finding => `<p><strong>${esc(finding.classification)}</strong> · ${esc(finding.claim)}</p>`).join('')}<p class="helper">${turn.configuration?.execution_kind === 'work_outcome' ? 'Earlier facts use the reviewed contract.' : 'Earlier findings remain model assessments.'} Open this turn to inspect its evidence, execution details or report.</p><button class="secondary" data-run-id="${esc(turn.id)}" data-focus-key="attempt:${esc(turn.id)}">Inspect saved turn</button></details>` : ''}${historicalAttempts(turn, expanded)}</div></article>`).join('') + (otherAttempts.length ? `<details class="historical-attempt retry-history" data-attempt="other-attempts:${esc(state.run.turn_id || state.run.id)}"${expanded.has(`other-attempts:${state.run.turn_id || state.run.id}`) ? ' open' : ''}><summary data-focus-key="other-attempt-summary:${esc(state.run.turn_id || state.run.id)}">Other attempts in this turn (${otherAttempts.length})</summary>${otherAttempts.map(attempt => `<div><p>${esc(attempt.status)} · ${esc(stamp(attempt.created_at))} · ${(attempt.evidence || []).length} captures</p><p>${esc(attempt.assistant_message || attempt.error?.message || attempt.answer?.summary || 'No completed assessment recorded.')}</p><button class="secondary" data-run-id="${esc(attempt.id)}" data-focus-key="attempt:${esc(attempt.id)}">Inspect attempt</button></div>`).join('')}</details>` : ''); });
   }
   async function loadConversation(run, token) {
     if (!run.conversation_id) { state.conversation = null; renderConversation(); return; }
@@ -1016,7 +1030,7 @@
     const finding = state.run?.answer?.findings?.[index]; if (!finding) return;
     const references = finding.evidence_ids || [];
     $('#evidenceDrawerTitle').textContent = 'Claim and referenced evidence';
-    $('#evidenceDetail').innerHTML = `<h3>${esc(finding.claim)}</h3><p class="helper">${esc(viewState.classificationExplanation(finding.classification))} References below do not independently establish support, contradiction or causality.</p><p class="helper">A separate explanation linking this classification to particular rows was not recorded. Inspect the query, values and limitations; the application does not infer that relationship from citation membership.</p>` + references.map(hash => {
+    $('#evidenceDetail').innerHTML = `<h3>${esc(finding.claim)}</h3><p class="helper">${state.run.configuration?.execution_kind === 'work_outcome' ? 'Computed from captured totals using the reviewed contract.' : esc(viewState.classificationExplanation(finding.classification))} References below do not independently establish support, contradiction or causality.</p><p class="helper">${state.run.configuration?.execution_kind === 'work_outcome' ? 'The captured summary rows and saved calculation record retain the totals behind this finding. Inspect the query and operator-reviewed premises.' : 'A separate explanation linking this classification to particular rows was not recorded. Inspect the query, values and limitations; the application does not infer that relationship from citation membership.'}</p>` + references.map(hash => {
       const matches = (state.run.evidence || []).map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => item.evidence_hash === hash);
       return matches.length ? matches.map(({ item, itemIndex }) => `<button class="evidence-reference" data-evidence="${itemIndex}"><b>${esc(item.purpose || 'Recorded capture')}</b><span>${esc(hash)} · ${esc(stamp(item.provenance?.finished_at || item.created_at))}</span></button>`).join('') : `<p class="notice error">Referenced evidence unavailable: ${esc(hash)}. Claim cannot be verified from this result.</p>`;
     }).join('');

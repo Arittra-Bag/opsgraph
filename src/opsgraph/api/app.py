@@ -1201,3 +1201,7 @@ app.router.lifespan_context = run_api.lifespan
 from opsgraph.api.provider_settings import router_for  # noqa: E402
 
 app.include_router(router_for(runtime, run_api))
+
+from opsgraph.api.work_outcomes import router_for as work_outcome_router_for  # noqa: E402
+
+app.include_router(work_outcome_router_for(runtime, authorize))

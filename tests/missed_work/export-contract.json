@@ -1,0 +1,64 @@
+{
+  "id": "customer-exports",
+  "version": 1,
+  "source_id": "exports-db",
+  "schema_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "promises": {
+    "relation": "public.export_requests",
+    "promise_key": "promise_id",
+    "tenant_key": "tenant_id",
+    "customer_key": "customer_id",
+    "accepted_at": "accepted_at"
+  },
+  "deadline": {
+    "kind": "recorded",
+    "due_at": "due_at"
+  },
+  "coverage": {
+    "relation": "public.export_coverage",
+    "tenant_key": "tenant_id",
+    "complete_through": "complete_through"
+  },
+  "outcomes": {
+    "relation": "public.export_outcomes",
+    "event_key": "event_id",
+    "promise_key": "promise_id",
+    "tenant_key": "tenant_id",
+    "occurred_at": "occurred_at",
+    "status_column": "status",
+    "ready_statuses": [
+      "ready"
+    ],
+    "terminal_failure_statuses": [
+      "terminal_failure"
+    ]
+  },
+  "attempts": {
+    "relation": "public.export_attempts",
+    "event_key": "event_id",
+    "promise_key": "promise_id",
+    "tenant_key": "tenant_id",
+    "occurred_at": "occurred_at",
+    "status_column": "status",
+    "known_statuses": [
+      "queued",
+      "running",
+      "failed",
+      "succeeded"
+    ],
+    "failed_statuses": [
+      "failed"
+    ]
+  },
+  "cancellations": {
+    "relation": "public.export_cancellations",
+    "event_key": "event_id",
+    "promise_key": "promise_id",
+    "tenant_key": "tenant_id",
+    "occurred_at": "occurred_at",
+    "status_column": "status",
+    "legitimate_statuses": [
+      "cancelled"
+    ]
+  }
+}

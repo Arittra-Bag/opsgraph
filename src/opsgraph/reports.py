@@ -119,7 +119,11 @@ def _append_scope(lines: list[str], configuration: dict[str, Any]) -> None:
             "Playbook": configuration.get("skill_id"),
             "Playbook version": configuration.get("skill_version"),
             "Provider": configuration.get("provider"),
-            "Configured model": configuration.get("model"),
+            (
+                "Calculation method"
+                if configuration.get("execution_kind") == "work_outcome"
+                else "Configured model"
+            ): configuration.get("model"),
             "Source revision": configuration.get("source_revision"),
             "Schema fingerprint": configuration.get("schema_fingerprint"),
             "Schema inspected": configuration.get("schema_inspected_at"),
@@ -135,12 +139,41 @@ def _append_scope(lines: list[str], configuration: dict[str, Any]) -> None:
         )
 
 
-def _append_assessment(lines: list[str], answer: dict[str, Any], captured_ids: set[str]) -> None:
-    lines.extend(["## Model assessment", ""])
+def _append_assessment(
+    lines: list[str], answer: dict[str, Any], captured_ids: set[str], *, application: bool = False
+) -> None:
+    lines.extend(["## Contract reconciliation" if application else "## Model assessment", ""])
     if not answer:
         lines.extend(["No completed model assessment was recorded in this snapshot.", ""])
         return
     lines.extend([_text(answer.get("summary")), ""])
+    if application and answer.get("work_outcome"):
+        calculation = answer["work_outcome"]
+        facts = calculation["facts"]
+        lines.extend(
+            [
+                "Application calculation; no model invocation. Business meanings and "
+                "authoritative source coverage remain operator-reviewed premises.",
+                "",
+                f"- Method: {_text(calculation.get('method'))}",
+                f"- Accepted promises: {_text(facts.get('population'))}",
+                "- Customers with overdue unresolved work: "
+                + _text(facts.get("affected_customers")),
+            ]
+        )
+        lines.extend(
+            f"- {_text(state)}: {_text(count)}" for state, count in facts["counts"].items()
+        )
+        lines.extend(
+            [
+                f"- Overdue examples complete: {_text(facts.get('overdue_examples_complete'))}",
+                f"- Calculation hash: {_text(calculation.get('calculation_hash'))}",
+                "",
+                "Totals precede example limits. Calculation and original capture hashes "
+                "are distinct; neither establishes authenticity or causality.",
+                "",
+            ]
+        )
     findings = answer.get("findings") or []
     for index, finding in enumerate(findings, 1):
         lines.extend(
@@ -250,9 +283,21 @@ def build_incident_report(run: dict[str, Any], options: ReportOptions) -> dict[s
         lines.extend(["## Question", "", _text(run.get("question")), ""])
     if options.include_scope:
         _append_scope(lines, configuration)
+        if configuration.get("execution_kind") == "work_outcome":
+            lines.extend(["### Recorded outcome scope", ""])
+            lines.extend(
+                f"- {_text(key)}: {_text(value)}"
+                for key, value in (run.get("work_outcome") or {}).items()
+            )
+            lines.append("")
     captured_ids = {item.get("evidence_hash") for item in evidence}
     if options.include_findings:
-        _append_assessment(lines, answer, captured_ids)
+        _append_assessment(
+            lines,
+            answer,
+            captured_ids,
+            application=configuration.get("execution_kind") == "work_outcome",
+        )
     _append_captures(lines, evidence, options, partial)
     included = [
         name.removeprefix("include_") for name, value in options.model_dump().items() if value
