@@ -274,3 +274,150 @@ def test_blank_identity_cannot_produce_definitive_api_outcome(audit_api, postgre
         assert facts["population"] == 1 and facts["counts"]["unknown"] == 1
         assert sum(facts["counts"].values()) == 1
         assert facts["examples"][0]["breach"] is None
+
+
+def seed_legacy_review(api, pg):  # noqa: ANN001
+    """An existing pre-fix record and its original immutable review receipt."""
+    runtime = api["runtime"]
+    value = {
+        "record_type": "work_outcome_contract",
+        "definition": pg["contract"].model_dump(mode="json"),
+        "source_revision": stable_hash(api["source"]),
+    }
+    runtime.store.put(
+        WorkspaceRecord(runtime.settings.workspace_id, "work-outcome:customer-exports:1", value)
+    )
+    receipt = runtime.audit.append(
+        workspace_id=runtime.settings.workspace_id,
+        actor="local-operator",
+        action="core.source.manage",
+        resource="exports-db",
+        outcome="allowed",
+        details={
+            "operation": "review_work_outcome",
+            "contract_id": "customer-exports",
+            "version": 1,
+            "definition_hash": stable_hash(value),
+        },
+    )
+    return value, receipt
+
+
+def enable_readiness_route(api, monkeypatch):  # noqa: ANN001
+    from opsgraph.api import app as app_module
+
+    monkeypatch.setattr(app_module, "runtime", api["runtime"])
+    api["client"].app.add_api_route(
+        "/api/sources/{source_id}/readiness", app_module.check_source_readiness, methods=["POST"]
+    )
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_real_readiness_refresh_preserves_review_receipt_audit_and_recheck(
+    audit_api, postgres, monkeypatch, legacy
+):
+    postgres["load"](large_cohort())
+    enable_readiness_route(audit_api, monkeypatch)
+    runtime = audit_api["runtime"]
+    workspace = runtime.settings.workspace_id
+    if legacy:
+        saved, receipt = seed_legacy_review(audit_api, postgres)
+    else:
+        saved = review(audit_api, postgres).json()
+        receipt = runtime.audit.entries[-1]
+    created = audit_api["client"].post(
+        "/api/runs", headers=audit_api["headers"], json=body(postgres)
+    )
+    first = wait(audit_api, created.json()["id"])
+    assert first["status"] == "completed", first.get("error")
+    original = (
+        audit_api["client"]
+        .get(f"/api/runs/{first['id']}/export", headers=audit_api["headers"])
+        .json()
+    )
+    for _ in range(2):
+        before = runtime.store.get(workspace_id=workspace, record_id="source:exports-db").value
+        response = audit_api["client"].post(
+            "/api/sources/exports-db/readiness",
+            headers=audit_api["headers"],
+            json={"table": postgres["bounds"].allowed_tables[0], "confirm_bounded_read": True},
+        )
+        assert response.status_code == 200, response.text
+        readiness_receipt = next(
+            e
+            for e in reversed(runtime.audit.entries)
+            if e.action == "core.source.readiness" and e.outcome == "allowed"
+        )
+        assert readiness_receipt.details["previous_source_revision"] == stable_hash(before)
+        assert readiness_receipt.details["source_access_revision"] == source_readiness_basis(before)
+        assert review(audit_api, postgres).json() == saved
+        request = {**body(postgres), "parent_run_id": first["id"]}
+        response = audit_api["client"].post("/api/runs", headers=audit_api["headers"], json=request)
+        later = wait(audit_api, response.json()["id"])
+        assert later["status"] == "completed", later.get("error")
+        assert later["answer"]["work_outcome"]["facts"] == first["answer"]["work_outcome"]["facts"]
+    assert (
+        runtime.store.get(workspace_id=workspace, record_id="work-outcome:customer-exports:1").value
+        == saved
+    )
+    assert runtime.audit.entries[receipt.sequence - 1] == receipt
+    assert runtime.audit.verify(runtime.audit.entries).valid
+    assert (
+        audit_api["client"]
+        .get(f"/api/runs/{first['id']}/export", headers=audit_api["headers"])
+        .json()
+        == original
+    )
+
+
+def test_unproved_old_refresh_cannot_upgrade_a_legacy_review(audit_api, postgres):
+    postgres["load"](large_cohort())
+    saved, receipt = seed_legacy_review(audit_api, postgres)
+    runtime = audit_api["runtime"]
+    workspace = runtime.settings.workspace_id
+    refreshed = {
+        **audit_api["source"],
+        "readiness": {**audit_api["source"]["readiness"], "checked_at": "old-unrecorded-refresh"},
+    }
+    runtime.store.put(WorkspaceRecord(workspace, "source:exports-db", refreshed))
+    assert review(audit_api, postgres).status_code == 409
+    response = audit_api["client"].post(
+        "/api/runs", headers=audit_api["headers"], json=body(postgres)
+    )
+    run = wait(audit_api, response.json()["id"])
+    assert run["status"] == "blocked"
+    assert run["evidence"] == []
+    assert (
+        runtime.store.get(workspace_id=workspace, record_id="work-outcome:customer-exports:1").value
+        == saved
+    )
+    assert runtime.audit.entries[receipt.sequence - 1] == receipt
+
+
+def test_readiness_change_during_execution_still_blocks(audit_api, postgres, monkeypatch):
+    postgres["load"](large_cohort())
+    assert review(audit_api, postgres).status_code == 200
+    runtime = audit_api["runtime"]
+    workspace = runtime.settings.workspace_id
+    from opsgraph.brokers import PsycopgReadOnlyExecutor
+
+    execute = PsycopgReadOnlyExecutor.execute_readonly
+
+    def refresh_during_read(self, sql, *, timeout_ms):
+        captured = execute(self, sql, timeout_ms=timeout_ms)
+        source = runtime.store.get(workspace_id=workspace, record_id="source:exports-db").value
+        changed = {
+            **source,
+            "readiness": {**source["readiness"], "checked_at": "changed-during-run"},
+        }
+        runtime.store.put(WorkspaceRecord(workspace, "source:exports-db", changed))
+        return captured
+
+    monkeypatch.setattr(PsycopgReadOnlyExecutor, "execute_readonly", refresh_during_read)
+    response = audit_api["client"].post(
+        "/api/runs", headers=audit_api["headers"], json=body(postgres)
+    )
+    run = wait(audit_api, response.json()["id"])
+    assert run["status"] == "blocked"
+    assert run["answer"] is None
+    assert len(run["evidence"]) == 1

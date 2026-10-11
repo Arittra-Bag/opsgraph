@@ -15,6 +15,7 @@ from opsgraph.domain.models import stable_hash
 from opsgraph.domain.work_outcome import WorkOutcomeContract
 from opsgraph.missed_work.contracts import admit, record_id
 from opsgraph.persistence import WorkspaceRecord
+from opsgraph.readiness import reviewed_source_matches, source_readiness_basis
 from opsgraph.schema_service import SchemaSnapshot
 
 
@@ -85,6 +86,7 @@ def router_for(runtime, authorize):
             "record_type": "work_outcome_contract",
             "definition": contract.model_dump(mode="json"),
             "source_revision": stable_hash(source),
+            "source_access_revision": source_readiness_basis(source),
         }
         if any(
             authorize(principal, action, contract.source_id) != permissions[action]
@@ -99,11 +101,14 @@ def router_for(runtime, authorize):
                     (principal.workspace_id, key),
                 ).fetchone()
                 if existing:
-                    if json.loads(existing[0]) != value:
+                    saved = json.loads(existing[0])
+                    if saved["definition"] != value["definition"] or not reviewed_source_matches(
+                        saved, source, principal.workspace_id, runtime.audit.entries
+                    ):
                         raise HTTPException(
                             409, "Reviewed contract versions are immutable. Save a new version."
                         )
-                    return value
+                    return saved
                 if not runtime.store.replace_if_unchanged_in_transaction(
                     connection,
                     source_record,

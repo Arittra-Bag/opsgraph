@@ -101,7 +101,7 @@ UTC. Run the audit to see all six full-population totals, affected customers,
 unknowns and the bounded overdue list. The source must pass normal readiness
 checks; a model is not required for this explicit audit.
 
-Use **Recheck original cohort** to submit a later cutoff with the saved contract,
+Use **Check these same exports again** to submit a later cutoff with the saved contract,
 tenant and window. Changes in overdue counts are not themselves evidence of
 recovery. The comparison counts previously overdue IDs with captured readiness
 in the later examples; incomplete membership is labelled as a lower bound. It
@@ -165,3 +165,17 @@ events already exist at 12:01; changing the cutoff reveals them. No repair or
 remediation is performed. Screenshots from the local browser smoke show the
 [baseline](assets/missed-work/baseline.jpg) and
 [later recheck](assets/missed-work/recheck.jpg).
+
+## Readiness refresh and existing reviews
+
+A successful bounded readiness check does not change the reviewed export rules.
+New reviews record the source access settings separately from probe metadata.
+Existing contract records and their original review receipts are never rewritten.
+A readiness refresh records the previous source revision and unchanged access
+settings in the same transaction, so an existing review can remain usable.
+Changed access settings or schema inspection still require a new reviewed version.
+
+An older review already invalidated by a refresh before this compatibility fix
+has no recorded link establishing unchanged access. It remains blocked: explicitly
+review a new contract version rather than edit the original record or receipt.
+Saved audit calculations, query captures and hashes remain unchanged.
