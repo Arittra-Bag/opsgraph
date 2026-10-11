@@ -18,6 +18,10 @@ from opsgraph.brokers import PsycopgReadOnlyExecutor, SourceSchemaChanged
 from opsgraph.brokers.query import intersect_obligations
 from opsgraph.domain import EvidenceBinding, Obligation, Principal
 from opsgraph.domain.models import stable_hash
+from opsgraph.domain.work_outcome import WorkOutcomeContract
+from opsgraph.missed_work.contracts import WorkOutcomeRequest, admit, record_id
+from opsgraph.missed_work.service import METHOD
+from opsgraph.missed_work.service import execute as execute_work_outcome
 from opsgraph.orchestration.connected import _effective_obligations, run_connected
 from opsgraph.orchestration.coordinator import RunBlocked, RunCoordinator
 from opsgraph.persistence import WorkspaceRecord
@@ -42,6 +46,7 @@ class RunRequest(BaseModel):
     skill_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9.-]{0,127}$")
     parent_run_id: str | None = Field(default=None, max_length=128)
     request_id: str | None = Field(default=None, min_length=1, max_length=128)
+    work_outcome: WorkOutcomeRequest | None = None
 
     @field_validator("question")
     @classmethod
@@ -104,7 +109,9 @@ class RunAPI:
             if conversation["source_id"] != body.source_id:
                 raise HTTPException(409, "conversation source cannot be changed")
         try:
-            run = self.store.create(principal.workspace_id, body.model_dump(), retry_of=retry_of)
+            run = self.store.create(
+                principal.workspace_id, body.model_dump(mode="json"), retry_of=retry_of
+            )
         except QueueFull as exc:
             raise HTTPException(429, str(exc)) from exc
         except ValueError as exc:
@@ -124,7 +131,8 @@ class RunAPI:
         from opsgraph.orchestration.conversation import capability_reply
 
         reply = capability_reply(run["question"])
-        if reply:
+        work_request = run.get("work_outcome")
+        if reply and not work_request:
             self.authorize(principal, "core.investigation.connected", run["source_id"])
             check()
             return {
@@ -163,7 +171,7 @@ class RunAPI:
             skill = runtime.skills.get_published(run["skill_id"])
         except KeyError as exc:
             raise RunBlocked("Selected playbook is not published.", 422) from exc
-        if runtime.provider.config.kind == "deterministic":
+        if not work_request and runtime.provider.config.kind == "deterministic":
             raise RunBlocked(
                 "Configure a real local or hosted model. "
                 "Replay providers cannot investigate sources."
@@ -193,8 +201,10 @@ class RunAPI:
         dsn = os.getenv(source["secret_ref"])
         if not dsn:
             raise RunBlocked("Source credential reference is not configured on the server.")
-        if runtime.provider.capabilities.external_egress and not source.get(
-            "allow_external_egress"
+        if (
+            not work_request
+            and runtime.provider.capabilities.external_egress
+            and not source.get("allow_external_egress")
         ):
             raise RunBlocked("This source does not permit external model processing.", 403)
         snapshot = SchemaSnapshot.model_validate(
@@ -222,6 +232,38 @@ class RunAPI:
                 "Choose a compatible playbook or review the backend allowlist and source scope."
             ) from exc
         snapshot = snapshot.scoped(obligations.allowed_tables)
+        contract = None
+        if work_request:
+            scope = WorkOutcomeRequest.model_validate(work_request)
+            try:
+                saved_contract = runtime.store.get(
+                    workspace_id=workspace, record_id=record_id(scope.contract_id, scope.version)
+                ).value
+                contract = WorkOutcomeContract.model_validate(saved_contract["definition"])
+                runtime.audit.require_valid()
+                if (
+                    contract.id != scope.contract_id
+                    or contract.version != scope.version
+                    or not any(
+                        entry.workspace_id == workspace
+                        and entry.action == "core.source.manage"
+                        and entry.outcome == "allowed"
+                        and entry.resource == contract.source_id
+                        and entry.details.get("operation") == "review_work_outcome"
+                        and entry.details.get("contract_id") == contract.id
+                        and entry.details.get("version") == contract.version
+                        and entry.details.get("definition_hash") == stable_hash(saved_contract)
+                        for entry in runtime.audit.entries
+                    )
+                ):
+                    raise ValueError("Contract has no matching immutable review receipt.")
+                if saved_contract["source_revision"] != stable_hash(source):
+                    raise ValueError("Source configuration changed. Review a new contract version.")
+                admit(contract, source["id"], snapshot, obligations)
+            except (KeyError, ValueError) as exc:
+                raise RunBlocked(
+                    "A current, source-scoped reviewed export contract is required."
+                ) from exc
         tables = obligations.allowed_tables
         frozen_skills = SkillRepository(tools=runtime.tools, policy_ceiling=obligations)
         # Apply stricter current policy to this execution copy, preserving published content.
@@ -264,6 +306,18 @@ class RunAPI:
             "schema_profile": runtime.provider.config.schema_profile,
             "provider_timeout_seconds": runtime.provider.config.timeout_seconds,
         }
+        if contract is not None:
+            configuration.update(
+                provider="application",
+                model=METHOD,
+                max_queries=1,
+                reasoning_effort=None,
+                schema_profile=None,
+                provider_timeout_seconds=None,
+                execution_kind="work_outcome",
+                work_outcome_contract=contract.model_dump(mode="json"),
+                work_outcome_scope=scope.model_dump(mode="json"),
+            )
         observe("configured", {"configuration": configuration})
         parent_context = ""
         if run["parent_run_id"]:
@@ -433,6 +487,17 @@ class RunAPI:
         check_schema()
 
         try:
+            if contract is not None:
+                return execute_work_outcome(
+                    contract=contract,
+                    scope=scope,
+                    principal=principal,
+                    obligations=obligations,
+                    executor=executor,
+                    observe=observe,
+                    check=authorized_check,
+                    provenance=configuration,
+                )
             return run_connected(
                 question=run["question"],
                 provider=runtime.provider,
@@ -615,6 +680,7 @@ class RunAPI:
                 source_id=run["source_id"],
                 skill_id=run["skill_id"],
                 parent_run_id=run["parent_run_id"],
+                work_outcome=run.get("work_outcome"),
             )
             return self.submit(body, principal, retry_of=run_id)
 

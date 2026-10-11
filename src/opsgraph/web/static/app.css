@@ -751,3 +751,26 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); cursor:
     box-shadow: none;
   }
 }
+/* Opt-in outcome audit workspace, using the existing application palette. */
+.outcome-layout { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.outcome-inputs, .outcome-result { min-width: 0; }
+.outcome-inputs form, .outcome-result form { margin: 18px 0; }
+.outcome-inputs fieldset, .outcome-result fieldset { border: 0; padding: 0; min-width: 0; }
+.outcome-inputs input, .outcome-inputs select, .outcome-inputs textarea, #mwLater { width: 100%; }
+.outcome-inputs details { margin: 16px 0; }
+.outcome-contract-review { border-top: 1px solid var(--line); padding-top: 20px; }
+.outcome-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0 16px; }
+.outcome-count { border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.outcome-count strong { font-size: 32px; line-height: 1.1; }
+.outcome-count span { font-size: 13px; color: var(--muted); }
+.outcome-overdue_unresolved { border-color: #b68b55; background: #b68b5512; }
+.outcome-unknown { border-style: dashed; }
+.outcome-table-wrap { overflow-x: auto; margin: 16px 0 24px; }
+.outcome-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.outcome-table th, .outcome-table td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.outcome-history { display: block; width: 100%; text-align: left; margin: 8px 0; overflow-wrap: anywhere; }
+.outcome-result > p, .outcome-result li { overflow-wrap: anywhere; }
+.outcome-result details { margin-top: 24px; }
+#mwDefinition, #mwEvidence { max-height: 420px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 1100px) { .outcome-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .outcome-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .outcome-count { padding: 14px; } }

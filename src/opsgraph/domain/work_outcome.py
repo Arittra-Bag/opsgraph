@@ -1,6 +1,6 @@
 """Declarative definitions for the first, customer-export outcome contract.
 
-This module is not wired into V1 source configuration or investigation execution.
+This module only defines semantics; approval and execution are separate opt-in steps.
 Validation establishes a bounded definition, not source authority, authorization,
 operator approval, completeness, or the existence of the mapped schema.
 """
