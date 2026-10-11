@@ -262,3 +262,35 @@ test('classification disclosure stays expanded during refresh of the same findin
   f.context.renderRun({ ...run, id: 'run-b' });
   assert.doesNotMatch(f.$('#findingGrid').innerHTML, /class="classification-detail" open/);
 });
+
+test('evidence explains application calculations without changing model investigation wording', () => {
+  const f = fixture(); f.context.viewState = { captureStatus: () => 'Saved capture' };
+  vm.runInContext(source.slice(source.indexOf('  function evidenceMarkup('), source.indexOf('  function showEvidence(')), f.context);
+  const item = { columns: ['value'], rows: [[42]], integrity: { format: 'opsgraph-canonical-json-v1', canonical_json: '{"value":42}' } };
+  const original = JSON.stringify(item);
+  const application = f.context.evidenceMarkup(item, { configuration: { execution_kind: 'work_outcome' } });
+  assert.match(application, /do not verify the export rules, data completeness/);
+  assert.doesNotMatch(application, /model's interpretation/);
+  assert.match(application, /value.*42/);
+  const model = f.context.evidenceMarkup(item, { configuration: { execution_kind: 'model' } });
+  assert.match(model, /do not verify the model's interpretation/);
+  assert.match(model, /not capture provenance or the model's interpretation/);
+  assert.equal(JSON.stringify(item), original);
+});
+
+test('incomplete export checks do not claim a missing model assessment', () => {
+  const f = fixture(); f.state.runs = [];
+  const original = f.context.$;
+  f.context.$ = selector => { const node = original(selector); node.dataset ||= {}; node.options ||= []; node.insertAdjacentHTML = () => {}; return node; };
+  f.context.viewState = { focusBookmark: () => ({}), currentOperation: () => 'Running', captureStatus: () => 'Partial evidence' };
+  f.context.scopeMarkup = () => '';
+  f.context.window = { OpsGraphWorkOutcomes: { readable: value => value || '' } };
+  f.context.document = {}; f.context.sessionStorage = { setItem() {} };
+  f.context.terminal = () => false; f.context.renderExecutionProgress = () => {};
+  f.context.renderHistory = () => {}; f.context.readiness = () => {};
+  vm.runInContext(source.slice(source.indexOf('  function renderRun('), source.indexOf('  function evidenceMarkup(')), f.context);
+  f.context.renderRun({ id: 'run-a', source_id: 'source-a', status: 'running', question: 'Export check', configuration: { execution_kind: 'work_outcome' }, evidence: [] });
+  assert.match(f.$('#limitations').innerHTML, /No completed export calculation/);
+  assert.doesNotMatch(f.$('#limitations').innerHTML, /model assessment/);
+  assert.match(f.$('#evidenceReferenceHelp').textContent, /records used in this calculation/);
+});

@@ -26,6 +26,7 @@
       <nav id="primaryNav">
         <button class="nav-item active" data-view="investigations" aria-current="page"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#search"></use></svg>Investigations</button>
         <button class="nav-item" data-view="sources"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#database"></use></svg>Sources</button>
+        <button class="nav-item" data-view="work-outcomes"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#file-search"></use></svg>Export audits</button>
         <button class="nav-item" data-view="playbooks"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#book-open"></use></svg>Playbooks</button>
         <button class="nav-item" data-view="policies"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#shield-check"></use></svg>Policies</button>
         <button class="nav-item" data-view="audit"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#scroll-text"></use></svg>Audit</button>
@@ -77,7 +78,7 @@
                   <section class="decision-card" id="conclusionCard" hidden><div><p class="eyebrow">Model overview · unverified interpretation</p><h3 id="conclusionTitle"></h3><p>Review findings, captured records and limitations before relying on this assessment.</p></div></section>
                   <section class="finding-grid" id="findingGrid" aria-label="Findings"></section>
                   <section class="limitations-section" id="limitationsSection"><h3>What this result does not establish</h3><ul id="limitations"></ul><p id="captureStatus" class="helper"></p></section>
-                  <section class="evidence-section" id="evidenceSection" hidden><button class="secondary" id="toggleEvidence" aria-expanded="false" aria-controls="evidencePanel">Show captured records</button><div id="evidencePanel" hidden><p class="helper">References identify what the model cited. They do not independently establish semantic support or causality.</p><div id="evidenceLedger"></div></div></section>
+                  <section class="evidence-section" id="evidenceSection" hidden><button class="secondary" id="toggleEvidence" aria-expanded="false" aria-controls="evidencePanel">Show captured records</button><div id="evidencePanel" hidden><p class="helper" id="evidenceReferenceHelp">References identify what the model cited. They do not independently establish semantic support or causality.</p><div id="evidenceLedger"></div></div></section>
                 </article>
               </div>
             </section>
@@ -126,6 +127,30 @@
           </form>
         </section>
       </section>
+      <section class="view catalog-view" data-view-panel="work-outcomes" aria-labelledby="workOutcomesTitle" hidden>
+        <header class="page-header"><div><p class="eyebrow">Export requests → results</p><h1 id="workOutcomesTitle">Which exports missed their deadline?</h1><p>Check accepted export requests, see where results are uncertain, and check the same exports again. OpsGraph calculates from saved database records; no AI model is needed.</p></div><button class="secondary" id="mwRefresh" disabled>Refresh saved audits</button></header>
+        <div class="notice error" id="mwError" role="alert" hidden></div><p id="mwStatus" role="status">Connect workspace to load reviewed export rules.</p>
+        <div class="outcome-layout">
+          <section class="outcome-inputs"><h2>Choose exports to check</h2><form id="mwForm"><fieldset id="mwFields" disabled>
+            <label for="mwContract">Reviewed export rules</label><select id="mwContract" required><option value="">Select reviewed export rules</option></select><details><summary>Inspect selected export rules (JSON)</summary><pre class="data-block" id="mwDefinition">No export rules selected.</pre></details>
+            <label for="mwTenant">Tenant ID (workspace or organization)</label><input id="mwTenant" required maxlength="128" autocomplete="off" placeholder="tenant-a">
+            <label for="mwStart">Accepted from, including this time (UTC)</label><input id="mwStart" type="datetime-local" step="1" required>
+            <label for="mwEnd">Accepted before, excluding this time (UTC)</label><input id="mwEnd" type="datetime-local" step="1" required>
+            <label for="mwCutoff">Check results up to (UTC)</label><input id="mwCutoff" type="datetime-local" step="1" required><p class="helper">Check one tenant and an acceptance period of up to 31 days. The check time must be at or after that period ends. Totals include every accepted export request in the period; the list may show only some examples.</p>
+            <button class="primary" type="submit" id="mwRun">Run export audit</button>
+          </fieldset></form>
+          <details class="outcome-contract-review"><summary>Advanced setup: review export rules</summary><p>First connect, inspect and test a read-only PostgreSQL source in Sources. Review which records represent one export request, how its records are linked, and the time through which the source says its data is complete. Validation checks columns and permitted data; it cannot prove these business meanings.</p><form id="mwReviewForm"><fieldset id="mwReviewFields" disabled><label for="mwContractJson">Complete export rules (WorkOutcomeContract JSON)</label><textarea id="mwContractJson" required rows="10" spellcheck="false"></textarea><label class="checkbox-label"><input type="checkbox" id="mwConfirm" required><span>I reviewed what counts as one export request, how records are linked within each tenant, deadlines, final outcomes, valid cancellations, and the source’s data-completeness guarantee.</span></label><button class="secondary" type="submit" id="mwSave">Save reviewed rules as a new fixed version</button></fieldset></form></details>
+          <h2>Saved export audits</h2><div id="mwHistory"><p class="helper">No audits loaded.</p></div>
+        </section>
+        <section id="mwResult" class="outcome-result" hidden aria-labelledby="mwResultTitle"><p class="eyebrow">Saved export check</p><h2 id="mwResultTitle" tabindex="-1">Audit result</h2><p id="mwScope"></p><div id="mwCounts" class="outcome-counts"></div><p id="mwQuality" class="helper"></p><p id="mwComparison" role="status"></p>
+          <section><h3>Overdue examples</h3><p id="mwSampleNote" class="helper"></p><div class="outcome-table-wrap"><table class="outcome-table"><thead><tr><th>Export request</th><th>Customer</th><th>Deadline (UTC)</th></tr></thead><tbody id="mwExamples"></tbody></table></div></section>
+          <h3>What this establishes</h3><ul id="mwLimitations"></ul>
+          <form id="mwRecheckForm"><fieldset id="mwRecheckFields" disabled><label for="mwLater">Check these same exports at a later time (UTC)</label><input id="mwLater" type="datetime-local" step="1" required><p class="helper">Only the check time changes. OpsGraph reads the database again and keeps the earlier saved records. It does not retry or repair customer work.</p><button class="secondary" id="mwRecheck" type="submit">Check these same exports again</button></fieldset></form>
+          <div class="case-actions"><button class="secondary" id="mwInspect" disabled>Open saved evidence / report</button><button class="secondary" id="mwExport" disabled>Export audit JSON</button><button class="secondary" id="mwCancel" hidden>Cancel audit</button></div>
+          <details><summary>Developer evidence: SQL and calculation</summary><p class="helper">Inspect the exact captured query, full totals and separately hashed calculation. Hashes let you check that recorded content is unchanged. They do not prove where the data came from or what caused a problem.</p><pre class="data-block" id="mwEvidence"></pre></details>
+        </section>
+      </div>
+      </section>
       <section class="view catalog-view" data-view-panel="playbooks" aria-labelledby="playbooksTitle" hidden><header class="page-header"><div><p class="eyebrow">Repeatable methods</p><h1 id="playbooksTitle">Playbooks</h1><p>Reusable investigation methods. Playbook revisions are separate from the OpsGraph release version.</p></div></header><div class="catalog-grid" id="skillCatalog"><p>Connect workspace to load playbooks.</p></div><details class="advanced-skills"><summary>Advanced: configure a custom playbook</summary><p>Existing JSON configuration workflow. Saving validates a draft; publishing makes it selectable for this workspace.</p><form id="skillForm"><label for="skillJson">Playbook definition JSON</label><textarea id="skillJson" rows="12" required spellcheck="false" placeholder="Paste your playbook definition here"></textarea><div class="notice error" id="skillError" role="alert" hidden></div><p id="skillStatus" role="status"></p><button class="secondary" id="saveSkill" type="submit">Validate and save draft</button> <button class="secondary" id="publishSkill" type="button" disabled>Publish saved draft</button></form></details></section>
       <section class="view catalog-view" data-view-panel="policies" aria-labelledby="policiesTitle" hidden><header class="page-header"><div><p class="eyebrow">Application controls</p><h1 id="policiesTitle">Policies</h1><p>Effective server policy. Source and playbook bounds may further restrict access.</p></div></header><pre class="data-block" id="policyDetails">Connect workspace to load policy.</pre></section>
       <section class="view catalog-view" data-view-panel="audit" aria-labelledby="auditTitle" hidden><header class="page-header"><div><p class="eyebrow">Recorded decisions</p><h1 id="auditTitle">Audit</h1><p>Backend audit records. Local hash verification does not prove that a conclusion is true.</p></div><button class="secondary" id="exportAudit">Export audit</button></header><pre class="data-block" id="auditDetails">Connect workspace to load audit records.</pre></section>
@@ -167,7 +192,7 @@
       <p>Build a readable Markdown brief from this saved attempt. No new database or model request is made. Failed and incomplete attempts keep their recorded state.</p>
       <form id="reportForm"><fieldset class="report-options"><legend>Choose content to include</legend>
         <label><input type="checkbox" id="reportQuestion" checked><span><b>Question</b><small>Your original investigation request</small></span></label>
-        <label><input type="checkbox" id="reportFindings" checked><span><b>Findings and limitations</b><small>Model assessments, references and recorded failures</small></span></label>
+        <label><input type="checkbox" id="reportFindings" checked><span><b>Findings and limitations</b><small>Recorded assessments or calculations, references and failures</small></span></label>
         <label><input type="checkbox" id="reportScope" checked><span><b>Execution scope</b><small>Recorded tables, bounds and configuration revisions</small></span></label>
         <label><input type="checkbox" id="reportSql"><span><b>Executed SQL</b><small>May contain sensitive identifiers or literals</small></span></label>
         <label><input type="checkbox" id="reportRows"><span><b>Captured records</b><small>May contain sensitive source values</small></span></label>
@@ -181,6 +206,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/assets/static/events.js"></script>
   <script src="/assets/static/view-state.js"></script>
+  <script src="/assets/static/work-outcomes.js"></script>
   <script src="/assets/static/app.js"></script>
 </body>
 </html>

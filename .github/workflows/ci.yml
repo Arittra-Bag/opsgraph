@@ -95,6 +95,13 @@ jobs:
           OPSGRAPH_CI_POSTGRES_OWNER_DSN: >-
             postgresql://postgres:${{ github.run_id }}@127.0.0.1:5432/opsgraph_ci
         run: uv run --locked --no-sync --no-build python scripts/ci_connected_smoke.py
+      - name: Compare outcome audits with independent export fixtures
+        env:
+          OPSGRAPH_MISSED_WORK_OWNER_DSN: >-
+            postgresql://postgres:${{ github.run_id }}@127.0.0.1:5432/opsgraph_ci
+        run: >-
+          uv run --locked --no-sync --no-build python -m pytest -q
+          tests/missed_work/test_postgres.py tests/missed_work/test_work_outcome_api.py
 
   fixture-compatibility:
     name: Fixture compatibility — ${{ matrix.label }} — no live PostgreSQL/model

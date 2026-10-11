@@ -53,6 +53,46 @@ def _block(value: str, language: str = "text") -> str:
     return f"{fence}{language}\n{value}\n{fence}"
 
 
+_OUTCOME_LABELS = {
+    "overdue_unresolved": "Overdue and still not ready",
+    "ready": "Recorded as ready",
+    "cancelled": "Cancelled",
+    "terminal_failure": "Recorded as permanently failed",
+    "pending_within_deadline": "Still within deadline",
+    "unknown": "Cannot determine",
+}
+
+
+def _outcome_text(value: Any) -> str:
+    """Readable saved prose only; never change calculation or evidence inputs."""
+    limitations = {
+        "Outcome definitions and source coverage are operator-reviewed premises, "
+        "not verified business truth.": "These results use the rules and data-completeness "
+        "assumptions you reviewed. OpsGraph cannot verify those assumptions.",
+        "Examples are bounded; state totals come from the full selected population.": (
+            "Totals include every export request in your chosen period. The list shows only "
+            "a limited number of examples."
+        ),
+        "Ready database records do not prove customer access or an incident cause.": (
+            "Recorded as ready does not prove the customer can open the export or explain "
+            "what caused a problem."
+        ),
+    }
+    text = limitations.get(value, str(value or ""))
+    text = re.sub(
+        r"^(\d+) overdue unresolved exports across (\d+) customers; (\d+) terminal failures "
+        r"and (\d+) unknown among (\d+) accepted promises\.$",
+        lambda match: (
+            f"{match[1]} exports are overdue and still not ready, affecting {match[2]} customers. "
+            f"Of {match[5]} accepted export requests, "
+            f"{match[3]} are recorded as permanently failed "
+            f"and {match[4]} have results we cannot determine."
+        ),
+        text,
+    )
+    return _text(text)
+
+
 def _append_attempt_context(
     lines: list[str], run: dict[str, Any], status: str, partial: bool
 ) -> None:
@@ -119,7 +159,11 @@ def _append_scope(lines: list[str], configuration: dict[str, Any]) -> None:
             "Playbook": configuration.get("skill_id"),
             "Playbook version": configuration.get("skill_version"),
             "Provider": configuration.get("provider"),
-            "Configured model": configuration.get("model"),
+            (
+                "Calculation method"
+                if configuration.get("execution_kind") == "work_outcome"
+                else "Configured model"
+            ): configuration.get("model"),
             "Source revision": configuration.get("source_revision"),
             "Schema fingerprint": configuration.get("schema_fingerprint"),
             "Schema inspected": configuration.get("schema_inspected_at"),
@@ -135,19 +179,59 @@ def _append_scope(lines: list[str], configuration: dict[str, Any]) -> None:
         )
 
 
-def _append_assessment(lines: list[str], answer: dict[str, Any], captured_ids: set[str]) -> None:
-    lines.extend(["## Model assessment", ""])
+def _append_assessment(
+    lines: list[str], answer: dict[str, Any], captured_ids: set[str], *, application: bool = False
+) -> None:
+    lines.extend(["## Export check" if application else "## Model assessment", ""])
     if not answer:
-        lines.extend(["No completed model assessment was recorded in this snapshot.", ""])
+        lines.extend(
+            [
+                "No completed export calculation was recorded in this snapshot."
+                if application
+                else "No completed model assessment was recorded in this snapshot.",
+                "",
+            ]
+        )
         return
-    lines.extend([_text(answer.get("summary")), ""])
+    lines.extend(
+        [_outcome_text(answer.get("summary")) if application else _text(answer.get("summary")), ""]
+    )
+    if application and answer.get("work_outcome"):
+        calculation = answer["work_outcome"]
+        facts = calculation["facts"]
+        lines.extend(
+            [
+                "OpsGraph calculated these results from saved records without an AI model. "
+                "It cannot verify the export rules or the source’s data-completeness guarantee.",
+                "",
+                f"- Method: {_text(calculation.get('method'))}",
+                f"- Accepted export requests: {_text(facts.get('population'))}",
+                "- Customers with overdue exports still not ready: "
+                + _text(facts.get("affected_customers")),
+            ]
+        )
+        lines.extend(
+            f"- {_text(_OUTCOME_LABELS.get(state, state))}: {_text(count)}"
+            for state, count in facts["counts"].items()
+        )
+        lines.extend(
+            [
+                f"- Overdue examples complete: {_text(facts.get('overdue_examples_complete'))}",
+                f"- Calculation hash: {_text(calculation.get('calculation_hash'))}",
+                "",
+                "Totals include all export requests in the selected period, even when only some "
+                "examples are shown. The calculation and original records have separate "
+                "hashes. Neither proves where the data came from or what caused a problem.",
+                "",
+            ]
+        )
     findings = answer.get("findings") or []
     for index, finding in enumerate(findings, 1):
         lines.extend(
             [
                 f"### Finding {index}: {_text(finding.get('classification', 'unknown'))}",
                 "",
-                _text(finding.get("claim")),
+                _outcome_text(finding.get("claim")) if application else _text(finding.get("claim")),
                 "",
             ]
         )
@@ -162,7 +246,7 @@ def _append_assessment(lines: list[str], answer: dict[str, Any], captured_ids: s
         lines.extend(["No individual findings were recorded.", ""])
     lines.extend(["## Recorded limitations", ""])
     lines.extend(
-        f"- {_text(item)}"
+        f"- {_outcome_text(item) if application else _text(item)}"
         for item in answer.get("limitations")
         or ("No additional limitation recorded. This does not establish completeness.",)
     )
@@ -228,9 +312,10 @@ def build_incident_report(run: dict[str, Any], options: ReportOptions) -> dict[s
     evidence = run.get("evidence") or []
     answer = run.get("answer") or {}
     configuration = run.get("configuration") or {}
+    application = configuration.get("execution_kind") == "work_outcome"
     partial = status != "completed"
     lines = [
-        "# PostgreSQL investigation report",
+        "# Export check report" if application else "# PostgreSQL investigation report",
         "",
         f"- Investigation: {_text(run.get('id'))}",
         f"- Recorded state: {_text(status)}",
@@ -239,7 +324,11 @@ def build_incident_report(run: dict[str, Any], options: ReportOptions) -> dict[s
         f"- Finished: {_text(run.get('finished_at'))}",
         f"- Captures retained: {len(evidence)}",
         "",
-        "This report is a selected view of a saved investigation. Model assessments are not "
+        "This report shows selected content from a saved export check. References identify "
+        "the saved records used in the calculation. They do not prove that the rules are "
+        "correct, that the data is complete, where it came from or what caused a problem."
+        if application
+        else "This report is a selected view of a saved investigation. Model assessments are not "
         "independently verified. Citations identify referenced captures and do not prove "
         "support, causality, completeness, or authenticity.",
         "",
@@ -250,9 +339,29 @@ def build_incident_report(run: dict[str, Any], options: ReportOptions) -> dict[s
         lines.extend(["## Question", "", _text(run.get("question")), ""])
     if options.include_scope:
         _append_scope(lines, configuration)
+        if configuration.get("execution_kind") == "work_outcome":
+            lines.extend(["### Exports checked", ""])
+            scope_labels = {
+                "contract_id": "Export rules ID",
+                "version": "Export rules version",
+                "tenant_id": "Tenant ID (workspace or organization)",
+                "start": "Accepted from (included, UTC)",
+                "end": "Accepted before (excluded, UTC)",
+                "as_of": "Results checked through (UTC)",
+            }
+            lines.extend(
+                f"- {_text(scope_labels.get(key, key))}: {_text(value)}"
+                for key, value in (run.get("work_outcome") or {}).items()
+            )
+            lines.append("")
     captured_ids = {item.get("evidence_hash") for item in evidence}
     if options.include_findings:
-        _append_assessment(lines, answer, captured_ids)
+        _append_assessment(
+            lines,
+            answer,
+            captured_ids,
+            application=configuration.get("execution_kind") == "work_outcome",
+        )
     _append_captures(lines, evidence, options, partial)
     included = [
         name.removeprefix("include_") for name, value in options.model_dump().items() if value

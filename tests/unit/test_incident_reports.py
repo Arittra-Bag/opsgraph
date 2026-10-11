@@ -180,3 +180,61 @@ def test_oversized_selection_can_be_retried_without_rows(record):
 def test_options_do_not_coerce_sharing_consent(options):
     with pytest.raises(ValidationError):
         ReportOptions(**options)
+
+
+def test_outcome_report_distinguishes_calculation_and_honors_section_selection(record):
+    record["configuration"]["execution_kind"] = "work_outcome"
+    record["work_outcome"] = {"tenant_id": "sensitive-tenant", "as_of": "2026-10-11T12:00:00Z"}
+    record["answer"]["work_outcome"] = {
+        "method": "export-reconciliation-v1",
+        "calculation_hash": "separate-calculation-hash",
+        "facts": {
+            "population": 1000,
+            "affected_customers": 8,
+            "counts": {"overdue_unresolved": 12, "unknown": 3},
+            "overdue_examples_complete": False,
+        },
+    }
+    metadata = build_incident_report(record, ReportOptions())["markdown"]
+    assert "separate-calculation-hash" not in metadata and "sensitive-tenant" not in metadata
+    findings = build_incident_report(record, ReportOptions(include_findings=True))["markdown"]
+    assert "## Export check" in findings and "## Model assessment" not in findings
+    assert (
+        "Accepted export requests: 1000" in findings
+        and "Overdue and still not ready: 12" in findings
+    )
+    assert "Overdue examples complete: False" in findings
+    assert "separate-calculation-hash" in findings and "sensitive-tenant" not in findings
+    scope = build_incident_report(record, ReportOptions(include_scope=True))["markdown"]
+    assert "sensitive-tenant" in scope and "separate-calculation-hash" not in scope
+
+
+def test_outcome_report_plain_prose_keeps_saved_snapshot_and_hashes(record):
+    import copy
+
+    record["configuration"]["execution_kind"] = "work_outcome"
+    record["answer"]["summary"] = (
+        "12 overdue unresolved exports across 8 customers; 5 terminal failures "
+        "and 3 unknown among 1000 accepted promises."
+    )
+    record["answer"]["limitations"] = [
+        "Outcome definitions and source coverage are operator-reviewed premises, "
+        "not verified business truth.",
+        "Ready database records do not prove customer access or an incident cause.",
+    ]
+    before = copy.deepcopy(record)
+    report = build_incident_report(record, ReportOptions(include_findings=True))["markdown"]
+    assert "accepted export requests" in report
+    assert "cannot verify those assumptions" in report
+    assert "does not prove the customer can open" in report
+    assert "Model assessments" not in report
+    assert "operator-reviewed premises" not in report
+    assert record == before
+
+
+def test_pending_outcome_report_does_not_invent_a_model_assessment(record):
+    record["configuration"]["execution_kind"] = "work_outcome"
+    record["answer"] = None
+    report = build_incident_report(record, ReportOptions(include_findings=True))["markdown"]
+    assert "No completed export calculation" in report
+    assert "model assessment" not in report.lower()

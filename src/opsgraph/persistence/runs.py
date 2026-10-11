@@ -292,7 +292,13 @@ class RunStore:
                 ).fetchone()
                 if existing:
                     value = self._grouped(db, workspace, json.loads(existing[0]))
-                    for key in ("question", "source_id", "skill_id", "parent_run_id"):
+                    for key in (
+                        "question",
+                        "source_id",
+                        "skill_id",
+                        "parent_run_id",
+                        "work_outcome",
+                    ):
                         if (
                             key == "parent_run_id"
                             and body.get("conversation_id")
@@ -392,6 +398,8 @@ class RunStore:
                 last_event_id=0,
                 terminal_audited=False,
             )
+            if body.get("work_outcome") is not None:
+                value["work_outcome"] = body["work_outcome"]
             db.execute(
                 "INSERT INTO runs VALUES(?,?,?,?,?)",
                 (workspace, value["id"], value["request_id"], "queued", json.dumps(value)),

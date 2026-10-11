@@ -1,0 +1,1635 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "scope": {
+    "tenant_id": "tenant-a",
+    "start": "2026-10-11T11:00:00Z",
+    "end": "2026-10-11T12:00:00Z",
+    "as_of": "2026-10-11T12:00:00Z"
+  },
+  "cases": [
+    {
+      "id": "zero-promises",
+      "data": {
+        "promises": [],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {}
+    },
+    {
+      "id": "never-enqueued",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "ready-on-time",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "ready-at-deadline",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "late-completion",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:20:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "terminal-customer-failure",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "failure-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "terminal_failure",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "terminal_failure",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "failed-attempt-is-not-terminal",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [
+          {
+            "event_id": "attempt-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "failed",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "recovered-retry",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:08:00Z"
+          }
+        ],
+        "attempts": [
+          {
+            "event_id": "attempt-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "failed",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "attempt-2",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "succeeded",
+            "occurred_at": "2026-10-11T11:08:00Z"
+          }
+        ],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "worker-success-without-ready-outcome",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [
+          {
+            "event_id": "attempt-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "succeeded",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "young-request",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:59:00Z",
+            "due_at": "2026-10-11T12:09:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "pending_within_deadline",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "cancelled-before-deadline",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [
+          {
+            "event_id": "cancel-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "cancelled",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "cancelled",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "cancelled-at-deadline",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [
+          {
+            "event_id": "cancel-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "cancelled",
+            "occurred_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "cancelled",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "cancelled-after-breach",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [
+          {
+            "event_id": "cancel-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "cancelled",
+            "occurred_at": "2026-10-11T11:20:00Z"
+          }
+        ],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "cancelled",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "unknown-outcome-status",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "complete",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "unknown-attempt-status",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [
+          {
+            "event_id": "attempt-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "retry_maybe",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "unknown-cancellation-status",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [
+          {
+            "event_id": "cancel-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "requested",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "stale-coverage",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T11:59:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "missing-coverage",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": null
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "positive-ready-without-coverage",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": null
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "late-ready-without-coverage",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:20:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": null
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "identical-duplicate-event",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "conflicting-duplicate-event",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "terminal_failure",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "conflicting-terminal-outcomes",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "failure-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "terminal_failure",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "ready-and-cancellation-conflict",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [
+          {
+            "event_id": "cancel-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "cancelled",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "cross-tenant-outcome-is-not-joined",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-b",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "same-logical-id-in-another-tenant",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          },
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-b",
+            "customer_id": "other-customer",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "naive-outcome-time",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "null-customer-key",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": null,
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "null-deadline",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": null
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "future-outcome-is-not-visible",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T12:01:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "utc-offset-is-same-instant",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T16:40:00+05:30"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "deadline-equals-observation",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T12:00:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "population-start-inclusive",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "population-end-exclusive",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T12:00:00Z",
+            "due_at": "2026-10-11T12:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {}
+    },
+    {
+      "id": "fixed-ten-minute-sla",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      },
+      "sla_seconds": 600
+    },
+    {
+      "id": "outcome-predates-promise",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T10:59:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "null-event-key",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": null,
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "orphan-event-blocks-negative-membership",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "orphan-1",
+            "promise_id": "missing-promise",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      },
+      "expected_orphan_events": 1
+    },
+    {
+      "id": "null-event-tenant-blocks-negative-membership",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": null,
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "duplicate-promise-population-rejected",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          },
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {},
+      "expected_error": "duplicate promise key"
+    },
+    {
+      "id": "null-promise-key-population-rejected",
+      "data": {
+        "promises": [
+          {
+            "promise_id": null,
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {},
+      "expected_error": "promise key is missing"
+    },
+    {
+      "id": "null-promise-tenant-population-rejected",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": null,
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {},
+      "expected_error": "promise tenant is missing"
+    },
+    {
+      "id": "naive-acceptance-population-rejected",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {},
+      "expected_error": "promise acceptance time is ambiguous"
+    },
+    {
+      "id": "invalid-deadline-before-acceptance",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T10:59:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "partial-population-rejected",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        },
+        "promises_truncated": true
+      },
+      "expected_error": "truncated promises"
+    },
+    {
+      "id": "many-child-events-do-not-multiply-promises",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "ready-2",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [
+          {
+            "event_id": "attempt-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "failed",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "attempt-2",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "failed",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "attempt-3",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "failed",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "ready",
+          "deadline_breached": false
+        }
+      }
+    },
+    {
+      "id": "known-parent-outside-window-is-not-orphan",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          },
+          {
+            "promise_id": "old-export",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T10:00:00Z",
+            "due_at": "2026-10-11T10:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "old-export",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T10:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "overdue_unresolved",
+          "deadline_breached": true
+        }
+      }
+    },
+    {
+      "id": "positive-terminal-failure-without-coverage",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "terminal_failure",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": null
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "terminal_failure",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "null-attempt-status-is-unknown",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [],
+        "attempts": [
+          {
+            "event_id": "attempt-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": null,
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    },
+    {
+      "id": "same-event-id-for-different-promises-is-conflict",
+      "data": {
+        "promises": [
+          {
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          },
+          {
+            "promise_id": "export-2",
+            "tenant_id": "tenant-a",
+            "customer_id": "customer-1",
+            "accepted_at": "2026-10-11T11:00:00Z",
+            "due_at": "2026-10-11T11:10:00Z"
+          }
+        ],
+        "outcomes": [
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-1",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          },
+          {
+            "event_id": "ready-1",
+            "promise_id": "export-2",
+            "tenant_id": "tenant-a",
+            "status": "ready",
+            "occurred_at": "2026-10-11T11:05:00Z"
+          }
+        ],
+        "attempts": [],
+        "cancellations": [],
+        "coverage": {
+          "complete_through": "2026-10-11T12:00:00Z"
+        }
+      },
+      "expected_records": {
+        "export-1": {
+          "state": "unknown",
+          "deadline_breached": null
+        },
+        "export-2": {
+          "state": "unknown",
+          "deadline_breached": null
+        }
+      }
+    }
+  ]
+}

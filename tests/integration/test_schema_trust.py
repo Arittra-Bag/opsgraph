@@ -237,6 +237,9 @@ def test_readiness_rejects_table_outside_explicit_scope(schema_api):
 def test_readiness_persists_revisions_without_source_values(schema_api):
     client, runtime, executor, _, headers = schema_api
     inspect_ready_source(client, headers)
+    previous_source = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    ).value
     executor.calls.clear()
     response = client.post(
         "/api/sources/schema-data/readiness",
@@ -272,6 +275,8 @@ def test_readiness_persists_revisions_without_source_values(schema_api):
         "source_values_returned": 0,
         "timeout_ms": 1000,
         "max_rows": 1,
+        "previous_source_revision": stable_hash(previous_source),
+        "source_access_revision": source_readiness_basis(previous_source),
     }
     assert "must-not-be-retained" not in str(event)
 
