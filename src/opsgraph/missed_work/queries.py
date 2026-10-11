@@ -21,6 +21,12 @@ STATES = (
     "overdue_unresolved",
     "unknown",
 )
+# Match Python str.strip() whitespace without trimming or normalizing valid keys.
+IDENTITY_WHITESPACE = (
+    "\t\n\v\f\r\x1c\x1d\x1e\x1f \x85\xa0\u1680"
+    "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a"
+    "\u2028\u2029\u202f\u205f\u3000"
+)
 
 
 def literal(value):  # noqa: ANN001
@@ -33,6 +39,11 @@ def ident(value: str) -> str:
 
 def vocabulary(values: tuple[str, ...]) -> str:
     return "(" + ",".join(literal(v) for v in values) + ")"
+
+
+def blank_identity(expression: str) -> str:
+    # A fixed regex operator needs no additional executable function permission.
+    return f"CAST({expression} AS text) !~ {literal('[^' + IDENTITY_WHITESPACE + ']')}"
 
 
 def fact_query(contract: WorkOutcomeContract, scope: WorkOutcomeRequest, max_rows: int) -> str:
@@ -110,7 +121,8 @@ def fact_query(contract: WorkOutcomeContract, scope: WorkOutcomeRequest, max_row
         ctes.append(f"""{name}_facts AS (
           SELECT p.pid, {earliest} AS positive_at, {terminal} AS terminal,
             COUNT(*) FILTER (WHERE e.tenant IS NOT NULL AND
-              (e.eid IS NULL OR e.occurred IS NULL OR e.occurred < p.accepted
+              (e.eid IS NULL OR {blank_identity("e.eid")}
+               OR e.occurred IS NULL OR e.occurred < p.accepted
                OR e.status IS NULL OR e.status NOT IN {vocabulary(valid)}
                OR x.eid IS NOT NULL)) AS bad
           FROM population p LEFT JOIN {name}_events e ON e.pid = p.pid AND e.tenant = p.tenant
@@ -162,12 +174,12 @@ def fact_query(contract: WorkOutcomeContract, scope: WorkOutcomeRequest, max_row
         f"LIMIT {samples})"
     )
     query = "WITH " + ",\n".join(ctes) + "\n"
-    query += """SELECT 'summary' AS kind, state, CAST(NULL AS text) AS promise_id,
+    query += f"""SELECT 'summary' AS kind, state, CAST(NULL AS text) AS promise_id,
        CAST(NULL AS text) AS customer_id, CAST(NULL AS timestamp with time zone) AS due_at,
        total AS count_value, CAST(NULL AS boolean) AS breach FROM totals
        UNION ALL SELECT 'quality', 'invalid_population', NULL, NULL, NULL,
        (SELECT bad FROM population_quality) + (SELECT COUNT(*) FROM population WHERE
-        tenant IS NULL OR accepted IS NULL OR CAST(pid AS text) = ''), NULL
+        tenant IS NULL OR accepted IS NULL OR {blank_identity("pid")}), NULL
        UNION ALL SELECT 'quality', 'orphan_events', NULL, NULL, NULL, orphans, NULL FROM coverage
        UNION ALL SELECT 'quality', 'unassignable_events', NULL, NULL, NULL,
        unassignable, NULL FROM coverage
