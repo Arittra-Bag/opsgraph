@@ -50,6 +50,19 @@ def test_secret_paste_is_masked_and_buffer_cleared():
     assert "fixture-only" not in output
 
 
+@pytest.mark.parametrize("size", [(20, 52), (24, 80), (56, 207)])
+@pytest.mark.parametrize("activation", ["\r", " "])
+def test_tab_focus_continue_activates_secret_input_without_exposing_it(size, activation):
+    result, output = screen_session("fixture-secret\t" + activation, size=size, secret=True)
+    assert result == "fixture-secret"
+    assert "fixture-secret" not in output
+
+
+def test_shift_tab_moves_from_cancel_back_to_continue():
+    result, _ = screen_session("fixture-secret\t\t\x1b[Z\r", secret=True)
+    assert result == "fixture-secret"
+
+
 def test_render_failure_has_safe_recovery_message_and_no_driver_details(monkeypatch):
     from opsgraph.terminal_screen import ask_screen
     from opsgraph.terminal_ui import TerminalScreenError

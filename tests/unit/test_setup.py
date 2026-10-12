@@ -1,5 +1,6 @@
 import os
 import stat
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -683,6 +684,43 @@ def test_guided_remote_setup_requires_verified_tls_without_contacting_database(m
         "postgresql://reader@database.example:5432/operations?sslmode=verify-full"
     )
     assert conninfo_to_dict(value)["sslmode"] == "verify-full"
+
+
+def test_tui_ca_file_uses_shared_validation_without_network(tmp_path, monkeypatch):
+    directory = private_directory(tmp_path)
+    certificate = Path(__file__).parents[1] / "fixtures/supabase-root-2021.crt"
+    choices = iter(("6", "paste"))
+
+    def answer(label):
+        if label.startswith("PostgreSQL hosting"):
+            return "supabase"
+        if label.startswith("Connection options"):
+            return next(choices)
+        if label.startswith("CA certificate file"):
+            return str(certificate)
+        return ""
+
+    monkeypatch.setattr("psycopg.connect", lambda *a, **k: pytest.fail("network attempted"))
+    output = []
+    assert (
+        setup.run_setup(
+            directory,
+            flow="quick",
+            input_fn=answer,
+            secret_fn=lambda label: (
+                "host=database.example port=5432 dbname=db user=reader "
+                "password=fixture-only-secret sslmode=verify-full"
+                if label.startswith("Paste")
+                else ""
+            ),
+            output_fn=output.append,
+        )
+        == 0
+    )
+    params = conninfo_to_dict(setup.read_private_config(directory / ".env")["OPSGRAPH_SOURCE_DSN"])
+    assert Path(params["sslrootcert"]).read_bytes() == certificate.read_bytes()
+    assert "fixture-only-secret" not in " ".join(output)
+    assert "CERTIFICATE" in " ".join(output) and "CHECK BEFORE PASTING" in " ".join(output)
 
 
 def test_setup_repairs_unknown_stored_hosting_with_default(tmp_path, monkeypatch):

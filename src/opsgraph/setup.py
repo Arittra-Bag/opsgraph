@@ -420,6 +420,7 @@ def run_setup(
         if prepared_database is not None:
             dsn = normalize_guided_dsn(prepared_database)
         else:
+            ca_pem = ""
             output_fn(
                 "Choose what to do next. Help and choices are visible. Only the connection "
                 "you paste is hidden because it can contain a password. "
@@ -438,10 +439,34 @@ def run_setup(
                         ),
                         ("details", "Help with read-only access, passwords and certificates"),
                         ("browser", "Open provider instructions in my browser"),
+                        ("ca", "Add the database CA certificate from a file"),
                     ),
                     "paste",
                 )
-                action = ask("Connection options: 1 / 2 / 3 / 4 / 5 / ?: ").strip().lower()
+                action = ask("Connection options: 1 / 2 / 3 / 4 / 5 / 6 / ?: ").strip().lower()
+                if action in {"6", "ca"}:
+                    ui.note(
+                        "CERTIFICATE — not your password",
+                        (
+                            "Download the CA from your database host. Keep sslmode=verify-full.",
+                            "Enter the CA file's path on this computer. Never use a private key.",
+                        ),
+                    )
+                    location = ask("CA certificate file (blank cancels): ").strip()
+                    if location:
+                        try:
+                            certificate = Path(location).expanduser()
+                            if certificate.stat().st_size > 65_536:
+                                raise OSError
+                            ca_pem = certificate.read_text()
+                            output_fn(
+                                "CA selected. Paste the connection next; validated before saving."
+                            )
+                        except (OSError, UnicodeError):
+                            output_fn(
+                                "ERROR — cannot read the CA. Choose a PEM file of at most 64 KB."
+                            )
+                    continue
                 if action in {"?", "2", "help"}:
                     show_connection_help()
                     continue
@@ -466,6 +491,14 @@ def run_setup(
                 if action in {"3", "skip"}:
                     dsn = existing.get("OPSGRAPH_SOURCE_DSN") or ""
                 elif action in {"", "1", "paste"}:
+                    ui.note(
+                        "CHECK BEFORE PASTING",
+                        (
+                            "Use a PostgreSQL URI, not an HTTPS project address.",
+                            "Use a read-only login. IPv4-only network? Choose the session pooler.",
+                            "Remote: sslmode=verify-full, trusted CA. Option 6 adds a CA file.",
+                        ),
+                    )
                     output_fn(
                         "Paste below, then press Enter. Characters stay hidden to protect "
                         "the password. Enter without pasting keeps a saved connection or skips."
@@ -488,9 +521,19 @@ def run_setup(
                     continue
                 if dsn:
                     try:
-                        dsn = normalize_guided_dsn(dsn)
+                        from opsgraph.source_connections import prepare_connection
+
+                        dsn = prepare_connection(
+                            dsn, ca_pem=ca_pem, directory=workspace / "certificates"
+                        )
                     except SetupError as error:
-                        output_fn(str(error))
+                        ui.note(
+                            "CONNECTION NEEDS ATTENTION",
+                            (
+                                str(error),
+                                "Return to Paste to correct it. No settings were replaced.",
+                            ),
+                        )
                         continue
                 break
         output_fn(

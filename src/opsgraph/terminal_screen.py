@@ -36,6 +36,10 @@ THEME = Style.from_dict(
         "input": "bg:#22334a #ffffff",
         "button": "bg:#273651 #e5edf8",
         "button.focused": "bg:#6fe4d3 #101624 bold",
+        "button.focused button.text": "bg:#6fe4d3 #101624 bold",
+        "button.focused button.arrow": "bg:#6fe4d3 #101624 bold",
+        "warning": "bg:#40311c #ffe0a3 bold",
+        "focus-label": "bg:#24304b #ffffff bold",
         "scrollbar.background": "bg:#161f32",
         "scrollbar.button": "bg:#516583",
         "footer": "bg:#161f32 #aebfd7",
@@ -62,6 +66,17 @@ class SetupScreen:
             (index for index, (value, _) in enumerate(self.choices) if value == default), 0
         )
         self.secret = secret
+        important = next(
+            (
+                item.split("\n")[0]
+                for item in context
+                if item.startswith(("CHECK BEFORE", "CONNECTION NEEDS", "CERTIFICATE", "ERROR"))
+            ),
+            None,
+        )
+        notes_title = (
+            [("class:warning", safe_text(important))] if important else "What you need to know"
+        )
         self.field = TextArea(
             multiline=False, password=secret, style="class:input", height=1, history=DummyHistory()
         )
@@ -70,8 +85,8 @@ class SetupScreen:
             read_only=True,
             scrollbar=True,
             wrap_lines=True,
-            focusable=True,
-            height=Dimension(min=1, preferred=5, max=14),
+            focusable=False,
+            height=Dimension(min=1, preferred=4, max=6),
         )
         self.keys = KeyBindings()
 
@@ -99,7 +114,7 @@ class SetupScreen:
             )
             control = Window(
                 self.choice_control,
-                height=Dimension(min=2, preferred=len(self.choices)),
+                height=Dimension(min=2, preferred=min(len(self.choices), 8)),
                 wrap_lines=True,
                 right_margins=[ScrollbarMargin()],
             )
@@ -142,23 +157,33 @@ class SetupScreen:
             wrap_lines=True,
             height=Dimension(min=1, preferred=2, max=4),
         )
+        self.continue_button = Button("Continue", handler=self.submit, width=16)
+        self.cancel_button = Button(
+            "Cancel", handler=lambda: self.app.exit(exception=KeyboardInterrupt()), width=14
+        )
         buttons = VSplit(
             [
-                Button("Continue", handler=self.submit, width=14),
+                self.continue_button,
                 Window(width=2),
-                Button("Cancel", handler=lambda: self.app.exit(exception=KeyboardInterrupt())),
+                self.cancel_button,
                 Window(),
             ],
             height=1,
         )
         content = HSplit(
             [
-                Frame(self.notes, title="Guide and details"),
+                Frame(
+                    self.notes,
+                    title=notes_title,
+                    height=Dimension(min=3, preferred=5, max=8),
+                ),
                 Window(height=1),
                 question,
                 Box(control, padding=0, style="class:input" if secret else ""),
                 Window(height=1),
                 buttons,
+                Window(FormattedTextControl(self.focus_text), height=1, style="class:focus-label"),
+                Window(height=Dimension(weight=1)),
             ],
             width=lambda: (
                 self.app.output.get_size().columns
@@ -185,10 +210,9 @@ class SetupScreen:
             height=1,
             style="class:brand",
         )
-        navigation = (
-            "↑↓ / 1–9 Choose  Enter Next  Tab Focus" if self.choices else "Enter Next  Tab Focus"
-        )
-        hint = "  Masked entry  " + navigation if secret else "  " + navigation
+        navigation = "↑↓ / 1–9 Choose  Enter Continue" if self.choices else "Enter Continue"
+        hint = "  Hidden input  " + navigation if secret else "  " + navigation
+        hint += "  Tab/Shift+Tab Focus"
         hint += (
             "\n  PgUp/PgDn Scroll  "
             + ("F1 Help  " if not secret and allow_help else "")
@@ -253,6 +277,18 @@ class SetupScreen:
             )
             for index, (_, label) in enumerate(self.choices)
         ]
+
+    def focus_text(self):
+        """A visible focus label works even when a terminal reduces the colour palette."""
+        if self.app.layout.has_focus(self.continue_button):
+            return " Focus: CONTINUE — press Enter or Space"
+        if self.app.layout.has_focus(self.cancel_button):
+            return " Focus: CANCEL — press Enter or Space"
+        return (
+            " Focus: CHOICES — arrows to choose"
+            if self.choices
+            else " Focus: INPUT — paste, then Enter"
+        )
 
     def bind_number(self, index, selected_filter):
         @self.keys.add(str(index + 1), filter=selected_filter)

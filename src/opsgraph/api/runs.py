@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import time
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -37,6 +36,7 @@ from opsgraph.readiness import reviewed_source_matches, source_readiness_basis
 from opsgraph.reports import ReportOptions, ReportTooLarge, build_incident_report
 from opsgraph.schema_service import SchemaSnapshot
 from opsgraph.skills import SkillRepository
+from opsgraph.source_connections import approved_references, resolve_connection
 
 
 class RunRequest(BaseModel):
@@ -191,14 +191,12 @@ class RunAPI:
         tables = tuple(source.get("allowed_tables", ()))
         if not tables:
             raise RunBlocked("Select an explicit table allowlist for this source.")
-        approved_refs = set(runtime.settings.allowed_postgres_secret_refs)
-        if runtime.settings.postgres_secret_ref:
-            approved_refs.add(runtime.settings.postgres_secret_ref)
+        approved_refs = approved_references(runtime)
         if source.get("secret_ref") not in approved_refs:
             raise RunBlocked(
                 "Source credential reference is no longer approved by this deployment."
             )
-        dsn = os.getenv(source["secret_ref"])
+        dsn = resolve_connection(runtime, source["secret_ref"])
         if not dsn:
             raise RunBlocked("Source credential reference is not configured on the server.")
         if (

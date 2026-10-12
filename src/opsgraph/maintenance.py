@@ -65,7 +65,10 @@ def _read_manifest(path: Path) -> dict:
             "Backup manifest is invalid JSON. Use a complete OpsGraph backup."
         ) from None
     required = {"format", "opsgraph_version", "files", "contains_credentials_and_evidence"}
-    if not isinstance(manifest, dict) or set(manifest) != required:
+    if not isinstance(manifest, dict) or set(manifest) not in (
+        required,
+        required | {"source_files"},
+    ):
         raise MaintenanceError(
             "Backup manifest has missing or unexpected fields. Use a complete backup."
         )
@@ -89,6 +92,21 @@ def _read_manifest(path: Path) -> dict:
         raise MaintenanceError("Backup manifest has invalid checksums. Use a complete backup.")
     if manifest["contains_credentials_and_evidence"] is not True:
         raise MaintenanceError("Backup manifest is missing its sensitive-content marker.")
+    source_files = manifest.get("source_files", {})
+    if (
+        not isinstance(source_files, dict)
+        or len(source_files) > 256
+        or any(
+            not isinstance(name, str)
+            or not re.fullmatch(
+                r"(?:OPSGRAPH_[A-Z0-9_]{1,100}_DSN\.env|certificates/[a-f0-9]{64}\.crt)", name
+            )
+            or not isinstance(value, str)
+            or not re.fullmatch(r"[a-f0-9]{64}", value)
+            for name, value in source_files.items()
+        )
+    ):
+        raise MaintenanceError("Backup has invalid private connection files or checksums.")
     return manifest
 
 
@@ -191,6 +209,31 @@ def backup(directory: Path, destination: Path) -> None:
             "files": {name: digest(destination / name) for name in names},
             "contains_credentials_and_evidence": True,
         }
+        connections = state.parent / (state.name + ".sources")
+        if connections.exists() or connections.is_symlink():
+            _safe_path(connections, directory=True)
+            files = {}
+            for item in connections.rglob("*"):
+                if item.is_dir():
+                    _safe_path(item, directory=True)
+                    continue
+                _safe_path(item)
+                name = item.relative_to(connections).as_posix()
+                if not re.fullmatch(
+                    r"(?:OPSGRAPH_[A-Z0-9_]{1,100}_DSN\.env|certificates/[a-f0-9]{64}\.crt)",
+                    name,
+                ):
+                    raise MaintenanceError(
+                        "Private connection storage contains an unexpected file."
+                    )
+                if len(files) >= 256:
+                    raise MaintenanceError("Private connection storage exceeds backup limits.")
+                target = destination / "sources" / name
+                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                private_bytes(target, item.read_bytes())
+                files[name] = digest(target)
+            if files:
+                manifest["source_files"] = files
         private_bytes(destination / "manifest.json", json.dumps(manifest, indent=2).encode())
 
 
@@ -207,6 +250,11 @@ def restore(source: Path, destination: Path) -> None:
         _safe_path(item)
         if digest(item) != expected:
             raise MaintenanceError("Backup checksum mismatch. Use a complete, unchanged backup.")
+    for name, expected in manifest.get("source_files", {}).items():
+        item = source / "sources" / name
+        _safe_path(item)
+        if digest(item) != expected:
+            raise MaintenanceError("Private connection backup checksum mismatch.")
     values = read_private_config(source / ".env")
     _check_database(source / "state.db")
     # Never replace a live or existing destination. Restore is reviewable before
@@ -221,6 +269,10 @@ def restore(source: Path, destination: Path) -> None:
         write_private_config(
             destination / ".opsgraph/state.db.provider/settings.env", provider_values
         )
+    for name in manifest.get("source_files", {}):
+        target = destination / ".opsgraph/state.db.sources" / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        private_bytes(target, (source / "sources" / name).read_bytes())
 
 
 def run_maintenance(action: str, directory: Path | None, other: Path) -> int:
