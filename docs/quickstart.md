@@ -300,3 +300,12 @@ In Settings, your provider and model are already filled in. The key field stays 
 because stored keys are never displayed again. **Model untested** means the real
 connection check has not passed yet. Run **Test actual model connection** before
 starting an investigation.
+
+### Add another source from the browser
+
+**Sources → Add source** now offers a five-step flow. Enter a read-only PostgreSQL
+connection privately, provide its CA certificate when needed, choose exact tables,
+inspect and review their columns, then approve the one-row constant-only query
+check. There is no requirement to return to terminal setup. See
+[hosted PostgreSQL setup](hosted-postgresql.md) for storage, TLS and history details.
+Saved results survive reload; they do not authorize an automatic new probe.
