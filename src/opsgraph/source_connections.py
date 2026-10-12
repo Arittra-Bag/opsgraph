@@ -12,6 +12,7 @@ from pathlib import Path
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
+from opsgraph.postgres_hosting import HOSTING_GUIDES, PostgresHosting
 from opsgraph.setup import (
     SetupError,
     ensure_private_directory,
@@ -29,6 +30,7 @@ class ConnectionRequest(BaseModel):
     secret_ref: str | None = Field(default=None, pattern=REFERENCE.pattern)
     dsn: SecretStr = Field(repr=False)
     ca_pem: str = Field(default="", max_length=65_536, repr=False)
+    hosting_profile: PostgresHosting | None = None
 
 
 def connection_directory(settings) -> Path:
@@ -116,9 +118,12 @@ def public_connections(runtime) -> list[dict]:
         try:
             values = private_connection(runtime, reference)
             if values is not None or os.getenv(reference):
-                result.append(
-                    {"secret_ref": reference, "configured": True, "managed": bool(values)}
-                )
+                row = {"secret_ref": reference, "configured": True, "managed": bool(values)}
+                if values and values.get("HOSTING_PROFILE") in {
+                    guide.id for guide in HOSTING_GUIDES
+                }:
+                    row["hosting_profile"] = values["HOSTING_PROFILE"]
+                result.append(row)
         except SetupError:
             result.append(
                 {

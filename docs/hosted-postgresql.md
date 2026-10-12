@@ -7,12 +7,38 @@ Every endpoint must pass source inspection and its bounded readiness check.
 
 ## Start with a private connection
 
-Run `opsgraph launch --configure` on the backend host. Choose the hosting option
-and enter the connection through the hidden terminal prompt. The launcher keeps
-it in a private configuration file. Advanced installations can use an approved
-DSN environment-variable reference. Browser source fields accept the reference
-name, never the connection URL. The hosting preference is stored as
-`OPSGRAPH_POSTGRES_HOSTING` and can be changed for each source in Sources.
+In **Sources → Add source**, follow the five steps: database host, private
+connection, exact tables, inspection and review, then query check. The hidden
+connection field accepts a PostgreSQL URI, not a provider HTTPS project address.
+For remote URIs the browser requests `sslmode=verify-full`. Upload a PEM CA
+certificate (up to 64 KB), use a CA path on the backend, or rely on supported
+system trust. Private keys are rejected. Saving a connection does not contact
+the database or model; discovery reads names and inspection reads metadata.
+Only the separate, explicitly approved query check performs a bounded read.
+
+The connection is stored in private backend files, not browser storage, reports
+or SQLite evidence. A full reload retains saved connections, selected sources,
+and recorded checks without displaying passwords. Browser storage contains only
+navigation and saved source identifiers in addition to the workspace session key.
+Unsaved passwords and drafts are discarded. An unfinished saved connection can
+resume table selection without another paste.
+
+The terminal alternative remains `opsgraph launch --configure`. It uses the same
+connection validator. Operator-managed DSN environment references remain supported
+and cannot be overwritten from the browser. The hosting choice changes guidance
+and the locally bundled logo; it does not select a different SQL connector.
+
+The browser reconnects an authenticated metadata notification stream using
+`X-OpsGraph-Key`. Notifications refresh saved states only: they never run database
+or model probes. The last pass or failure remains visible with its time, and the
+last 30 results are available under **Earlier checks for this source**. Older
+receipts remain in **Audit**. A historical pass does not bypass changed schema,
+credential, source, deployment policy or model-readiness checks. Failures remain
+visible after reload until explicitly checked again.
+
+**Workspace connected** hides the editable key. **Disconnect and enter a key
+again** clears this browser's access; saved backend records and keys remain intact.
+No cookies or polling of provider APIs are needed for this flow.
 
 Use a dedicated login with database CONNECT, schema USAGE, and SELECT on exact
 approved tables. Keep it separate from owners and administrators. The Sources

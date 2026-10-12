@@ -1,0 +1,30 @@
+{
+  "postgresql": {
+    "source": "https://raw.githubusercontent.com/devicons/devicon/6a37858047b0e8d9c9c0e68f4a071fc410652e89/icons/postgresql/postgresql-original.svg",
+    "sha256": "f220a436258ed014c512ba4f9c0de6b9e5c2c4b55331a0a29f8c7a1a12c36443"
+  },
+  "supabase": {
+    "source": "https://raw.githubusercontent.com/devicons/devicon/6a37858047b0e8d9c9c0e68f4a071fc410652e89/icons/supabase/supabase-original.svg",
+    "sha256": "bb8d502577de5e864437542bc2655b5d4d4782589386fc4583d912f46ac73181"
+  },
+  "neon": {
+    "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/955f17f35634cd58de1748204059bce380d379af/icons/neon.svg",
+    "sha256": "5750d31d5f07d3e5bcf7db3d7202111f863d39cb2f78aeeec0987a427819387e"
+  },
+  "aws_rds": {
+    "source": "https://raw.githubusercontent.com/devicons/devicon/6a37858047b0e8d9c9c0e68f4a071fc410652e89/icons/amazonwebservices/amazonwebservices-original-wordmark.svg",
+    "sha256": "5b4d8371d79a5c0d3a27ea4e929f772e68d47f7d267496bf9211d5f60fcf8084"
+  },
+  "google_cloud_sql": {
+    "source": "https://raw.githubusercontent.com/devicons/devicon/6a37858047b0e8d9c9c0e68f4a071fc410652e89/icons/googlecloud/googlecloud-original.svg",
+    "sha256": "1615b3e53228faa14378f1abb2b78e5f6c3f0ec562bc37db3efde885714e6c2f"
+  },
+  "azure": {
+    "source": "https://raw.githubusercontent.com/devicons/devicon/6a37858047b0e8d9c9c0e68f4a071fc410652e89/icons/azure/azure-original.svg",
+    "sha256": "7923db83e3f9755bd412241a683fa996fb7a9d0259b5084de449e6be92f7ca20"
+  },
+  "digitalocean": {
+    "source": "https://raw.githubusercontent.com/devicons/devicon/6a37858047b0e8d9c9c0e68f4a071fc410652e89/icons/digitalocean/digitalocean-original.svg",
+    "sha256": "237e683e4a5f982e299d77ad4afc4f77a6245c3905d5344d5de7cdfaaeef95af"
+  }
+}

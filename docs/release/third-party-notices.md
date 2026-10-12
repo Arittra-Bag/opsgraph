@@ -28,3 +28,14 @@ wheel license/notice members remain in the wheels shipped by each native bundle.
 These inventories and source records identify the delivered artifact set; they
 are not legal or security certification. See [stable distribution](distribution.md)
 for the complete 1.0.0 artifact contract.
+
+## Database hosting logos
+
+The source chooser bundles PostgreSQL, Supabase, AWS, Google Cloud, Azure and
+DigitalOcean logos from [Devicon](https://github.com/devicons/devicon) under its
+MIT license, and Neon from [Simple Icons](https://github.com/simple-icons/simple-icons)
+under CC0. The installed web assets include both license texts and a
+`provider-icons/provenance.json` manifest with exact upstream commit URLs and
+SHA-256 hashes. They load locally without third-party asset requests. Provider
+names and trademarks remain with their owners; inclusion identifies the hosting
+route and does not imply endorsement or verified provider compatibility.

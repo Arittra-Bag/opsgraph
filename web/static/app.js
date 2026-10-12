@@ -21,6 +21,12 @@
   };
   const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, skillEditToken: 0, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
+  state.sourceWizard = window.OpsGraphSourceSetup?.mount({
+    document, storage: sessionStorage, request: api, dirty: markSourceDirty,
+    guardFocus: control => guardAsyncFocus(control, $('#connectionSaveStatus')),
+    discovered: discoverConnectionTables, authenticated: () => state.authenticated,
+    source: () => state.sources.find(item => item.id === ($('#sourceSetup').dataset.sourceId || $('#sourceId').value)),
+  });
   const workOutcomes = window.OpsGraphWorkOutcomes?.mount({ request: api, authenticated: () => state.authenticated, openRun, download });
   // A launcher supplies only a short-lived single-use token, never the API key.
   const launchToken = new URLSearchParams(location.hash.slice(1)).get('connect');
@@ -100,6 +106,7 @@
     return payload;
   }
   function showView(name, focus = true) {
+    state.sourceWizard?.rememberView(name);
     $$('[data-view-panel]').forEach(panel => { panel.hidden = panel.dataset.viewPanel !== name; panel.classList.toggle('active', !panel.hidden); });
     $$('.nav-item').forEach(button => { const active = button.dataset.view === name; button.classList.toggle('active', active); active ? button.setAttribute('aria-current', 'page') : button.removeAttribute('aria-current'); });
     if (focus) {
@@ -167,6 +174,8 @@
     const modelReady = state.modelTested && !state.providerDirty;
     const conversationalQuestion = isConversationQuestion($('#investigationQuestion').value);
     $('#openCredential').textContent = state.authenticated ? 'Workspace connected' : 'Connect workspace';
+    if ($('#credentialConnected')) $('#credentialConnected').hidden = !state.authenticated;
+    if ($('#credentialForm')) $('#credentialForm').hidden = state.authenticated;
     $('#workspaceReadiness').textContent = state.authenticated ? 'Authenticated to this backend.' : 'Use the key created by your OpsGraph operator.';
     $('#sourceReadiness').textContent = ready.length ? `${ready.length} inspected PostgreSQL source${ready.length === 1 ? '' : 's'}.` : state.savedConnection ? 'Your database connection is saved. Choose its tables and check access.' : 'Configure and inspect an approved read-only source.';
     $('#modelReadiness').textContent = modelReady ? 'A recent model connection check passed on this backend.' : state.providerDirty ? 'Save and test the edited model configuration.' : state.providerConfiguration ? `${state.providerConfiguration.provider} / ${state.providerConfiguration.model} is saved. Run a real connection check.` : 'Run a current model connection check on this backend.';
@@ -445,15 +454,16 @@
     const node = $('#hostingGuide');
     if (!guide) { node.textContent = state.authenticated ? 'Hosting guidance has not loaded. Retry below.' : 'Connect your workspace to load hosting guidance.'; return; }
     const list = items => '<ol>' + items.map(item => '<li>' + esc(item) + '</li>').join('') + '</ol>';
-    node.innerHTML = `<p class="eyebrow">CONNECTION GUIDE</p><h3>${esc(guide.name)}</h3><p>${esc(guide.summary)}</p><dl class="hosting-facts"><div><dt>Endpoint</dt><dd>${esc(guide.endpoint)}</dd></div><div><dt>Network</dt><dd>${esc(guide.network)}</dd></div><div><dt>TLS</dt><dd>${esc(guide.tls)}</dd></div></dl><h4>Connect safely</h4>${list(guide.steps)}<h4>Before investigating</h4>${list(guide.checks)}<p class="helper">${esc(guide.validation)}</p>`;
+    node.innerHTML = `${state.sourceWizard?.icon(guide.id) || ''}<details><summary>Connection steps and network requirements</summary><h3>${esc(guide.name)}</h3><p>${esc(guide.summary)}</p><dl class="hosting-facts"><div><dt>Endpoint</dt><dd>${esc(guide.endpoint)}</dd></div><div><dt>Network</dt><dd>${esc(guide.network)}</dd></div><div><dt>TLS</dt><dd>${esc(guide.tls)}</dd></div></dl><h4>Connect safely</h4>${list(guide.steps)}<h4>Before investigating</h4>${list(guide.checks)}<p class="helper">${esc(guide.validation)}</p></details>`;
     const url = new URL(guide.documentation);
     if (url.protocol === 'https:' && !url.username && !url.password) {
       const link = document.createElement('a'); link.href = url.href; link.textContent = 'Official connection documentation ↗'; link.target = '_blank'; link.rel = 'noopener noreferrer'; node.append(link);
     }
   }
   function renderSavedConnection() {
+    const pending = state.pendingConnections?.find(item => item.configured && !state.sources.some(source => source.secret_ref === item.secret_ref));
     if (state.authenticated && !(state.sources || []).length && state.savedConnection) $('#sourceCatalog').textContent = 'Connection saved. No tables approved yet.';
-    $('#savedConnection').hidden = !state.authenticated || !state.savedConnection || (state.sources || []).some(source => source.secret_ref === state.savedConnection.secret_ref);
+    $('#savedConnection').hidden = !state.authenticated || (!pending && (!state.savedConnection || (state.sources || []).some(source => source.secret_ref === state.savedConnection.secret_ref)));
   }
   async function loadHostingGuides() {
     const token = ++state.hostingToken; const epoch = state.authEpoch;
@@ -561,7 +571,13 @@
     const epoch = state.authEpoch; const token = state.sourceCatalogToken = (state.sourceCatalogToken || 0) + 1;
     const current = () => epoch === state.authEpoch && token === state.sourceCatalogToken;
     let sources;
-    try { sources = await api('/api/sources'); }
+    try {
+      if (state.sourceWizard) {
+        const result = await Promise.all([api('/api/sources'), api('/api/postgres/connections')]);
+        sources = result[0];
+        if (current()) state.pendingConnections = result[1].connections || [];
+      } else sources = await api('/api/sources');
+    }
     catch (error) { if (current()) throw error; return; }
     if (!current()) return;
     state.sources = sources.filter(source => source.kind === 'postgresql');
@@ -575,7 +591,7 @@
       const preferred = ready.find(source => source.id === selected) || ready.find(sourceReadinessPassed) || (ready.length === 1 ? ready[0] : null);
       if (preferred) $('#investigationSource').value = preferred.id;
     }
-    $('#sourceCatalog').innerHTML = state.sources.map(source => `<article class="source-card"><p class="eyebrow">POSTGRESQL · ${esc(source.status)}</p><h2>${esc(source.name)}</h2><p>${esc(source.id)}</p><p>${esc((source.allowed_tables || []).join(', ') || 'No explicit table scope')}</p><p>${source.allow_external_egress ? 'External inference permitted by source' : 'Local inference only'}</p><p>${sourceReadinessPassed(source) ? `Readiness checked ${esc(stamp(source.readiness.checked_at))}` : 'Bounded readiness check required'}</p><button class="secondary" data-edit-source="${esc(source.id)}">Configure / inspect</button></article>`).join('') || '<p class="helper">No PostgreSQL sources configured. Add a source to begin.</p>';
+    $('#sourceCatalog').innerHTML = state.sources.map(source => `<article class="source-card">${state.sourceWizard?.icon(source.hosting_profile) || ''}<p class="eyebrow">POSTGRESQL · ${esc(source.status)}</p><h2>${esc(source.name)}</h2><p>${esc((source.allowed_tables || []).join(', ') || 'Choose the permitted tables')}</p><p>${source.allow_external_egress ? 'May share bounded records with your external model' : 'Records stay on this backend'}</p><p>${sourceReadinessPassed(source) ? `Query check passed ${esc(stamp(source.readiness.checked_at))}` : source.readiness?.status === 'failed' ? `Last query check failed ${esc(stamp(source.readiness.checked_at))}` : 'Query check required'}</p><button class="secondary" data-edit-source="${esc(source.id)}">Configure / inspect</button></article>`).join('') || '<p class="helper">No PostgreSQL sources configured. Add a source to begin.</p>';
     renderSavedConnection();
     readiness();
   }
@@ -645,6 +661,27 @@
     void workOutcomes?.connect();
     if (epoch !== state.authEpoch) return;
     readiness();
+    if (state.sourceWizard) {
+      state.metadataStream?.stop();
+      state.metadataStream = window.OpsGraphSourceSetup.watchWorkspace({
+        fetch, url: revision => apiPath(`/api/workspace/events?after=${revision}`), key,
+        authenticated: () => state.authenticated && state.authEpoch === epoch,
+        parser: window.OpsGraphEvents.createSSEParser,
+        changed: async () => {
+          try {
+            await loadSources();
+            if (epoch !== state.authEpoch) return;
+            if (!state.sourceDirty) state.sourceWizard.refreshSaved();
+            await state.sourceWizard.history();
+            const results = await api('/api/checks');
+            if (epoch !== state.authEpoch) return;
+            const list = $('#modelCheckHistory'); list.replaceChildren();
+            for (const row of results.history || []) { const item = document.createElement('li'); item.textContent = `${row.check} · ${row.status} · ${stamp(row.checked_at)}`; list.append(item); }
+            if (!results.history?.length) list.textContent = 'No model checks recorded yet.';
+          } catch { /* Metadata loss does not launch or retry any investigation. */ }
+        },
+      });
+    }
     if (state.savedConnection && !state.sources.length && $('#sourceSetup').hidden) sourceSetup();
   }
   async function connectWorkspace(event) {
@@ -667,6 +704,8 @@
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
   function clearWorkspace() {
+    state.metadataStream?.stop();
+    state.sourceWizard?.reset();
     workOutcomes?.reset();
     state.authEpoch++; state.skillEditToken++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); $('#tableChoices').replaceChildren(); $('#tableDiscovery').hidden = true; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
     state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.conversations = []; state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
@@ -683,12 +722,14 @@
   }
   async function discoverConnectionTables() {
     const token = state.sourceSetupToken; const epoch = state.authEpoch;
-    if (!state.savedConnection || $('#sourceSecretRef').value !== state.savedConnection.secret_ref) return;
+    const reference = $('#sourceSecretRef').value;
+    if (state.sourceWizard ? !reference : (!state.savedConnection || reference !== state.savedConnection.secret_ref)) return;
     $('#tableDiscovery').hidden = false; $('#retryTableDiscovery').disabled = true;
     $('#tableDiscoveryStatus').textContent = 'Finding readable tables. Only table names are fetched, no records or model calls.';
     $('#tableChoices').replaceChildren();
     try {
-      const result = await api('/api/postgres/discover-tables', { method: 'POST' });
+      const path = state.sourceWizard ? `/api/postgres/discover-tables?secret_ref=${encodeURIComponent(reference)}` : '/api/postgres/discover-tables';
+      const result = await api(path, { method: 'POST' });
       if (token !== state.sourceSetupToken || epoch !== state.authEpoch) return;
       const selected = new Set($('#sourceTables').value.split(',').map(value => value.trim()).filter(Boolean));
       for (const name of result.tables) {
@@ -742,12 +783,14 @@
     }
     $('#tableDiscovery').hidden = true; $('#tableChoices').replaceChildren();
     if (state.savedConnection && (!source || source.secret_ref === state.savedConnection.secret_ref)) void discoverConnectionTables();
+    state.sourceWizard?.start(source);
     $('#sourceSetupTitle').focus();
   }
   function markSourceDirty() {
+    state.sourceWizard?.invalidate();
     state.sourceDirty = true; updateSourceContinue(null);
     state.sourceEditingId = $('#sourceSetup').dataset.sourceId || null;
-    $('#sourceStatus').textContent = 'Unsaved source changes. Investigations using this source are paused until you save and inspect again.';
+    $('#sourceStatus').textContent = state.sourceEditingId ? 'Unsaved source changes. Investigations using this source are paused until you save and inspect again.' : 'Source settings are not saved yet.';
     readiness();
   }
   function roleGuideInputs() {
@@ -818,10 +861,10 @@
     const tables = (snapshot.tables || []).filter(table => allowed.has(`${table.schema_name}.${table.table_name}`));
     const warnings = snapshot.type_warnings || [];
     const limits = snapshot.metadata_limits || ['Relationships and join cardinality are not discovered.', 'Business meanings, units, status definitions and business time semantics are not configured.'];
-    $('#inspectedTables').innerHTML = `<h3>Inspected physical schema</h3>${scopeMarkup({ 'Inspection status': snapshot.status || 'Unavailable', 'Last inspected': snapshot.inspected_at ? stamp(snapshot.inspected_at) : 'Unavailable for this saved inspection', 'Schema fingerprint': snapshot.fingerprint || 'Unavailable' })}<p class="helper">Saved metadata from an actual inspection, not a continuous schema monitor. Uncheck a table to narrow scope, then save and inspect again. Newly discovered tables are never added automatically.</p>${snapshot.status === 'stale' ? '<p class="notice error">The database schema changed after inspection. Review these saved columns, then save and inspect again before investigating.</p>' : ''}<p class="helper">Every column visible to the database role in an allowed table can be queried. Restrict columns with database grants or an approved read-only view; these checkboxes restrict tables only.</p>${tables.map(table => {
+    $('#inspectedTables').innerHTML = `<h3>Saved table inspection</h3>${scopeMarkup({ 'Inspection status': snapshot.status || 'Unavailable', 'Last inspected': snapshot.inspected_at ? stamp(snapshot.inspected_at) : 'Unavailable for this saved inspection', 'Schema fingerprint': snapshot.fingerprint || 'Unavailable' })}<p class="helper">Saved metadata from an actual inspection, not a continuous schema monitor. Uncheck a table to narrow scope, then save and inspect again. Newly discovered tables are never added automatically.</p>${snapshot.status === 'stale' ? '<p class="notice error">The database schema changed after inspection. Review these saved columns, then save and inspect again before investigating.</p>' : ''}<p class="helper">Every column visible to the database role in an allowed table can be queried. Restrict columns with database grants or an approved read-only view; these checkboxes restrict tables only.</p>${tables.map(table => {
       const name = `${table.schema_name}.${table.table_name}`;
-      return `<section class="schema-table"><label class="checkbox-label"><input type="checkbox" data-inspected-table="${esc(name)}" checked><span>${esc(name)}</span></label><details open><summary>Physical columns (${(table.columns || []).length})</summary><div class="evidence-table-wrap" tabindex="0" role="region" aria-label="${esc(name)} columns, horizontally scrollable"><table class="evidence-table"><thead><tr><th scope="col">Column</th><th scope="col">PostgreSQL type</th><th scope="col">Nullable</th></tr></thead><tbody>${(table.columns || []).map(column => `<tr><td>${esc(column.name)}</td><td>${esc(column.data_type)}</td><td>${column.nullable === true ? 'Yes' : column.nullable === false ? 'No' : 'Unavailable'}</td></tr>`).join('')}</tbody></table></div></details></section>`;
-    }).join('') || '<p>No permitted tables were retained in this inspection.</p>'}${warnings.length ? `<div class="notice error"><b>Unsupported or limited result types</b><ul>${warnings.map(warning => `<li>${esc(warning.table)}.${esc(warning.column)} (${esc(warning.data_type)}): ${esc(warning.message)}</li>`).join('')}</ul></div>` : ''}<p class="helper">Physical names and data types do not establish business meaning. Include necessary definitions, units, status meanings, join keys and timezone/time-range rules in your question; ask for clarification when unsure.</p><ul class="helper">${limits.map(limit => `<li>${esc(limit)}</li>`).join('')}</ul>`;
+      return `<section class="schema-table"><label class="checkbox-label"><input type="checkbox" data-inspected-table="${esc(name)}" checked><span>${esc(name)}</span></label><details><summary>Columns (${(table.columns || []).length})</summary><div class="evidence-table-wrap" tabindex="0" role="region" aria-label="${esc(name)} columns, horizontally scrollable"><table class="evidence-table"><thead><tr><th scope="col">Column</th><th scope="col">PostgreSQL type</th><th scope="col">Nullable</th></tr></thead><tbody>${(table.columns || []).map(column => `<tr><td>${esc(column.name)}</td><td>${esc(column.data_type)}</td><td>${column.nullable === true ? 'Yes' : column.nullable === false ? 'No' : 'Unavailable'}</td></tr>`).join('')}</tbody></table></div></details></section>`;
+    }).join('') || '<p>No permitted tables were retained in this inspection.</p>'}${warnings.length ? `<div class="notice error"><b>Unsupported or limited result types</b><ul>${warnings.map(warning => `<li>${esc(warning.table)}.${esc(warning.column)} (${esc(warning.data_type)}): ${esc(warning.message)}</li>`).join('')}</ul></div>` : ''}<p class="helper">Physical names and data types do not establish business meaning. Include necessary definitions, units, status meanings, join keys and timezone/time-range rules in your question; ask for clarification when unsure.</p><details><summary>What this inspection can and cannot establish</summary><ul class="helper">${limits.map(limit => `<li>${esc(limit)}</li>`).join('')}</ul></details>`;
     $('#inspectedTables').hidden = false;
     $('#sourceReadinessTable').innerHTML = tables.map(table => {
       const name = `${table.schema_name}.${table.table_name}`;
@@ -860,6 +903,7 @@
       if (token !== state.sourceSetupToken) return;
       renderInspection(snapshot);
       $('#sourceStatus').textContent = `Inspection succeeded: ${(snapshot.tables || []).length} permitted table${(snapshot.tables || []).length === 1 ? '' : 's'}. Model readiness is checked separately.`;
+      state.sourceWizard?.inspected();
     } catch (error) { if (token !== state.sourceSetupToken) { return; }
       $('#sourceStatus').textContent = 'Source is not ready for a new investigation.'; sourceDiagnostic(error); notice('#sourceError', `${error.message}\nCheck the backend environment variable, read-only grants, and explicit table/mapping scope. Save and inspect again after correcting configuration.`); await loadSources().catch(() => {}); }
     finally { if (token === state.sourceSetupToken) { $('#sourceFields').disabled = false; $('#sourceHosting').disabled = false; $('#saveSource').disabled = false; restoreFocus(); } }
@@ -886,11 +930,13 @@
       }
       updateSourceContinue(refreshed);
       $('#sourceReadinessStatus').textContent = `Passed ${stamp(result.checked_at)}. PostgreSQL executed the bounded query and no source value was returned or retained.`;
+      void state.sourceWizard?.history();
     } catch (error) {
       if (!current()) return;
       sourceDiagnostic(error);
       $('#sourceReadinessStatus').textContent = result ? 'Readiness response could not be confirmed.' : 'Readiness did not pass.';
       notice('#sourceError', `${error.message}\n${result ? 'Refresh current source state, then review and run the check again.' : 'Review the inspected scope, database role and secure connection, then explicitly run the check again.'}`);
+      if (state.sourceWizard) { await loadSources().catch(() => {}); void state.sourceWizard.history(); }
     } finally { if (current()) { $('#runSourceReadiness').disabled = !$('#confirmSourceReadiness').checked; restoreFocus(); } }
   }
 
@@ -1234,10 +1280,18 @@
   $('.skip-link').addEventListener('click', event => { event.preventDefault(); showView('investigations', false); $('#workspace').focus(); });
   $('#drawerBackdrop').addEventListener('click', () => closeDrawer());
   ['#openCredential', '#setupCredential'].forEach(id => $(id).addEventListener('click', event => openDrawer('credentialDrawer', event.currentTarget)));
-  $('#credentialForm').addEventListener('submit', connectWorkspace); $('#clearCredential').addEventListener('click', clearWorkspace);
+  $('#credentialForm').addEventListener('submit', connectWorkspace); $('#clearCredential').addEventListener('click', () => { clearWorkspace(); openDrawer('credentialDrawer', $('#openCredential')); });
   $('#retryTableDiscovery').addEventListener('click', discoverConnectionTables);
-  $('#finishSavedConnection').addEventListener('click', () => sourceSetup());
+  $('#finishSavedConnection').addEventListener('click', () => {
+    const pending = state.pendingConnections?.find(item => item.configured && !state.sources.some(source => source.secret_ref === item.secret_ref));
+    sourceSetup(); if (pending) void state.sourceWizard?.resumeConnection(pending.secret_ref);
+  });
   $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
+  $('#closeSourceSetup')?.addEventListener('click', () => {
+    state.sourceSetupToken++; state.sourceDirty = false; state.sourceEditingId = null;
+    state.sourceWizard?.reset(); state.sourceWizard?.rememberView('sources');
+    $('#sourceSetup').hidden = true; readiness(); $('#sourcesTitle').focus();
+  });
   $('#setupReadiness').addEventListener('click', () => sourceSetup(sourceForReadinessSetup()));
   $('#sourceHosting').addEventListener('change', () => { renderHostingGuide(); markSourceDirty(); });
   $('#retryHostingGuides').addEventListener('click', loadHostingGuides);
@@ -1306,9 +1360,10 @@
   });
   $('#exportEvidence').addEventListener('click', async () => { if (!state.run) return; try { download(`${state.run.id}.json`, await api(`/api/runs/${encodeURIComponent(state.run.id)}/export`)); } catch (error) { notice('#runError', error.message); } });
   $('#exportAudit').addEventListener('click', async () => { try { download('opsgraph-audit.json', await api('/api/audit')); } catch (error) { notice('#globalError', error.message); } });
-  window.addEventListener('beforeunload', stopStream);
+  window.addEventListener('beforeunload', () => { stopStream(); state.metadataStream?.stop(); });
   async function startWorkspace() {
     const epoch = state.authEpoch;
+    const navigation = state.sourceWizard?.session();
     if (launchToken !== null) {
       try {
         const response = await fetch(apiPath('/api/launcher/session'), {
@@ -1326,7 +1381,15 @@
     }
     if (epoch !== state.authEpoch) return;
     if (key()) {
-      try { await loadWorkspace(); if (epoch !== state.authEpoch) return; const selected = sessionStorage.getItem('opsgraph.selectedRun'); if (selected) await openRun(selected); }
+      try {
+        await loadWorkspace(); if (epoch !== state.authEpoch) return;
+        const selected = sessionStorage.getItem('opsgraph.selectedRun'); if (selected) await openRun(selected);
+        if (navigation && epoch === state.authEpoch) {
+          showView(navigation.view, false);
+          const source = state.sources.find(item => item.id === navigation.sourceId);
+          if (navigation.view === 'sources' && source) sourceSetup(source);
+        }
+      }
       catch (error) { if (epoch !== state.authEpoch) return; notice('#globalError', error.message); readiness(); }
     }
   }

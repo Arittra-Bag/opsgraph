@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import secrets
 import sqlite3
@@ -5,7 +7,7 @@ import time
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -133,7 +135,13 @@ async def save_source_connection(
             dsn = portable_connection(dsn, supplied_ca=bool(body.ca_pem))
             revision, binding_key = secrets.token_hex(16), secrets.token_hex(32)
             write_private_config(
-                pending, {"DSN": dsn, "REVISION": revision, "BINDING_KEY": binding_key}
+                pending,
+                {
+                    "DSN": dsn,
+                    "REVISION": revision,
+                    "BINDING_KEY": binding_key,
+                    "HOSTING_PROFILE": body.hosting_profile,
+                },
             )
             records = []
             for record in runtime.store.list(workspace_id=principal.workspace_id):
@@ -174,7 +182,8 @@ async def save_source_connection(
             finally:
                 pending.unlink(missing_ok=True)
         except SetupError as error:
-            raise HTTPException(422, str(error)) from None
+            detail = str(error).replace(" Type ? for connection instructions.", "")
+            raise HTTPException(422, detail) from None
         except (OSError, ValueError):
             raise HTTPException(
                 503, "Connection could not be saved in private backend storage."
@@ -617,6 +626,84 @@ def sources(workspace_id: Annotated[str, Depends(require_workspace)]):
     return connected
 
 
+@app.get("/api/checks")
+def check_history(
+    principal: Annotated[Principal, Depends(require_principal)], source_id: str | None = None
+):
+    """Recorded results remain visible; history never refreshes readiness by itself."""
+    resources = {"current-provider"}
+    if source_id:
+        authorize(principal, "core.schema.inspect", source_id)
+        try:
+            source = runtime.store.get(
+                workspace_id=principal.workspace_id, record_id=f"source:{source_id}"
+            ).value
+        except KeyError:
+            raise HTTPException(404, "Source not found.") from None
+        resources = {source_id, source["secret_ref"]}
+    runtime.audit.require_valid()
+    labels = {
+        "core.source.manage": "Connection saved",
+        "core.schema.inspect": "Table inspection",
+        "core.source.readiness": "Database readiness",
+        "core.provider.test": "Model connection",
+    }
+    rows = []
+    for entry in reversed(runtime.audit.entries):
+        if (
+            entry.workspace_id != principal.workspace_id
+            or entry.resource not in resources
+            or entry.action not in labels
+            or (
+                entry.action == "core.source.manage"
+                and entry.details.get("reason") != "connection_saved"
+            )
+        ):
+            continue
+        rows.append(
+            {
+                "sequence": entry.sequence,
+                "checked_at": entry.occurred_at,
+                "check": labels[entry.action],
+                "status": "passed" if entry.outcome == "allowed" else "failed",
+            }
+        )
+        if len(rows) == 30:
+            break
+    return {"history": rows, "limit": 30, "readiness_refreshed": False}
+
+
+@app.get("/api/workspace/events")
+def workspace_events(
+    request: Request, workspace_id: Annotated[str, Depends(require_workspace)], after: int = 0
+):
+    """Notify the authenticated browser of committed metadata; never probe a source."""
+
+    async def events():
+        revision = max(0, after)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not await request.is_disconnected():
+            with sqlite3.connect(runtime.settings.state_path) as db:
+                row = db.execute(
+                    "SELECT COALESCE(MAX(sequence),0) FROM audit_entries WHERE workspace_id=?",
+                    (workspace_id,),
+                ).fetchone()
+            current = int(row[0])
+            if current != revision:
+                revision = current
+                payload = json.dumps({"revision": revision})
+                yield f"id: {revision}\nevent: workspace_changed\ndata: {payload}\n\n"
+            await asyncio.sleep(0.5)
+        # Short-lived streams allow graceful terminal shutdown; the client reconnects.
+        yield ": refresh\n\n"
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.get("/api/playbooks")
 def playbooks(_: Annotated[str, Depends(require_workspace)]):
     skills = []
@@ -967,11 +1054,18 @@ def check_source_readiness(
     secret_ref = str(stored["secret_ref"])
     if secret_ref not in approved_refs:
         raise HTTPException(422, "Source credential reference is no longer approved.")
-    dsn = resolve_connection(runtime, secret_ref)
-    if not dsn:
-        raise PostgresHTTPError("credential_missing", status_code=409)
     sql = f"SELECT 1 AS opsgraph_readiness FROM {body.table} LIMIT 1"  # noqa: S608
     try:
+        try:
+            dsn = resolve_connection(runtime, secret_ref)
+        except SetupError:
+            raise ConnectorUnavailable(
+                "Private source connection needs attention.", diagnostic_code="credential_missing"
+            ) from None
+        if not dsn:
+            raise ConnectorUnavailable(
+                "Source connection is missing.", diagnostic_code="credential_missing"
+            )
         plan = query_validator.validate(
             workspace_id=principal.workspace_id,
             sql=sql,
@@ -1009,7 +1103,20 @@ def check_source_readiness(
         raise HTTPException(409, str(exc)) from exc
     except (ConnectorUnavailable, UnsafeDatabaseRole, UnsafeQuery) as exc:
         diagnostic_code = _readiness_failure_code(exc)
-        runtime.audit.append(
+        failed = {
+            **stored,
+            "readiness": {
+                "status": "failed",
+                "checked_at": timestamp(),
+                "table": body.table,
+                "reason": diagnostic_code,
+                "source_values_returned": 0,
+            },
+        }
+        save_audited_source(
+            expected=stored_record,
+            records=(WorkspaceRecord(principal.workspace_id, f"source:{source_id}", failed),),
+            conflict_message="Source configuration changed during the check. Review it again.",
             workspace_id=principal.workspace_id,
             actor=principal.subject,
             action="core.source.readiness",
@@ -1017,7 +1124,9 @@ def check_source_readiness(
             outcome="rejected",
             details={"table": body.table, "reason": diagnostic_code},
         )
-        raise PostgresHTTPError(diagnostic_code) from None
+        raise PostgresHTTPError(
+            diagnostic_code, status_code=409 if diagnostic_code == "credential_missing" else 422
+        ) from None
     current_policy = authorize(principal, "core.source.readiness", source_id)
     if current_policy != policy_obligations:
         raise HTTPException(409, "Deployment policy changed during readiness. Run it again.")

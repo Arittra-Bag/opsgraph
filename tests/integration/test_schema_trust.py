@@ -302,6 +302,101 @@ def test_reinspection_invalidates_prior_readiness(schema_api):
     }
 
 
+def test_failed_recheck_is_saved_and_history_does_not_refresh_it(schema_api, monkeypatch):
+    from opsgraph.brokers import ConnectorUnavailable
+
+    client, runtime, executor, _, headers = schema_api
+    inspect_ready_source(client, headers)
+    body = {"table": "public.records", "confirm_bounded_read": True}
+    assert (
+        client.post("/api/sources/schema-data/readiness", headers=headers, json=body).status_code
+        == 200
+    )
+    before = tuple(entry.model_dump_json() for entry in runtime.audit.entries)
+
+    def fail(*args, **kwargs):
+        raise ConnectorUnavailable(
+            "fixture-private-driver-error", diagnostic_code="network_unavailable"
+        )
+
+    monkeypatch.setattr(executor, "execute_readonly", fail)
+    response = client.post("/api/sources/schema-data/readiness", headers=headers, json=body)
+    assert response.status_code == 422 and "fixture-private-driver-error" not in response.text
+    saved = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    ).value
+    assert saved["readiness"]["status"] == "failed"
+    assert saved["readiness"]["source_values_returned"] == 0
+    assert (
+        tuple(entry.model_dump_json() for entry in runtime.audit.entries[: len(before)]) == before
+    )
+    history = client.get("/api/checks?source_id=schema-data", headers=headers)
+    assert history.status_code == 200
+    assert history.json()["history"][0]["status"] == "failed"
+    assert history.json()["history"][1]["status"] == "passed"
+    assert history.json()["readiness_refreshed"] is False
+    assert (
+        runtime.store.get(
+            workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+        ).value
+        == saved
+    )
+
+
+def test_check_history_is_authenticated_and_redacts_details(schema_api):
+    client, runtime, _, _, headers = schema_api
+    assert client.get("/api/checks").status_code == 401
+    runtime.audit.append(
+        workspace_id=runtime.settings.workspace_id,
+        actor="local-operator",
+        action="core.provider.test",
+        resource="current-provider",
+        outcome="rejected",
+        details={"private": "fixture-secret-should-never-be-shown"},
+    )
+    runtime.audit.append(
+        workspace_id="other-workspace",
+        actor="local-operator",
+        action="core.provider.test",
+        resource="current-provider",
+        outcome="allowed",
+    )
+    response = client.get("/api/checks", headers=headers)
+    assert response.status_code == 200
+    assert len(response.json()["history"]) == 1
+    assert response.json()["history"][0]["status"] == "failed"
+    assert "fixture-secret" not in response.text
+
+
+def test_missing_connection_recheck_persists_failure_without_retaining_credentials(
+    schema_api, monkeypatch
+):
+    client, runtime, _, _, headers = schema_api
+    inspect_ready_source(client, headers)
+    monkeypatch.delenv("OPSGRAPH_SOURCE_DSN")
+    response = client.post(
+        "/api/sources/schema-data/readiness",
+        headers=headers,
+        json={"table": "public.records", "confirm_bounded_read": True},
+    )
+    assert response.status_code == 409
+    saved = runtime.store.get(
+        workspace_id=runtime.settings.workspace_id, record_id="source:schema-data"
+    ).value
+    assert saved["readiness"]["status"] == "failed"
+
+
+def test_workspace_metadata_stream_requires_header_and_contains_no_evidence(schema_api):
+    client, _, _, _, headers = schema_api
+    assert client.get("/api/workspace/events").status_code == 401
+    inspect_ready_source(client, headers)
+    response = client.get("/api/workspace/events", headers=headers)
+    assert response.status_code == 200
+    assert "workspace_changed" in response.text and "revision" in response.text
+    assert "isolated-contract-secret" not in response.text and "public.records" not in response.text
+    assert "no-store" in response.headers["cache-control"]
+
+
 @pytest.mark.parametrize("operation", ["inspect", "readiness"])
 def test_source_transition_rolls_back_when_audit_insert_fails(schema_api, monkeypatch, operation):
     import sqlite3
