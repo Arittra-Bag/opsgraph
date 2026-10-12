@@ -36,6 +36,7 @@ from opsgraph.policy import FailClosedPolicy, StaticPolicyEvaluator
 from opsgraph.providers import ChatMessage, ModelProvider, StructuredRequest
 from opsgraph.schema_service import SchemaSnapshot
 from opsgraph.skills import SkillRepository, ToolSettings
+from opsgraph.skills.models import InvestigationWorkflow
 
 
 class ModelOutputInvalidError(ValueError):
@@ -178,11 +179,17 @@ _ANSWER_CORRECTIONS = {
 }
 
 
-def _answer_schema(evidence_ids: list[str]) -> dict[str, Any]:
+def _answer_schema(
+    evidence_ids: list[str], workflow: InvestigationWorkflow | None = None
+) -> dict[str, Any]:
     """Constrain generation to captured identities; runtime validation stays independent."""
     schema = InvestigationAnswer.model_json_schema()
-    schema["properties"]["findings"]["maxItems"] = _MODEL_FINDINGS_LIMIT
-    schema["properties"]["limitations"]["maxItems"] = _MODEL_LIMITATIONS_LIMIT
+    schema["properties"]["findings"]["maxItems"] = (
+        workflow.max_findings if workflow else _MODEL_FINDINGS_LIMIT
+    )
+    schema["properties"]["limitations"]["maxItems"] = (
+        workflow.max_limitations if workflow else _MODEL_LIMITATIONS_LIMIT
+    )
     citations = schema["$defs"]["CitedFinding"]["properties"]["evidence_ids"]
     if evidence_ids:
         citations["items"] = {"type": "string", "enum": sorted(set(evidence_ids))}
@@ -649,7 +656,8 @@ def build_connected_graph(
             f"Schema: {json.dumps(schema, sort_keys=True)}\n"
             f"Prior investigation context (historical, not fresh evidence): {parent_context}"
         )
-        remaining = 3 - state.get("query_count", 0)
+        workflow = skill.workflow or InvestigationWorkflow()
+        remaining = workflow.max_queries - state.get("query_count", 0)
         prompt += (
             f"\nRemaining query budget: {remaining}. Never exceed it. "
             "For competing explanations, run a narrow initial query and set "
@@ -663,6 +671,14 @@ def build_connected_graph(
             "Avoid em dashes. A capture is a saved query result, not proof of truth, "
             "origin or completeness. A hash identifies retained bytes, not their truth."
         )
+        if skill.workflow:
+            prompt += (
+                f"\nThis workflow allows {workflow.max_queries} total queries. "
+                f"Follow-up queries after results: {workflow.follow_up_queries}. "
+                "When follow-up queries are disabled, return continue_after_results=false "
+                "and plan the necessary queries within this one round. "
+                "Mandatory clarification, source checks and policy gates still apply."
+            )
         if state.get("evidence"):
             prior = [
                 {key: item[key] for key in ("evidence_hash", "columns", "rows", "truncated")}
@@ -678,10 +694,13 @@ def build_connected_graph(
                     "Select fewer tables and shorten the question."
                 )
             check()
+            plan_schema = InvestigationPlan.model_json_schema()
+            if skill.workflow:
+                plan_schema["properties"]["queries"]["maxItems"] = remaining
             response = provider.invoke_structured(
                 StructuredRequest(
                     messages=(ChatMessage(role="user", content=prompt),),
-                    response_schema=InvestigationPlan.model_json_schema(),
+                    response_schema=plan_schema,
                     system=(
                         "You are a cautious database investigation planner. "
                         "A relationship is not a uniqueness guarantee. "
@@ -711,6 +730,8 @@ def build_connected_graph(
                 raise ClarificationRequired(validated.clarification)
             if len(validated.queries) > remaining:
                 raise ModelOutputInvalidError("Model plan exceeded the remaining query budget.")
+            if validated.continue_after_results and not workflow.follow_up_queries:
+                raise ModelOutputInvalidError("Selected workflow forbids follow-up query rounds.")
             if validated.assistant_message and state.get("query_count", 0):
                 raise ModelOutputInvalidError(
                     "A data investigation cannot change into an uncited conversational reply."
@@ -773,7 +794,8 @@ def build_connected_graph(
         plan_value = InvestigationPlan.model_validate(state["plan"])
         evidence: list[dict[str, Any]] = list(state.get("evidence", []))
         used = state.get("query_count", 0)
-        if used + len(plan_value.queries) > 3:
+        workflow = skill.workflow or InvestigationWorkflow()
+        if used + len(plan_value.queries) > workflow.max_queries:
             raise ModelOutputInvalidError("Model plan exceeded the total query budget.")
         for index, proposal in enumerate(plan_value.queries):
             index += used
@@ -828,7 +850,11 @@ def build_connected_graph(
             signal("evidence_captured", {"index": index, "evidence": payload})
         covered = {tag for item in evidence for tag in item["evidence_types"]}
         missing = set(skill.required_evidence).difference(covered)
-        if missing and not (plan_value.continue_after_results and len(evidence) < 3):
+        if missing and not (
+            workflow.follow_up_queries
+            and plan_value.continue_after_results
+            and len(evidence) < workflow.max_queries
+        ):
             raise MappingRequiredError(
                 f"plan does not cover required evidence: {', '.join(sorted(missing))}. "
                 "Review preserved captures and source playbook mappings, then retry with "
@@ -846,6 +872,7 @@ def build_connected_graph(
         signal("stage_started", {"stage": "reconcile"})
         evidence = state.get("evidence", [])
         skill = skills.get_published(state["skill_id"])
+        workflow = skill.workflow or InvestigationWorkflow()
         evidence_ids = [item["evidence_hash"] for item in evidence]
         model_evidence = []
         for item in evidence:
@@ -917,6 +944,18 @@ def build_connected_graph(
             f"{parent_context}\n"
             f"Evidence: {encoded_evidence}"
         )
+        if skill.workflow:
+            prefix, separator, payload = prompt.rpartition("\nEvidence: ")
+            prompt = (
+                prefix
+                + (
+                    f"\nWorkflow report limits: at most {workflow.max_findings} findings and "
+                    f"{workflow.max_limitations} model limitations. Combine related requested "
+                    "observations without omitting requested records or operator assumptions."
+                )
+                + separator
+                + payload
+            )
         allowed = set(evidence_ids)
 
         def generate_answer(correction: str = ""):
@@ -940,7 +979,7 @@ def build_connected_graph(
             response = provider.invoke_structured(
                 StructuredRequest(
                     messages=(ChatMessage(role="user", content=request_prompt),),
-                    response_schema=_answer_schema(evidence_ids),
+                    response_schema=_answer_schema(evidence_ids, skill.workflow),
                     system=(
                         "You reconcile operational evidence without inventing facts. "
                         "Before calling a number supported, check whether the SQL measures the "
@@ -963,8 +1002,8 @@ def build_connected_graph(
                     "Model answer failed required structure or limits validation."
                 ) from None
             if (
-                len(answer.findings) > _MODEL_FINDINGS_LIMIT
-                or len(answer.limitations) > _MODEL_LIMITATIONS_LIMIT
+                len(answer.findings) > workflow.max_findings
+                or len(answer.limitations) > workflow.max_limitations
             ):
                 raise ModelOutputInvalidError(
                     "Model answer exceeded the displayed finding or limitation limit."
@@ -1025,7 +1064,12 @@ def build_connected_graph(
         "execute",
         lambda state: (
             "plan"
-            if state["plan"].get("continue_after_results") and state.get("query_count", 0) < 3
+            if state["plan"].get("continue_after_results")
+            and (
+                (workflow := skills.get_published(state["skill_id"]).workflow) is None
+                or workflow.follow_up_queries
+            )
+            and state.get("query_count", 0) < (workflow.max_queries if workflow else 3)
             else "reconcile"
         ),
         {"plan": "plan", "reconcile": "reconcile"},

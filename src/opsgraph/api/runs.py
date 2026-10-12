@@ -299,13 +299,15 @@ class RunAPI:
             "policy": "strict-read-only@1",
             "policy_fingerprint": policy_revision,
             "limits": obligations.model_dump(mode="json"),
-            "max_queries": 3,
+            "max_queries": skill.workflow.max_queries if skill.workflow else 3,
             "provider": runtime.provider.config.kind,
             "model": runtime.provider.config.model,
             "reasoning_effort": runtime.provider.config.reasoning_effort,
             "schema_profile": runtime.provider.config.schema_profile,
             "provider_timeout_seconds": runtime.provider.config.timeout_seconds,
         }
+        if skill.workflow is not None and contract is None:
+            configuration["workflow"] = skill.workflow.model_dump(mode="json")
         if contract is not None:
             configuration.update(
                 provider="application",

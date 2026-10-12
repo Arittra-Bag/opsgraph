@@ -821,3 +821,15 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); cursor:
 #sourceProviderTip { padding: 14px 16px; margin: 14px 0 0; }
 #sourceProviderTip li { padding: 2px 0; }
 .source-setup input:not([type="checkbox"]), .source-setup select, .source-setup textarea { width: 100%; }
+/* Workflows extend the existing immutable playbook publishing path. */
+.workflow-builder { max-width: 740px; padding: 24px 0; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+.workflow-builder input:not([type="checkbox"]), .workflow-builder textarea { width: 100%; }
+.workflow-limits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
+.workflow-guide { padding: 16px; border: 1px solid var(--line); border-radius: 10px; margin: 20px 0; }
+.workflow-guide dt, [data-view-panel="policies"] dt { font-weight: 700; margin-top: 18px; }
+.workflow-guide dd, [data-view-panel="policies"] dd { margin: 8px 0 0; line-height: 1.6; color: var(--muted); }
+.policy-summary { padding: 24px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 24px; }
+.report-technical { border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 20px 0; }
+.report-technical > summary { font-weight: 700; cursor: pointer; }
+.finding .classification { text-transform: none; }
+@media (max-width: 650px) { .workflow-limits { grid-template-columns: 1fr; gap: 4px; } .workflow-builder { padding-top: 14px; } }

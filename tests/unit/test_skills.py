@@ -172,3 +172,40 @@ def test_models_reject_unknown_fields_and_duplicate_tools() -> None:
                 ToolBinding(tool=CORE_SCHEMA_INSPECT),
             )
         )
+
+
+def test_legacy_definition_serialization_keeps_its_exact_pre_workflow_hash():
+    from opsgraph.domain.models import stable_hash
+
+    legacy = SkillDefinition(
+        id="legacy-test",
+        version="1.0.0",
+        name="Legacy test",
+        purpose="Preserve existing publication receipts.",
+        tools=(),
+    )
+    assert "workflow" not in legacy.model_dump(mode="json")
+    assert "workflow" not in legacy.model_dump_json()
+    assert stable_hash(legacy.model_dump(mode="json")) == (
+        "sha256:27f6e4fdb7e6a4355dbc37e417ba63355df3f22fa0cab09dee66bdfc86cfc008"
+    )
+    assert SkillDefinition.model_validate({**legacy.model_dump(), "workflow": None}) == legacy
+
+
+@pytest.mark.parametrize(
+    "workflow",
+    [
+        {"max_queries": 4},
+        {"max_queries": 0},
+        {"max_queries": "2"},
+        {"follow_up_queries": "false"},
+        {"version": 2},
+        {"version": True},
+        {"max_findings": 5},
+        {"max_limitations": 0},
+        {"nodes": ["skip-policy"]},
+    ],
+)
+def test_workflow_contract_rejects_broader_or_ambiguous_configuration(workflow):
+    with pytest.raises(ValidationError):
+        SkillDefinition.model_validate({**definition().model_dump(), "workflow": workflow})

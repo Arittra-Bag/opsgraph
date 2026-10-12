@@ -14,6 +14,7 @@ def test_browser_preview_mirrors_packaged_ui_assets():
         "static/view-state.js",
         "static/work-outcomes.js",
         "static/source-setup.js",
+        "static/workflow-authoring.js",
         "static/favicon.svg",
         "static/chevron-down.svg",
         "static/icons.svg",
