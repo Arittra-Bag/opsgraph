@@ -188,7 +188,43 @@ def test_credential_file_tampering_fails_closed(connections_api):
     values = read_private_config(path)
     write_private_config(path, {**values, "DSN": DSN.replace("operations", "other")})
     response = client.get("/api/postgres/connections", headers=headers)
-    assert response.status_code == 503 and "fixture-private-password" not in response.text
+    assert response.status_code == 200 and "fixture-private-password" not in response.text
+    broken = next(item for item in response.json()["connections"] if item["secret_ref"] == ref)
+    assert broken["configured"] is False and broken["status"] == "needs_attention"
+    with pytest.raises(Exception, match="matching receipt"):
+        resolve_connection(runtime, ref)
+    repaired = save(connections_api, {"dsn": DSN, "secret_ref": ref})
+    assert repaired.status_code == 200
+    assert resolve_connection(runtime, ref)
+
+
+def test_broken_private_connection_does_not_block_an_unrelated_environment_source(
+    connections_api, monkeypatch
+):
+    _, client, runtime, headers, _ = connections_api
+    ref = save(connections_api).json()["secret_ref"]
+    path = connection_path(runtime.settings, ref)
+    path.unlink()
+    monkeypatch.setenv("OPSGRAPH_SOURCE_DSN", DSN)
+    response = client.post(
+        "/api/sources",
+        headers=headers,
+        json={
+            "id": "legacy-db",
+            "name": "Legacy database",
+            "secret_ref": "OPSGRAPH_SOURCE_DSN",
+            "allowed_tables": ["public.jobs"],
+        },
+    )
+    assert response.status_code == 200
+    assert resolve_connection(runtime, "OPSGRAPH_SOURCE_DSN") == DSN
+
+
+def test_legacy_environment_reference_spelling_stays_supported(connections_api, monkeypatch):
+    _, _, runtime, _, _ = connections_api
+    runtime.settings.allowed_postgres_secret_refs = ("OPSGRAPH_DSN",)
+    monkeypatch.setenv("OPSGRAPH_DSN", DSN)
+    assert resolve_connection(runtime, "OPSGRAPH_DSN") == DSN
 
 
 def test_active_run_blocks_connection_changes(connections_api):

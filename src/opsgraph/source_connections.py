@@ -48,6 +48,7 @@ def credential_fingerprint(dsn: str, binding_key: str) -> str:
 
 
 def _receipt(runtime, reference: str):
+    runtime.audit.require_valid()
     for entry in reversed(runtime.audit.entries):
         if (
             entry.workspace_id == runtime.settings.workspace_id
@@ -61,6 +62,12 @@ def _receipt(runtime, reference: str):
 
 
 def private_connection(runtime, reference: str) -> dict | None:
+    # Preserve all historically approved environment-reference spellings.
+    if not REFERENCE.fullmatch(reference) and (
+        reference in runtime.settings.allowed_postgres_secret_refs
+        or reference == runtime.settings.postgres_secret_ref
+    ):
+        return None
     path = connection_path(runtime.settings, reference)
     receipt = _receipt(runtime, reference)
     if not path.exists() and receipt is None:
@@ -89,13 +96,39 @@ def approved_references(runtime) -> set[str]:
     references = set(runtime.settings.allowed_postgres_secret_refs)
     if runtime.settings.postgres_secret_ref:
         references.add(runtime.settings.postgres_secret_ref)
-    directory = connection_directory(runtime.settings)
-    if directory.exists():
-        for path in directory.glob("*.env"):
-            reference = path.stem
-            if REFERENCE.fullmatch(reference) and private_connection(runtime, reference):
-                references.add(reference)
+    runtime.audit.require_valid()
+    for entry in runtime.audit.entries:
+        if (
+            entry.workspace_id == runtime.settings.workspace_id
+            and entry.action == "core.source.manage"
+            and entry.outcome == "allowed"
+            and entry.details.get("reason") == "connection_saved"
+            and REFERENCE.fullmatch(entry.resource)
+        ):
+            references.add(entry.resource)
     return references
+
+
+def public_connections(runtime) -> list[dict]:
+    """A broken credential is visible and repairable without blocking unrelated sources."""
+    result = []
+    for reference in sorted(approved_references(runtime)):
+        try:
+            values = private_connection(runtime, reference)
+            if values is not None or os.getenv(reference):
+                result.append(
+                    {"secret_ref": reference, "configured": True, "managed": bool(values)}
+                )
+        except SetupError:
+            result.append(
+                {
+                    "secret_ref": reference,
+                    "configured": False,
+                    "managed": True,
+                    "status": "needs_attention",
+                }
+            )
+    return result
 
 
 def resolve_connection(runtime, reference: str) -> str | None:

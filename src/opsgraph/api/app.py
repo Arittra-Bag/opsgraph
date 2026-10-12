@@ -43,7 +43,7 @@ from opsgraph.source_connections import (
     credential_fingerprint,
     portable_connection,
     prepare_connection,
-    private_connection,
+    public_connections,
     resolve_connection,
 )
 
@@ -65,17 +65,7 @@ def private_configuration_error(_request: Request, _error: SetupError):
 
 @app.get("/api/postgres/connections")
 def source_connections(_: Annotated[str, Depends(require_workspace)]):
-    return {
-        "connections": [
-            {
-                "secret_ref": ref,
-                "configured": True,
-                "managed": bool(private_connection(runtime, ref)),
-            }
-            for ref in sorted(approved_references(runtime))
-            if resolve_connection(runtime, ref)
-        ]
-    }
+    return {"connections": public_connections(runtime)}
 
 
 @app.put("/api/postgres/connections")
@@ -108,7 +98,10 @@ async def save_source_connection(
     reference = body.secret_ref or f"OPSGRAPH_GUI_{secrets.token_hex(12).upper()}_DSN"
     if body.secret_ref and reference not in approved_references(runtime):
         raise HTTPException(422, "This connection reference is not approved by the deployment.")
-    if body.secret_ref and private_connection(runtime, reference) is None:
+    if body.secret_ref and (
+        reference in runtime.settings.allowed_postgres_secret_refs
+        or reference == runtime.settings.postgres_secret_ref
+    ):
         raise HTTPException(
             422,
             "Environment connections are operator-managed. Save a new private connection instead.",
