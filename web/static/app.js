@@ -19,7 +19,7 @@
     anthropic: { endpoint: '', fixed: true },
     custom_openai: { endpoint: '' },
   };
-  const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, workflowBuildToken: 0, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, skillEditToken: 0, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
+  const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, workflowBuildToken: 0, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, skillEditToken: 0, authEpoch: 0, navigationEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
   state.sourceWizard = window.OpsGraphSourceSetup?.mount({
     document, storage: sessionStorage, request: api, dirty: markSourceDirty,
@@ -607,7 +607,7 @@
       const preferred = ready.find(source => source.id === selected) || ready.find(sourceReadinessPassed) || (ready.length === 1 ? ready[0] : null);
       if (preferred) $('#investigationSource').value = preferred.id;
     }
-    $('#sourceCatalog').innerHTML = state.sources.map(source => `<article class="source-card">${state.sourceWizard?.icon(source.hosting_profile) || ''}<p class="eyebrow">POSTGRESQL · ${esc(source.status)}</p><h2>${esc(source.name)}</h2><p>${esc((source.allowed_tables || []).join(', ') || 'Choose the permitted tables')}</p><p>${source.allow_external_egress ? 'May share bounded records with your external model' : 'Records stay on this backend'}</p><p>${sourceReadinessPassed(source) ? `Query check passed ${esc(stamp(source.readiness.checked_at))}` : source.readiness?.status === 'failed' ? `Last query check failed ${esc(stamp(source.readiness.checked_at))}` : 'Query check required'}</p><button class="secondary" data-edit-source="${esc(source.id)}">Configure / inspect</button></article>`).join('') || '<p class="helper">No PostgreSQL sources configured. Add a source to begin.</p>';
+    $('#sourceCatalog').innerHTML = state.sources.map(source => `<article class="source-card${source.readiness?.status === 'failed' ? ' source-query-failed' : ''}">${state.sourceWizard?.icon(source.hosting_profile) || ''}<p class="eyebrow">POSTGRESQL · ${esc(state.sourceWizard?.label(source, sourceReadinessPassed(source)) || 'Review source')}</p><h2>${esc(source.name)}</h2><p>${esc((source.allowed_tables || []).join(', ') || 'Choose the permitted tables')}</p><p>${source.allow_external_egress ? 'May share bounded records with your external model' : 'Records stay on this backend'}</p><p>${sourceReadinessPassed(source) ? `Query check passed ${esc(stamp(source.readiness.checked_at))}` : source.readiness?.status === 'failed' ? `Last query check failed ${esc(stamp(source.readiness.checked_at))}` : 'Query check required'}</p><button class="secondary" data-edit-source="${esc(source.id)}">Configure / inspect</button></article>`).join('') || '<p class="helper">No PostgreSQL sources configured. Add a source to begin.</p>';
     renderSavedConnection();
     readiness();
   }
@@ -1111,19 +1111,21 @@
     heading.focus({ preventScroll: true });
     ($('.operator-message') || heading).scrollIntoView({ block: 'start', behavior: 'instant' });
   }
-  async function openRun(id) {
+  async function openRun(id, { restore = false, navigationGuard = () => true } = {}) {
+    if (!navigationGuard()) return;
+    if (!restore) state.navigationEpoch = (state.navigationEpoch || 0) + 1;
     const selectionFocus = viewState.focusBookmark(document);
     if (state.activeDrawer?.id === 'reportDrawer') closeDrawer(false);
     stopStream(); const token = state.streamToken; notice('#composerError'); notice('#globalError');
     try {
       id = runId(id);
       const run = await api(`/api/runs/${encodeURIComponent(id)}`);
-      if (token !== state.streamToken) return;
+      if (token !== state.streamToken || !navigationGuard()) return;
       $('#activityLog').replaceChildren(); state.lastEventId = 0; state.lastEvent = null; state.runEvents = []; state.runEventsLoaded = false; $('#evidencePanel').hidden = true; $('#toggleEvidence').setAttribute('aria-expanded', 'false'); $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = false; renderRun(run); showView('investigations', false); void streamRun(id, token);
-      try { await loadConversation(run, token); } catch (error) { if (token === state.streamToken) notice('#globalError', `Conversation history could not load: ${error.message}. Select this investigation again to retry. The selected turn remains available.`); }
-      if (token === state.streamToken && state.run?.id === id &&
+      try { await loadConversation(run, token); } catch (error) { if (token === state.streamToken && navigationGuard()) notice('#globalError', `Conversation history could not load: ${error.message}. Select this investigation again to retry. The selected turn remains available.`); }
+      if (token === state.streamToken && navigationGuard() && state.run?.id === id &&
           (document.activeElement === document.body || document.activeElement === viewState.focusTarget(selectionFocus, document))) positionSelectedTurn();
-    } catch (error) { notice('#globalError', error.message); }
+    } catch (error) { if (token === state.streamToken && navigationGuard()) notice('#globalError', error.message); }
   }
   function addEvent(event) {
     const item = document.createElement('li'); const time = document.createElement('time');
@@ -1220,6 +1222,7 @@
     }
   }
   function newInvestigation() {
+    state.navigationEpoch = (state.navigationEpoch || 0) + 1;
     if (state.activeDrawer?.id === 'reportDrawer') closeDrawer(false);
     stopStream(); state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.lastEvent = null; state.pending = null; sessionStorage.removeItem('opsgraph.selectedRun'); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationQuestion').value = ''; $('#composerScopeDetails').open = true; notice('#composerError'); showView('investigations'); readiness(); renderHistory();
@@ -1302,9 +1305,9 @@
     finally { if (epoch === state.authEpoch && token === state.workflowBuildToken) $('#buildWorkflow').disabled = false; restoreFocus(false); }
   }
   document.addEventListener('click', event => {
-    const view = event.target.closest('[data-view]'); if (view) showView(view.dataset.view);
+    const view = event.target.closest('[data-view]'); if (view) { state.navigationEpoch = (state.navigationEpoch || 0) + 1; showView(view.dataset.view); }
     const run = event.target.closest('[data-run-id]'); if (run) void openRun(run.dataset.runId);
-    const source = event.target.closest('[data-edit-source]'); if (source) sourceSetup(state.sources.find(item => item.id === source.dataset.editSource));
+    const source = event.target.closest('[data-edit-source]'); if (source) { state.navigationEpoch = (state.navigationEpoch || 0) + 1; sourceSetup(state.sources.find(item => item.id === source.dataset.editSource)); }
     const finding = event.target.closest('[data-finding]'); if (finding) showFinding(Number(finding.dataset.finding), finding);
     const evidence = event.target.closest('[data-evidence]'); if (evidence) {
       const returnTarget = state.activeDrawer ? state.returnFocus : evidence;
@@ -1327,16 +1330,18 @@
   $('#credentialForm').addEventListener('submit', connectWorkspace); $('#clearCredential').addEventListener('click', () => { clearWorkspace(); openDrawer('credentialDrawer', $('#openCredential')); });
   $('#retryTableDiscovery').addEventListener('click', discoverConnectionTables);
   $('#finishSavedConnection').addEventListener('click', () => {
+    state.navigationEpoch = (state.navigationEpoch || 0) + 1;
     const pending = state.pendingConnections?.find(item => item.configured && !state.sources.some(source => source.secret_ref === item.secret_ref));
     sourceSetup(); if (pending) void state.sourceWizard?.resumeConnection(pending.secret_ref);
   });
-  $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => sourceSetup());
+  $('#newInvestigation').addEventListener('click', newInvestigation); $('#addSource').addEventListener('click', () => { state.navigationEpoch = (state.navigationEpoch || 0) + 1; sourceSetup(); });
   $('#closeSourceSetup')?.addEventListener('click', () => {
+    state.navigationEpoch = (state.navigationEpoch || 0) + 1;
     state.sourceSetupToken++; state.sourceDirty = false; state.sourceEditingId = null;
     state.sourceWizard?.reset(); state.sourceWizard?.rememberView('sources');
     $('#sourceSetup').hidden = true; readiness(); $('#sourcesTitle').focus();
   });
-  $('#setupReadiness').addEventListener('click', () => sourceSetup(sourceForReadinessSetup()));
+  $('#setupReadiness').addEventListener('click', () => { state.navigationEpoch = (state.navigationEpoch || 0) + 1; sourceSetup(sourceForReadinessSetup()); });
   $('#sourceHosting').addEventListener('change', () => { renderHostingGuide(); markSourceDirty(); });
   $('#retryHostingGuides').addEventListener('click', loadHostingGuides);
   $('#sourceForm').addEventListener('invalid', event => { const details = event.target.closest('details'); if (details) details.open = true; }, true);
@@ -1408,6 +1413,8 @@
   async function startWorkspace() {
     const epoch = state.authEpoch;
     const navigation = state.sourceWizard?.session();
+    const navigationEpoch = state.navigationEpoch || 0;
+    const currentNavigation = () => (state.navigationEpoch || 0) === navigationEpoch;
     if (launchToken !== null) {
       try {
         const response = await fetch(apiPath('/api/launcher/session'), {
@@ -1427,8 +1434,8 @@
     if (key()) {
       try {
         await loadWorkspace(); if (epoch !== state.authEpoch) return;
-        const selected = sessionStorage.getItem('opsgraph.selectedRun'); if (selected) await openRun(selected);
-        if (navigation && epoch === state.authEpoch) {
+        const selected = sessionStorage.getItem('opsgraph.selectedRun'); if (selected && currentNavigation()) await openRun(selected, { restore: true, navigationGuard: currentNavigation });
+        if (navigation && epoch === state.authEpoch && currentNavigation()) {
           showView(navigation.view, false);
           const source = state.sources.find(item => item.id === navigation.sourceId);
           if (navigation.view === 'sources' && source) sourceSetup(source);

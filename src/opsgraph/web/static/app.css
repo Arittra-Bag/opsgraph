@@ -833,3 +833,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); cursor:
 .report-technical > summary { font-weight: 700; cursor: pointer; }
 .finding .classification { text-transform: none; }
 @media (max-width: 650px) { .workflow-limits { grid-template-columns: 1fr; gap: 4px; } .workflow-builder { padding-top: 14px; } }
+
+.source-card.source-query-failed { border-color: #b68b55; }
+.source-card.source-query-failed > .eyebrow { color: #efc29d; }
