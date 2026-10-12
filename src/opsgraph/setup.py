@@ -495,7 +495,7 @@ def run_setup(
                         "CHECK BEFORE PASTING",
                         (
                             "Use a PostgreSQL URI, not an HTTPS project address.",
-                            "Use a read-only login. IPv4-only network? Choose the session pooler.",
+                            "Use a read-only login. For Supabase on IPv4, use the session pooler.",
                             "Remote: sslmode=verify-full, trusted CA. Option 6 adds a CA file.",
                         ),
                     )
