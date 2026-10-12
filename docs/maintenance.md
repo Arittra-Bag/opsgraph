@@ -40,6 +40,19 @@ Do not run the original and restored workspace simultaneously against the same
 source until you have reviewed pending work; accepted queued work is durable.
 The default policy preserves interrupted active work without automatic replay.
 
+## Private source connections
+
+Browser-saved source connections and uploaded CA certificates are included in new
+backups. They stay in private files beside the state database; the backup manifest
+checks their contents. Restoring into a new directory relocates uploaded CAs without
+changing the saved connection receipt. Connections configured through environment
+variables remain supported; independently mounted CA files must still be available
+at their configured backend paths.
+
+Backups made before this feature have no `source_files` section and still restore
+as before. Backups with this section require a version that supports browser-saved
+connections; do not restore them with an older package.
+
 ## Upgrade
 
 1. Keep the previous extracted bundle and make a stopped backup.

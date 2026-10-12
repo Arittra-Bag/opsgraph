@@ -21,6 +21,7 @@ def source_readiness_basis(source: dict[str, Any]) -> str:
                 "allow_external_egress",
                 "schema_version",
                 "inspected_at",
+                *(("connection_revision",) if "connection_revision" in source else ()),
             )
         }
     )

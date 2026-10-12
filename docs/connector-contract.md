@@ -21,6 +21,28 @@ another connector. Every supported source must pass actual integration tests.
 
 The PostgreSQL implementation uses approved schema-qualified tables, validated
 SELECT statements, read-only transactions, role checks and statement timeouts.
+
+### Private connection configuration
+
+The guided terminal and private connection API share DSN normalization and CA
+validation. `PUT /api/postgres/connections` requires the workspace key, the exact
+application Origin, HTTPS or a loopback connection, and source-management
+authorization. It accepts a masked DSN
+and an optional PEM CA, and returns only a reference and revision. Saving does not
+connect, discover tables, run queries, invoke a model or create database roles.
+
+New connections receive their own backend reference. An API-managed connection
+can be replaced by its reference; operator-managed environment connections cannot
+be overwritten by this API. Existing source paths continue to resolve approved
+environment variables. Credential writes are blocked while investigations are
+unfinished. Replacing a private connection invalidates current inspection/readiness
+for every source using it without rewriting earlier evidence or review receipts.
+
+Source secrets live outside SQLite/evidence in permission-checked private files,
+bound to an audit receipt by a keyed fingerprint. An unmatched file fails closed.
+The connection API never returns the DSN/password. Remote transport still requires
+hostname-verifying TLS, and actual inspection/readiness still rejects privileged or
+writable database roles. Certificates do not grant database access.
 Global bounds remain three queries, 100 rows per query and five seconds per
 query; a playbook may tighten them. Bounds are 16 KiB per cell, 128 KiB per
 query's canonical rows/columns, 384 KiB per complete capture including integrity

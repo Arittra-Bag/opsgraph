@@ -1,4 +1,5 @@
 import os
+import secrets
 import sqlite3
 import time
 from typing import Annotated, Literal
@@ -6,7 +7,7 @@ from typing import Annotated, Literal
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from opsgraph import __version__
 from opsgraph.api.dependencies import require_principal, require_workspace
@@ -31,13 +32,161 @@ from opsgraph.postgres_hosting import HOSTING_GUIDES, PostgresHosting
 from opsgraph.readiness import source_readiness_basis
 from opsgraph.runtime import get_runtime
 from opsgraph.schema_service import SchemaParseError, SchemaSnapshot
+from opsgraph.setup import SetupError, write_private_config
 from opsgraph.skills import SkillDefinition, SkillValidationError
+from opsgraph.source_connections import (
+    ConnectionRequest,
+    approved_references,
+    connection_directory,
+    connection_path,
+    connection_revision,
+    credential_fingerprint,
+    portable_connection,
+    prepare_connection,
+    private_connection,
+    resolve_connection,
+)
 
 runtime = get_runtime()
 WEB = runtime.settings.web_root
 
 app = FastAPI(title="OpsGraph", version=__version__)
 app.add_exception_handler(PostgresHTTPError, postgres_error_response)
+
+
+@app.exception_handler(SetupError)
+def private_configuration_error(_request: Request, _error: SetupError):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Private source configuration needs attention. Save it again."},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/api/postgres/connections")
+def source_connections(_: Annotated[str, Depends(require_workspace)]):
+    return {
+        "connections": [
+            {
+                "secret_ref": ref,
+                "configured": True,
+                "managed": bool(private_connection(runtime, ref)),
+            }
+            for ref in sorted(approved_references(runtime))
+            if resolve_connection(runtime, ref)
+        ]
+    }
+
+
+@app.put("/api/postgres/connections")
+async def save_source_connection(
+    request: Request, principal: Annotated[Principal, Depends(require_principal)]
+):
+    """Save private connection details without connecting or returning credentials."""
+    if request.url.scheme != "https" and not (
+        request.url.hostname in {"127.0.0.1", "::1", "localhost"}
+        and request.client is not None
+        and request.client.host in {"127.0.0.1", "::1"}
+    ):
+        raise HTTPException(
+            403, "Private connection setup requires HTTPS or a loopback connection."
+        )
+    if request.headers.get("origin") != str(request.base_url).rstrip("/") or (
+        request.headers.get("sec-fetch-site") not in (None, "same-origin")
+    ):
+        raise HTTPException(403, "Save source connections from this application's origin.")
+    authorize(principal, "core.source.manage", "source-connection")
+    raw = await request.body()
+    if len(raw) > 100_000:
+        raise HTTPException(413, "Connection configuration is too large.")
+    try:
+        body = ConnectionRequest.model_validate_json(raw)
+    except ValidationError:
+        raise HTTPException(
+            422, "Invalid source configuration. Check the connection and CA."
+        ) from None
+    reference = body.secret_ref or f"OPSGRAPH_GUI_{secrets.token_hex(12).upper()}_DSN"
+    if body.secret_ref and reference not in approved_references(runtime):
+        raise HTTPException(422, "This connection reference is not approved by the deployment.")
+    if body.secret_ref and private_connection(runtime, reference) is None:
+        raise HTTPException(
+            422,
+            "Environment connections are operator-managed. Save a new private connection instead.",
+        )
+    with runtime.provider_lock:
+        with sqlite3.connect(runtime.settings.state_path) as db:
+            runs_exist = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'"
+            ).fetchone()
+            if (
+                runs_exist
+                and db.execute(
+                    "SELECT 1 FROM runs WHERE workspace_id=? AND status IN "
+                    "('queued','running','cancelling') LIMIT 1",
+                    (principal.workspace_id,),
+                ).fetchone()
+            ):
+                raise HTTPException(
+                    409, "Finish or cancel active investigations before changing connections."
+                )
+        try:
+            path = connection_path(runtime.settings, reference)
+            pending = path.with_suffix(".pending.env")
+            dsn = prepare_connection(
+                body.dsn.get_secret_value(),
+                ca_pem=body.ca_pem,
+                directory=connection_directory(runtime.settings) / "certificates",
+            )
+            dsn = portable_connection(dsn, supplied_ca=bool(body.ca_pem))
+            revision, binding_key = secrets.token_hex(16), secrets.token_hex(32)
+            write_private_config(
+                pending, {"DSN": dsn, "REVISION": revision, "BINDING_KEY": binding_key}
+            )
+            records = []
+            for record in runtime.store.list(workspace_id=principal.workspace_id):
+                if (
+                    record.value.get("record_type") == "source"
+                    and record.value.get("secret_ref") == reference
+                ):
+                    records.append(
+                        WorkspaceRecord(
+                            principal.workspace_id,
+                            record.record_id,
+                            {
+                                **record.value,
+                                "status": "configured",
+                                "connection_revision": revision,
+                                "readiness": {
+                                    "status": "pending",
+                                    "reason": "Connection changed. Inspect and review again.",
+                                },
+                            },
+                        )
+                    )
+            try:
+                save_audited_source(
+                    records=tuple(records),
+                    workspace_id=principal.workspace_id,
+                    actor=principal.subject,
+                    action="core.source.manage",
+                    resource=reference,
+                    outcome="allowed",
+                    details={
+                        "reason": "connection_saved",
+                        "revision": revision,
+                        "connection_fingerprint": credential_fingerprint(dsn, binding_key),
+                    },
+                )
+                os.replace(pending, path)
+            finally:
+                pending.unlink(missing_ok=True)
+        except SetupError as error:
+            raise HTTPException(422, str(error)) from None
+        except (OSError, ValueError):
+            raise HTTPException(
+                503, "Connection could not be saved in private backend storage."
+            ) from None
+    return {"secret_ref": reference, "revision": revision, "configured": True}
 
 
 @app.middleware("http")
@@ -229,13 +378,16 @@ def postgres_hosting_guides(principal: Annotated[Principal, Depends(require_prin
 
 
 @app.post("/api/postgres/discover-tables")
-def discover_connection_tables(principal: Annotated[Principal, Depends(require_principal)]):
+def discover_connection_tables(
+    principal: Annotated[Principal, Depends(require_principal)],
+    secret_ref: str | None = None,
+):
     scope = authorize(principal, "core.schema.inspect", "configured-connection")
     settings = runtime.settings
-    reference = settings.postgres_secret_ref
-    if not reference or reference not in settings.allowed_postgres_secret_refs:
+    reference = secret_ref or settings.postgres_secret_ref
+    if not reference or reference not in approved_references(runtime):
         raise PostgresHTTPError("credential_missing", status_code=409)
-    dsn = os.getenv(reference)
+    dsn = resolve_connection(runtime, reference)
     if not dsn:
         raise PostgresHTTPError("credential_missing", status_code=409)
     schemas = tuple(set(settings.postgres_allowed_schemas).intersection(scope.allowed_schemas))
@@ -585,9 +737,7 @@ def create_source(
     principal: Annotated[Principal, Depends(require_principal)],
 ):
     authorize(principal, "core.source.manage", body.id)
-    allowed_refs = set(runtime.settings.allowed_postgres_secret_refs)
-    if runtime.settings.postgres_secret_ref:
-        allowed_refs.add(runtime.settings.postgres_secret_ref)
+    allowed_refs = approved_references(runtime)
     if body.secret_ref not in allowed_refs:
         raise HTTPException(
             status_code=422,
@@ -610,6 +760,9 @@ def create_source(
         "status": "configured",
         "read_only": True,
     }
+    revision = connection_revision(runtime, body.secret_ref)
+    if revision:
+        record["connection_revision"] = revision
     save_audited_source(
         records=(WorkspaceRecord(principal.workspace_id, f"source:{body.id}", record),),
         workspace_id=principal.workspace_id,
@@ -674,12 +827,10 @@ def inspect_source(
             "Review the backend schema allowlist and explicit tables.",
         )
     secret_ref = str(stored["secret_ref"])
-    approved_refs = set(runtime.settings.allowed_postgres_secret_refs)
-    if runtime.settings.postgres_secret_ref:
-        approved_refs.add(runtime.settings.postgres_secret_ref)
+    approved_refs = approved_references(runtime)
     if secret_ref not in approved_refs:
         raise HTTPException(422, "Source credential reference is no longer approved.")
-    dsn = os.getenv(secret_ref)
+    dsn = resolve_connection(runtime, secret_ref)
     if not dsn:
         raise PostgresHTTPError("credential_missing", status_code=409)
     try:
@@ -819,13 +970,11 @@ def check_source_readiness(
         )
     except PermissionError as exc:
         raise HTTPException(403, "Source scope is outside the current deployment policy.") from exc
-    approved_refs = set(runtime.settings.allowed_postgres_secret_refs)
-    if runtime.settings.postgres_secret_ref:
-        approved_refs.add(runtime.settings.postgres_secret_ref)
+    approved_refs = approved_references(runtime)
     secret_ref = str(stored["secret_ref"])
     if secret_ref not in approved_refs:
         raise HTTPException(422, "Source credential reference is no longer approved.")
-    dsn = os.getenv(secret_ref)
+    dsn = resolve_connection(runtime, secret_ref)
     if not dsn:
         raise PostgresHTTPError("credential_missing", status_code=409)
     sql = f"SELECT 1 AS opsgraph_readiness FROM {body.table} LIMIT 1"  # noqa: S608
