@@ -702,7 +702,9 @@
   }
   async function connectWorkspace(event) {
     const restoreFocus = guardAsyncFocus($('#saveCredential'), $('#workspace'));
-    event.preventDefault(); const epoch = state.authEpoch; notice('#credentialError'); const entered = $('#workspaceKey').value.trim();
+    event.preventDefault(); const epoch = state.authEpoch; const navigationEpoch = state.navigationEpoch || 0;
+    const currentNavigation = () => (state.navigationEpoch || 0) === navigationEpoch;
+    notice('#credentialError'); const entered = $('#workspaceKey').value.trim();
     $('#saveCredential').disabled = true;
     try {
       if (!validWorkspaceKey(entered)) throw new Error('Workspace key must be a nonempty printable ASCII value.');
@@ -713,9 +715,9 @@
       });
       if (!response.ok) throw new Error(response.status === 401 ? 'Workspace key rejected. Use the key configured on this backend.' : `Could not connect (${response.status}). Check the backend and try again.`);
       if (epoch !== state.authEpoch) return;
-      sessionStorage.setItem('opsgraph.workspaceKey', entered); $('#workspaceKey').value = ''; await loadWorkspace(); closeDrawer();
+      sessionStorage.setItem('opsgraph.workspaceKey', entered); $('#workspaceKey').value = ''; await loadWorkspace(); if (epoch !== state.authEpoch) return; closeDrawer();
       const saved = sessionStorage.getItem('opsgraph.selectedRun');
-      if (saved) await openRun(saved);
+      if (saved && currentNavigation()) await openRun(saved, { restore: true, navigationGuard: currentNavigation });
     } catch (error) { notice('#credentialError', error.message); }
     finally { $('#saveCredential').disabled = false; readiness(); restoreFocus(); }
   }
