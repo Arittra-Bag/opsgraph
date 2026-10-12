@@ -19,7 +19,7 @@
     anthropic: { endpoint: '', fixed: true },
     custom_openai: { endpoint: '' },
   };
-  const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, skillEditToken: 0, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
+  const state = { authenticated: false, sources: [], skills: [], runs: [], conversations: [], conversation: null, conversationToken: 0, run: null, runEvents: [], runEventsLoaded: false, policy: null, lastEvent: null, busy: false, modelTested: false, providerBusy: false, providerDirty: false, providerConfiguration: null, workflowBuildToken: 0, providerTestToken: 0, sourceDirty: false, sourceEditingId: null, stream: null, streamToken: 0, lastEventId: 0, pending: null, activeDrawer: null, returnFocus: null, savedSkill: null, skillEditToken: 0, authEpoch: 0, sourceSetupToken: 0, roleGuideToken: 0, hostingGuides: [], hostingDefault: 'self_hosted', hostingToken: 0, reportToken: 0, report: null, reportRunId: null };
   const key = () => { const value = sessionStorage.getItem('opsgraph.workspaceKey'); return validWorkspaceKey(value) ? value : ''; };
   state.sourceWizard = window.OpsGraphSourceSetup?.mount({
     document, storage: sessionStorage, request: api, dirty: markSourceDirty,
@@ -275,6 +275,7 @@
       'Source inspection': `${source.status} · ${source.inspected_at ? stamp(source.inspected_at) : 'Time unavailable'}`,
       'Selected playbook table scope': preview ? preview.tables.join(', ') || 'None — execution is blocked' : 'Not available until playbook and policy are loaded',
       'Query bounds preview': preview?.max_rows != null && preview?.timeout_ms != null ? `${preview.max_rows} rows per query · ${preview.timeout_ms} ms per query` : 'Unavailable',
+      ...(skill?.workflow ? { 'Workflow query budget': `${skill.workflow.max_queries} total per attempt`, 'Follow-up query rounds': skill.workflow.follow_up_queries ? 'Allowed within the total budget' : 'Disabled' } : {}),
     }) + `<p class="helper">Configuration preview; the backend revalidates permissions and records effective bounds when execution starts. Column access follows database grants or restricted views. No business meaning or time filter is implied by selecting a table.</p>${preview?.blocked ? `<p class="notice error">${esc(preview.blocked)}</p>` : ''}`;
   }
   async function loadBootstrap() {
@@ -521,7 +522,8 @@
   }
   function renderReportDocument(markdown) {
     const documentNode = $('#reportDocument'); documentNode.replaceChildren();
-    let fence = null, code = null, codeLines = [], list = null;
+    let fence = null, code = null, codeLines = [], list = null, target = documentNode, metadata = false;
+    const technicalSections = new Set(['Recorded execution scope', 'Evidence ledger', 'Report selection']);
     for (const line of markdown.split('\n')) {
       if (fence) {
         if (line === fence) {
@@ -533,10 +535,24 @@
       if (opening) {
         fence = opening[1]; codeLines = []; list = null;
         const pre = document.createElement('pre'); code = document.createElement('code');
-        pre.append(code); documentNode.append(pre); continue;
+        pre.append(code); target.append(pre); continue;
       }
-      if (!line) { list = null; continue; }
-      list = appendReportProse(documentNode, line, list);
+      if (!line) { list = null; if (metadata) { target = documentNode; metadata = false; } continue; }
+      if (line.startsWith('- Investigation: ')) {
+        target = document.createElement('details'); target.className = 'report-technical';
+        const summary = document.createElement('summary'); summary.textContent = 'Saved attempt details';
+        target.append(summary); documentNode.append(target); metadata = true;
+      }
+      const section = line.match(/^## (.+)$/);
+      if (section) {
+        target = documentNode; list = null;
+        if (technicalSections.has(section[1])) {
+          target = document.createElement('details'); target.className = 'report-technical';
+          const summary = document.createElement('summary'); summary.textContent = section[1];
+          target.append(summary); documentNode.append(target); continue;
+        }
+      }
+      list = appendReportProse(target, line, list);
     }
   }
   function resetReport() {
@@ -606,7 +622,7 @@
     const selected = state.run?.skill_id || $('#investigationSkill').value;
     $('#investigationSkill').innerHTML = '<option value="">General read-only</option>' + state.skills.filter(skill => skill.id !== 'generic-readonly').map(skill => `<option value="${esc(skill.id)}">${esc(skill.name)} · Playbook revision ${esc(skill.version)}</option>`).join('');
     if (selected) $('#investigationSkill').value = selected === 'generic-readonly' ? '' : selected;
-    $('#skillCatalog').innerHTML = state.skills.map(skill => `<article><p class="eyebrow">${esc(skill.id)}</p><h2>${esc(skill.name)}</h2><p>Playbook revision: ${esc(skill.version)}</p><p>${esc(skill.purpose)}</p><p>Required evidence: ${esc((skill.required_evidence || []).join(', ') || 'No specialist evidence types')}</p><p>Tools: ${esc((skill.tools || []).map(binding => binding.tool).join(', '))}</p><button class="secondary" data-view="sources">Configure source mappings</button></article>`).join('') || '<p>No published playbooks available.</p>';
+    $('#skillCatalog').innerHTML = state.skills.map(skill => `<article><p class="eyebrow">${esc(skill.id)}</p><h2>${esc(skill.name)}</h2><p>Playbook revision: ${esc(skill.version)}</p><p>${esc(skill.purpose)}</p><details><summary>Tools and required table mappings</summary><p>Required evidence: ${esc((skill.required_evidence || []).join(', ') || 'No specialist evidence types')}</p><p>Tools: ${esc((skill.tools || []).map(binding => binding.tool).join(', '))}</p></details>${skill.workflow ? `<p>Workflow: up to ${esc(skill.workflow.max_queries)} ${skill.workflow.max_queries === 1 ? 'query' : 'queries'} · ${skill.workflow.follow_up_queries ? 'follow-up queries allowed' : 'one planning round'} · up to ${esc(skill.workflow.max_findings)} findings</p>` : ''}<button class="secondary" data-view="sources">${skill.required_evidence?.length ? 'Configure required table mappings' : 'Review source scope'}</button></article>`).join('') || '<p>No published playbooks available.</p>';
     renderComposerScope();
   }
   async function loadHistory() {
@@ -637,7 +653,7 @@
     try { policy = await api('/api/policies/current'); }
     catch (error) { if (current()) throw error; return; }
     if (!current()) return;
-    state.policy = policy; $('#policyDetails').textContent = json(policy); renderComposerScope();
+    state.policy = policy; $('#policyDetails').textContent = json(policy); $('#policySummary').innerHTML = scopeMarkup(window.OpsGraphWorkflows.policyFields(policy)); renderComposerScope();
   }
   async function loadAudit() {
     const epoch = state.authEpoch; const token = state.auditToken = (state.auditToken || 0) + 1;
@@ -708,11 +724,11 @@
     state.sourceWizard?.reset();
     workOutcomes?.reset();
     state.authEpoch++; state.skillEditToken++; state.hostingToken++; state.hostingGuides = []; state.savedConnection = null; renderSavedConnection(); $('#tableChoices').replaceChildren(); $('#tableDiscovery').hidden = true; resetReport(); sourceDiagnostic(); renderHostingGuide(); stopStream(); sessionStorage.removeItem('opsgraph.workspaceKey'); sessionStorage.removeItem('opsgraph.selectedRun');
-    state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.conversations = []; state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
+    state.authenticated = false; clearProviderVerification(); state.providerTestToken++; state.providerBusy = false; state.providerConfiguration = null; state.providerDirty = false; state.sourceDirty = false; state.sourceEditingId = null; $('#providerForm').reset(); $('#providerSaveStatus').textContent = 'Connect your workspace to configure a model.'; notice('#providerSaveError'); state.sources = []; state.skills = []; state.runs = []; state.conversations = []; state.conversation = null; state.run = null; state.runEvents = []; state.runEventsLoaded = false; state.policy = null; state.lastEvent = null; state.sourceSetupToken++; state.pending = null; state.savedSkill = null; $('#skillForm').reset(); $('#workflowBuilder').reset(); state.workflowBuildToken++; $('#workflowStatus').textContent = ''; $('#buildWorkflow').disabled = false; $('#skillStatus').textContent = ''; $('#publishSkill').disabled = true;
     $('#workspaceKey').value = ''; $('#caseList').replaceChildren(); $('#findingGrid').replaceChildren(); $('#evidenceDetail').replaceChildren(); $('#activityLog').replaceChildren(); $('#runWorkspace').hidden = true; $('#onboarding').hidden = false;
     $('#investigationSource').innerHTML = '<option value="">Connect a source first</option>'; $('#investigationSkill').innerHTML = '<option value="">General read-only</option>';
     $('#investigationQuestion').value = ''; $('#sourceCatalog').textContent = 'Connect workspace to load sources.'; $('#skillCatalog').textContent = 'Connect workspace to load playbooks.';
-    $('#policyDetails').textContent = 'Connect workspace to load policy.'; $('#auditDetails').textContent = 'Connect workspace to load audit records.'; $('#providerConfig').textContent = 'Connect workspace to read configuration.';
+    $('#policySummary').textContent = 'Connect workspace to load policy.'; $('#policyDetails').textContent = 'Connect workspace to load policy.'; $('#auditDetails').textContent = 'Connect workspace to load audit records.'; $('#providerConfig').textContent = 'Connect workspace to read configuration.';
     $('#trustModel').textContent = 'Model unchecked';
     $('#trustModel').className = 'trust-signal checking';
     ['#previousTurn', '#caseTitle', '#runIdentity', '#runRelation', '#runSource', '#runCreated', '#runSkill', '#runState', '#conclusionTitle', '#limitations', '#evidenceLedger', '#streamState', '#runScope', '#runScopeSummary', '#currentOperation', '#captureStatus', '#inspectedTables'].forEach(id => $(id).replaceChildren());
@@ -962,6 +978,7 @@
       'Recorded row bound': configuration.limits?.max_rows != null ? `${configuration.limits.max_rows} rows per query` : 'Unavailable',
       'Recorded query timeout': configuration.limits?.timeout_ms != null ? `${configuration.limits.timeout_ms} ms per query` : 'Unavailable',
       'Maximum queries': configuration.max_queries ?? 'Unavailable in this record',
+      ...(configuration.workflow ? { 'Workflow follow-up queries': configuration.workflow.follow_up_queries ? 'Allowed within the total budget' : 'Disabled', 'Workflow model finding limit': configuration.workflow.max_findings, 'Workflow model limitation limit': configuration.workflow.max_limitations } : {}),
       'Source configuration revision': configuration.source_revision || 'Unavailable',
       'Schema fingerprint': configuration.schema_fingerprint || 'Unavailable',
       'Schema inspected': configuration.schema_inspected_at ? stamp(configuration.schema_inspected_at) : 'Time unavailable in this record',
@@ -992,7 +1009,8 @@
     $('#findingGrid').innerHTML = (answer?.findings || []).map((finding, index) => {
       const classification = classes.has(finding.classification) ? finding.classification : 'unknown';
       const referenceCount = (finding.evidence_ids || []).length;
-      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(classification.toUpperCase())} · ${outcomeAudit ? 'APPLICATION CALCULATION' : 'MODEL ASSESSMENT'}</span><small>${referenceCount} ${referenceCount === 1 ? 'reference' : 'references'}</small></div><h3>${esc(outcomeAudit ? window.OpsGraphWorkOutcomes.readable(finding.claim) : finding.claim)}</h3><details class="classification-detail"${expandedClassifications.has(`classification:${run.id}:${index}`) ? ' open' : ''}><summary data-focus-key="classification:${esc(run.id)}:${index}">About this classification</summary><p class="helper">${outcomeAudit ? 'Calculated from saved database records using reviewed export rules. OpsGraph cannot verify the rules or the source’s data-completeness guarantee.' : `${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.`}</p></details>${referenceCount ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#file-search"></use></svg>Inspect referenced evidence</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
+      const label = { supported: 'Recorded observation', possible: 'Possible explanation', unknown: 'Not established', contradictory: 'Conflicts with records' }[classification];
+      return `<article class="finding"><div class="finding-head"><span class="classification ${classification}">${esc(label)} · ${outcomeAudit ? 'APPLICATION CALCULATION' : 'MODEL ASSESSMENT'}</span><small>${referenceCount} ${referenceCount === 1 ? 'reference' : 'references'}</small></div><h3>${esc(outcomeAudit ? window.OpsGraphWorkOutcomes.readable(finding.claim) : finding.claim)}</h3><details class="classification-detail"${expandedClassifications.has(`classification:${run.id}:${index}`) ? ' open' : ''}><summary data-focus-key="classification:${esc(run.id)}:${index}">About this classification</summary><p class="helper">${outcomeAudit ? 'Calculated from saved database records using reviewed export rules. OpsGraph cannot verify the rules or the source’s data-completeness guarantee.' : `${esc(viewState.classificationExplanation(classification))} Review the captured rows; classification is not independently verified.`}</p></details>${referenceCount ? `<button class="citation-button" data-finding="${index}" data-focus-key="finding:${esc(run.id)}:${index}"><svg class="ui-icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="/assets/static/icons.svg#file-search"></use></svg>Inspect referenced evidence</button>` : '<p>No referenced evidence. Treat this claim as unsupported.</p>'}</article>`;
     }).join('');
     $('#evidenceSection').hidden = !(run.evidence || []).length;
     $('#toggleEvidence').dataset.count = String((run.evidence || []).length);
@@ -1257,6 +1275,32 @@
     } catch (error) { if (current()) { notice('#skillError', error.message); $('#publishSkill').disabled = false; } }
     finally { restoreFocus(epoch === state.authEpoch && token === state.skillEditToken); }
   }
+  function invalidateSkillDraft() {
+    state.skillEditToken++; state.savedSkill = null; $('#publishSkill').disabled = true;
+    $('#saveSkill').disabled = !state.authenticated;
+    $('#skillStatus').textContent = 'Workflow edited. Validate this version before publishing.';
+  }
+  async function buildWorkflow(event) {
+    event.preventDefault(); if (!state.authenticated) return;
+    const epoch = state.authEpoch; const token = ++state.workflowBuildToken;
+    const fields = () => ({ id: $('#workflowId').value, version: $('#workflowVersion').value,
+      name: $('#workflowName').value, purpose: $('#workflowPurpose').value,
+      max_queries: $('#workflowQueries').value, max_findings: $('#workflowFindings').value,
+      max_limitations: $('#workflowLimitations').value,
+      follow_up_queries: $('#workflowFollowup').checked, external_model: $('#workflowExternal').checked });
+    const original = fields(); const input = $('#skillJson').value; const edit = state.skillEditToken;
+    const current = () => epoch === state.authEpoch && token === state.workflowBuildToken && edit === state.skillEditToken && input === $('#skillJson').value && JSON.stringify(original) === JSON.stringify(fields());
+    const restoreFocus = guardAsyncFocus($('#buildWorkflow'), $('#workflowStatus'));
+    $('#buildWorkflow').disabled = true; $('#workflowStatus').textContent = 'Loading a policy-bounded starting definition…';
+    try {
+      const response = await api('/api/skills/authoring');
+      if (!current()) return;
+      $('#skillJson').value = JSON.stringify(window.OpsGraphWorkflows.definition(response.template, original), null, 2);
+      invalidateSkillDraft(); $('#workflowStatus').textContent = 'JSON generated. Review its tools and limits, then validate and save the draft below.';
+      $('#skillJson').focus();
+    } catch (error) { if (current()) $('#workflowStatus').textContent = error.message; }
+    finally { if (epoch === state.authEpoch && token === state.workflowBuildToken) $('#buildWorkflow').disabled = false; restoreFocus(false); }
+  }
   document.addEventListener('click', event => {
     const view = event.target.closest('[data-view]'); if (view) showView(view.dataset.view);
     const run = event.target.closest('[data-run-id]'); if (run) void openRun(run.dataset.runId);
@@ -1324,8 +1368,8 @@
   $('#testProvider').addEventListener('click', testProvider); $('#cancelRun').addEventListener('click', cancelRun); $('#retryRun').addEventListener('click', retryRun);
   $('#caseSearch').addEventListener('input', renderHistory);
   $('#investigationQuestion').addEventListener('input', readiness);
-  $('#skillForm').addEventListener('submit', saveSkill); $('#publishSkill').addEventListener('click', publishSkill);
-  $('#skillJson').addEventListener('input', () => { state.skillEditToken++; state.savedSkill = null; $('#publishSkill').disabled = true; $('#saveSkill').disabled = !state.authenticated; $('#skillStatus').textContent = 'Playbook edited. Validate this version before publishing.'; });
+  $('#workflowBuilder').addEventListener('submit', buildWorkflow); $('#skillForm').addEventListener('submit', saveSkill); $('#publishSkill').addEventListener('click', publishSkill);
+  $('#skillJson').addEventListener('input', invalidateSkillDraft);
   ['#roleGuideName', '#roleGuideDatabase', '#sourceTables'].forEach(id => $(id).addEventListener('input', invalidateRoleGuide));
   $('#inspectedTables').addEventListener('change', () => { $('#sourceTables').value = $$('[data-inspected-table]:checked').map(input => input.dataset.inspectedTable).join(', '); invalidateRoleGuide(); markSourceDirty(); });
   function setHistoryHidden(hidden) {

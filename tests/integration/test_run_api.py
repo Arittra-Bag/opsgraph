@@ -1217,3 +1217,37 @@ def test_conversation_history_drops_assessments_outside_current_table_scope(api,
     assert wait(api, created["id"])["status"] == "completed"
     assert prompts and all("private-secret-sentinel" not in prompt for prompt in prompts)
     assert "Earlier investigation" in prompts[0]
+
+
+def test_custom_workflow_bounds_and_version_are_recorded_without_changing_evidence(api):
+    from opsgraph.skills import SkillDefinition
+
+    old = api.runtime.skills.get_published("generic-readonly")
+    skill = SkillDefinition.model_validate(
+        {
+            **old.model_dump(mode="json"),
+            "id": "custom-run-workflow",
+            "origin": "custom",
+            "version": "1.0.0",
+            "workflow": {"max_queries": 1, "follow_up_queries": False},
+        }
+    )
+    api.runtime.skills.save_draft(skill)
+    api.runtime.skills.publish(skill.id)
+    response = api.client.post(
+        "/api/runs",
+        headers=api.headers,
+        json={
+            "question": "Observe the approved records.",
+            "source_id": "local-data",
+            "skill_id": skill.id,
+        },
+    )
+    assert response.status_code == 202
+    run = wait(api, response.json()["id"])
+    assert run["status"] == "completed"
+    assert run["configuration"]["max_queries"] == 1
+    assert run["configuration"]["workflow"]["follow_up_queries"] is False
+    assert run["configuration"]["skill_fingerprint"] == stable_hash(skill.model_dump(mode="json"))
+    assert len(run["evidence"]) == 1 and run["evidence"][0]["rows"] == [[1]]
+    assert run["answer"]["findings"][0]["evidence_ids"] == [run["evidence"][0]["evidence_hash"]]

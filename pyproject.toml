@@ -43,6 +43,7 @@ packages = ["src/opsgraph"]
 exclude = ["/PKG-INFO", "/docs"]
 
 [tool.hatch.build.targets.sdist.force-include]
+"docs/investigation-workflows.md" = "docs/investigation-workflows.md"
 "docs/work-outcome-audits.md" = "docs/work-outcome-audits.md"
 "docs/assets/missed-work/baseline.jpg" = "docs/assets/missed-work/baseline.jpg"
 "docs/assets/missed-work/recheck.jpg" = "docs/assets/missed-work/recheck.jpg"

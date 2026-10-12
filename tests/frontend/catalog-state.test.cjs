@@ -11,7 +11,7 @@ function fixture() {
     return nodes.get(id);
   };
   const state = { authEpoch: 1, authenticated: true, sources: [], skills: [], policy: null, savedSkill: null, skillEditToken: 0 };
-  const context = vm.createContext({ $, state, api: async () => ({}), json: JSON.stringify, esc: String, stamp: String, readiness() {}, renderSavedConnection() {}, renderComposerScope() {}, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, message = '') => { $(id).textContent = message; }, guardAsyncFocus: () => () => {} });
+  const context = vm.createContext({ $, state, window: { OpsGraphWorkflows: require('../../src/opsgraph/web/static/workflow-authoring.js') }, scopeMarkup: JSON.stringify, api: async () => ({}), json: JSON.stringify, esc: String, stamp: String, readiness() {}, renderSavedConnection() {}, renderComposerScope() {}, sourceReadinessPassed: item => item?.readiness?.status === 'ready', notice: (id, message = '') => { $(id).textContent = message; }, guardAsyncFocus: () => () => {} });
   vm.runInContext(source.slice(source.indexOf('  async function loadSources()'), source.indexOf('  async function loadHistory()')), context);
   vm.runInContext(source.slice(source.indexOf('  async function loadPolicy()'), source.indexOf('  async function loadWorkspace()')), context);
   vm.runInContext(source.slice(source.indexOf('  function queueSkillMutation('), source.indexOf("  document.addEventListener('click'")), context);
@@ -166,4 +166,30 @@ test('playbook revisions are labelled separately from application releases', asy
   assert.doesNotMatch(f.$('#skillCatalog').innerHTML, /schema-impact · 0\.1\.0/);
   assert.match(f.$('#investigationSkill').innerHTML, /Playbook revision 0\.1\.0/);
   assert.equal(f.state.skills[0].version, '0.1.0');
+});
+
+function prepareWorkflow(f) {
+  f.state.workflowBuildToken = 0;
+  for (const [id,value] of Object.entries({workflowId:'test-workflow',workflowVersion:'1.0.0',workflowName:'Test workflow',workflowPurpose:'Review narrowly scoped records.',workflowQueries:'1',workflowFindings:'4',workflowLimitations:'3'})) f.$('#'+id).value = value;
+  f.$('#workflowFollowup').checked = false; f.$('#workflowExternal').checked = false;
+  f.$('#skillJson').value = ''; f.$('#skillJson').focus = () => {};
+}
+const workflowTemplate = {tools:[],workflow:{version:1,max_queries:1,follow_up_queries:false,max_findings:4,max_limitations:3},risk:'read_only',egress:'forbidden'};
+
+test('workflow builder generates reviewable JSON without publishing or saving it', async () => {
+  const f = fixture(); prepareWorkflow(f); const calls = [];
+  f.context.api = async path => { calls.push(path); return {template:workflowTemplate}; };
+  await f.context.buildWorkflow({preventDefault(){}});
+  assert.deepEqual(calls,['/api/skills/authoring']);
+  assert.equal(JSON.parse(f.$('#skillJson').value).workflow.max_queries,1);
+  assert.equal(f.$('#publishSkill').disabled,true); assert.equal(f.state.savedSkill,null);
+});
+for (const change of ['draft edit','workspace reset']) test(`late workflow template cannot overwrite ${change}`, async () => {
+  const f = fixture(); prepareWorkflow(f); let resolve;
+  f.context.api = () => new Promise(done => { resolve = done; });
+  const pending = f.context.buildWorkflow({preventDefault(){}});
+  if (change === 'draft edit') { f.$('#skillJson').value = 'new draft'; f.state.skillEditToken++; }
+  else f.state.authEpoch++;
+  resolve({template:workflowTemplate}); await pending;
+  assert.equal(f.$('#skillJson').value,change === 'draft edit' ? 'new draft' : '');
 });

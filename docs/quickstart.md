@@ -309,3 +309,10 @@ inspect and review their columns, then approve the one-row constant-only query
 check. There is no requirement to return to terminal setup. See
 [hosted PostgreSQL setup](hosted-postgresql.md) for storage, TLS and history details.
 Saved results survive reload; they do not authorize an automatic new probe.
+
+### Repeat a method with your own workflow
+
+In **Playbooks and workflows**, generate a starting JSON definition, review it,
+validate a draft and publish a new immutable version. Select it when asking a
+question. [Workflow authoring](investigation-workflows.md) explains each field and
+why workflows control behavior while policies control permission.

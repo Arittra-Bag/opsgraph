@@ -294,3 +294,23 @@ test('incomplete export checks do not claim a missing model assessment', () => {
   assert.doesNotMatch(f.$('#limitations').innerHTML, /model assessment/);
   assert.match(f.$('#evidenceReferenceHelp').textContent, /records used in this calculation/);
 });
+
+test('technical report sections collapse in the preview while every saved line remains readable', () => {
+  const f = fixture();
+  f.context.renderReportDocument('## Recorded execution scope\n- Maximum queries: 1\n\n## Model assessment\nOne observation.\n\n## Evidence ledger\n### Capture 1\n````sql\nSELECT id FROM public.jobs\n````');
+  const nodes = f.$('#reportDocument').children;
+  assert.equal(nodes[0].tag, 'details'); assert.equal(nodes[0].children[0].textContent, 'Recorded execution scope');
+  assert.equal(nodes[0].children[1].children[0].textContent, 'Maximum queries: 1');
+  assert.equal(nodes[1].tag, 'h3'); assert.equal(nodes[2].textContent, 'One observation.');
+  assert.equal(nodes[3].tag, 'details');
+  assert.equal(nodes[3].children.at(-1).children[0].textContent, 'SELECT id FROM public.jobs\n');
+});
+
+test('saved report metadata remains available while partial-attempt warnings stay visible', () => {
+  const f = fixture();
+  f.context.renderReportDocument('# Report\n\n- Investigation: inv-one\n- Recorded state: failed\n\n**Partial attempt:** No completed assessment.\n\n## Question\nObserve scoped records.');
+  const nodes = f.$('#reportDocument').children;
+  assert.equal(nodes[1].tag,'details'); assert.equal(nodes[1].children[0].textContent,'Saved attempt details');
+  assert.equal(nodes[1].children[1].children[1].textContent,'Recorded state: failed');
+  assert.equal(nodes[2].className,'report-warning'); assert.equal(nodes[3].tag,'h3');
+});

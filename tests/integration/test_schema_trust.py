@@ -464,3 +464,33 @@ def test_source_save_cannot_leave_false_success_receipt(schema_api, monkeypatch,
         == before
     )
     assert runtime.audit.entries == audit_before
+
+
+def test_workflow_authoring_is_authenticated_bounded_and_preserves_legacy_publications(schema_api):
+    from opsgraph.runtime import build_runtime
+
+    client, runtime, _, _, headers = schema_api
+    before = len(runtime.audit.entries)
+    assert client.get("/api/skills/authoring").status_code == 401
+    response = client.get("/api/skills/authoring", headers=headers)
+    assert response.status_code == 200
+    template = response.json()["template"]
+    assert response.json()["policy_editable"] is False
+    assert template["risk"] == "read_only" and template["egress"] == "forbidden"
+    assert template["workflow"]["max_queries"] == 1
+    assert len(runtime.audit.entries) == before
+    for name, workflow in (("legacy-publish", None), ("custom-publish", template["workflow"])):
+        payload = {**template, "id": name}
+        if workflow is None:
+            payload.pop("workflow")
+        saved = client.post("/api/skills/drafts", headers=headers, json=payload)
+        assert saved.status_code == 200
+        published = client.post(f"/api/skills/{name}/publish", headers=headers)
+        assert published.status_code == 200
+        if workflow is None:
+            assert "workflow" not in published.json()
+    receipts = list(runtime.audit.entries)
+    recovered = build_runtime(runtime.settings)
+    assert recovered.skills.get_published("legacy-publish").workflow is None
+    assert recovered.skills.get_published("custom-publish").workflow.max_queries == 1
+    assert list(recovered.audit.entries)[: len(receipts)] == receipts

@@ -17,7 +17,7 @@ class SkillpackLoadError(ValueError):
 
 class SkillpackLoader:
     _MANIFEST_FIELDS = {"id", "version", "name", "origin", "capabilities", "egress", "risk"}
-    _SKILL_FIELDS = {"purpose", "required_evidence", "conclusion_classes"}
+    _SKILL_FIELDS = {"purpose", "required_evidence", "conclusion_classes", "workflow"}
 
     def load(self, directory: str | Path) -> SkillDefinition:
         root = Path(directory)

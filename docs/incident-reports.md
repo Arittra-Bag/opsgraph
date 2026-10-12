@@ -65,3 +65,17 @@ Selections require actual JSON booleans. Unknown options are rejected. Responses
 are not cached. Output is limited to 2 MB. If a selection exceeds the limit,
 omit records or SQL and generate the report again. The underlying saved run
 and JSON export are unchanged.
+
+## Preview hierarchy
+
+The browser report flow labels content selection, preview and review as three
+steps. Findings and limitations remain visible; saved attempt details, execution
+scope, evidence ledger and report-selection metadata can be expanded. Open these
+sections to inspect any included SQL and records before confirming review. Every
+selected line remains in the Markdown preview and download. This presentation
+changes neither the saved report generator nor JSON evidence exports.
+
+On the investigation page, classification labels use plain language: recorded
+observation, possible explanation, not established, and conflicts with records.
+Their stored codes and explanations are preserved. For configurable query and
+model-prose budgets, see [investigation workflows](investigation-workflows.md).

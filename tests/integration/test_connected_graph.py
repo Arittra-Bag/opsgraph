@@ -1132,3 +1132,106 @@ def test_product_conversation_is_explicit_and_has_no_tools(question):
 
     assert capability_reply(question)
     assert capability_reply(question + " Now DELETE FROM public.jobs") is None  # noqa: S608
+
+
+def workflow_context(**workflow):
+    context = join_test_context()
+    repository = context["skills"]
+    original = repository.get_published("failed-jobs")
+    payload = {**original.model_dump(mode="json"), "version": "0.2.0", "workflow": workflow}
+    repository.save_draft(SkillDefinition.model_validate(payload))
+    repository.publish(original.id)
+    return context
+
+
+@pytest.mark.parametrize("budget", [1, 2])
+def test_custom_workflow_total_budget_is_enforced_across_query_rounds(budget):
+    calls, executed = [], []
+
+    class Provider(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            if request.response_schema.get("title") == "InvestigationPlan":
+                calls.append(request.messages[0].content)
+                response.output["continue_after_results"] = True
+            return response
+
+    class Executor(StubExecutor):
+        def execute_readonly(self, sql, *, timeout_ms):
+            executed.append(sql)
+            return super().execute_readonly(sql, timeout_ms=timeout_ms)
+
+    result = run_connected(
+        question="Observe the recorded job status.",
+        provider=Provider(),
+        executor=Executor(),
+        **workflow_context(max_queries=budget),
+    )
+    assert len(executed) == len(result["evidence"]) == len(calls) == budget
+    assert f"Remaining query budget: {budget}" in calls[0]
+
+
+def test_custom_workflow_rejects_oversized_plan_before_any_query():
+    class Provider(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            response.output["queries"] *= 2
+            return response
+
+    class Executor:
+        def execute_readonly(self, *args, **kwargs):
+            raise AssertionError("No SQL may run after a budget violation")
+
+    with pytest.raises(ModelOutputInvalidError, match="remaining query budget"):
+        run_connected(
+            question="Observe job status.",
+            provider=Provider(),
+            executor=Executor(),
+            **workflow_context(max_queries=1),
+        )
+
+
+def test_custom_workflow_cannot_request_a_disabled_follow_up_step():
+    class Provider(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            response.output["continue_after_results"] = True
+            return response
+
+    class Executor:
+        def execute_readonly(self, *args, **kwargs):
+            raise AssertionError("Disabled follow-up plans must fail before SQL")
+
+    with pytest.raises(ModelOutputInvalidError, match="forbids follow-up"):
+        run_connected(
+            question="Observe job status.",
+            provider=Provider(),
+            executor=Executor(),
+            **workflow_context(max_queries=2, follow_up_queries=False),
+        )
+
+
+def test_custom_report_limits_are_hard_bounds_and_partial_evidence_remains_observable():
+    captures = []
+
+    class Provider(StubProvider):
+        def invoke_structured(self, request):
+            response = super().invoke_structured(request)
+            if request.response_schema.get("title") == "InvestigationAnswer":
+                assert request.response_schema["properties"]["findings"]["maxItems"] == 1
+                assert request.response_schema["properties"]["limitations"]["maxItems"] == 1
+                response.output["findings"] *= 2
+            return response
+
+    with pytest.raises(ModelOutputInvalidError, match="finding or limitation limit"):
+        run_connected(
+            question="Observe job status.",
+            provider=Provider(),
+            executor=StubExecutor(),
+            **workflow_context(max_findings=1, max_limitations=1),
+            observe=lambda kind, data: (
+                captures.append(data) if kind == "evidence_captured" else None
+            ),
+        )
+    assert len(captures) == 1
+    assert captures[0]["evidence"]["evidence_hash"].startswith("sha256:")

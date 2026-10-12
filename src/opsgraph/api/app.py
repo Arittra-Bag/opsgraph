@@ -714,6 +714,10 @@ def playbooks(_: Annotated[str, Depends(require_workspace)]):
                 "name": skill.name,
                 "version": skill.version,
                 "tools": [binding.model_dump(mode="json") for binding in skill.tools],
+                "purpose": skill.purpose,
+                "required_evidence": list(skill.required_evidence),
+                "egress": skill.egress,
+                **({"workflow": skill.workflow.model_dump(mode="json")} if skill.workflow else {}),
             }
         )
     return skills
@@ -1201,6 +1205,47 @@ def source_schema(source_id: str, principal: Annotated[Principal, Depends(requir
 @app.get("/api/skills")
 def skills(_: Annotated[str, Depends(require_workspace)]):
     return playbooks(_)
+
+
+@app.get("/api/skills/authoring")
+def skill_authoring(principal: Annotated[Principal, Depends(require_principal)]):
+    """A valid starting definition, bounded by this operator's current policy."""
+    authorize(principal, "core.skill.manage", "workflow-authoring")
+    ceiling = authorize(principal, "core.query.read", "workflow-authoring")
+    template = SkillDefinition.model_validate(
+        {
+            "id": "custom-readonly-workflow",
+            "version": "1.0.0",
+            "name": "My read-only workflow",
+            "purpose": "Answer the user's question from narrowly scoped database observations.",
+            "tools": [
+                {
+                    "tool": name,
+                    **(
+                        {
+                            "settings": {
+                                "max_rows": min(25, ceiling.max_rows),
+                                "timeout_ms": min(1000, ceiling.timeout_ms),
+                                "allowed_schemas": list(ceiling.allowed_schemas),
+                            }
+                        }
+                        if name == "core.sql.select"
+                        else {}
+                    ),
+                }
+                for name, tool in runtime.tools.tools.items()
+                if tool.native or name == "core.sql.select"
+            ],
+            "workflow": {"version": 1, "max_queries": 1, "follow_up_queries": False},
+        }
+    )
+    runtime.skills.validate(template)
+    return {
+        "template": template.model_dump(mode="json", exclude_none=True),
+        "schema": SkillDefinition.model_json_schema(),
+        "steps": ["Review scope", "Plan", "Read approved tables", "Report with references"],
+        "policy_editable": False,
+    }
 
 
 @app.post("/api/skills/drafts")

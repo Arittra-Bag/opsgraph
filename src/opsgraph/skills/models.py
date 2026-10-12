@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
 _EVIDENCE_IDENTIFIER = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
@@ -44,6 +44,25 @@ class ToolBinding(BaseModel):
     settings: ToolSettings = Field(default_factory=ToolSettings)
 
 
+class InvestigationWorkflow(BaseModel):
+    """Optional harness restrictions inside the mandatory read-only graph."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    version: Literal[1] = 1
+    max_queries: int = Field(default=3, ge=1, le=3)
+    follow_up_queries: bool = True
+    max_findings: int = Field(default=4, ge=1, le=4)
+    max_limitations: int = Field(default=3, ge=1, le=3)
+
+    @field_validator("version", mode="before")
+    @classmethod
+    def exact_version(cls, value):
+        if type(value) is not int or value != 1:
+            raise ValueError("workflow version must be the integer 1")
+        return value
+
+
 class SkillDefinition(BaseModel):
     """Immutable skill content. Draft/published state belongs to the repository."""
 
@@ -64,6 +83,16 @@ class SkillDefinition(BaseModel):
     )
     egress: Literal["forbidden", "allowlisted"] = "forbidden"
     risk: Literal["read_only"] = "read_only"
+    workflow: InvestigationWorkflow | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize_definition(self, handler):
+        value = handler(self)
+        if self.workflow is None:
+            # Published legacy definitions are hash-bound to their original JSON.
+            # Omit the new optional field rather than changing those receipts.
+            value.pop("workflow", None)
+        return value
 
     @field_validator("id")
     @classmethod
