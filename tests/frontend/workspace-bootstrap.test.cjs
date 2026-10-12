@@ -69,3 +69,23 @@ test('a disconnect during workspace loading cannot start audits or restore priva
   sources.resolve(); await startup;
   assert.deepEqual(f.calls, []);
 });
+
+test('a new navigation choice during reload cannot be overwritten by stored view or investigation restoration', async () => {
+  const f = fixture(), loading = deferred();
+  f.state.sourceWizard = { session: () => ({view:'work-outcomes',sourceId:null}) };
+  f.context.loadWorkspace = () => loading.promise;
+  f.context.showView = name => f.calls.push('view:'+name);
+  const startup = f.context.startWorkspace();
+  f.state.navigationEpoch = 1; f.context.showView('sources');
+  loading.resolve(); await startup;
+  assert.deepEqual(f.calls,['view:sources']);
+});
+
+test('connecting a workspace respects a navigation choice made during metadata loading', async () => {
+  const f = fixture(), loading = deferred();
+  f.context.loadWorkspace = () => loading.promise;
+  const connecting = f.context.connectWorkspace({preventDefault(){}});
+  await flush(); f.state.navigationEpoch = 1;
+  loading.resolve(); await connecting;
+  assert.equal(f.calls.some(call => call.startsWith('open:')),false);
+});

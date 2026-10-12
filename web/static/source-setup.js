@@ -28,6 +28,12 @@
       return url.href;
     } catch { return value; } // The shared backend validator provides a redacted error.
   }
+  function sourceLabel(source, checkPassed = false) {
+    if (source?.status === 'stale' || source?.readiness?.status === 'stale') return 'Review tables again';
+    if (source?.readiness?.status === 'failed') return 'Query check failed';
+    if (checkPassed) return 'Query check passed';
+    return source?.status === 'ready' ? 'Tables inspected' : 'Setup needed';
+  }
   class SourceSetup {
     constructor({ document, storage, request, dirty, discovered, source, authenticated, guardFocus }) {
       Object.assign(this, { document, storage, request, dirty, discovered, source, authenticated, guardFocus });
@@ -45,6 +51,7 @@
       this.$('sourceRefreshHistory').addEventListener('click', () => void this.history());
     }
     icon(profile) { return icon(profile); }
+    label(source, checkPassed) { return sourceLabel(source, checkPassed); }
     session() { return readSession(this.storage); }
     rememberView(view) { saveSession(this.storage, { view }); }
     async resumeConnection(reference) {
@@ -238,7 +245,7 @@
     }
     void run(); return { stop };
   }
-  const api = { icon, readSession, saveSession, verifiedURI, SourceSetup, watchWorkspace, mount: options => new SourceSetup(options) };
+  const api = { sourceLabel, icon, readSession, saveSession, verifiedURI, SourceSetup, watchWorkspace, mount: options => new SourceSetup(options) };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.OpsGraphSourceSetup = api;
 })(typeof window !== 'undefined' ? window : globalThis);

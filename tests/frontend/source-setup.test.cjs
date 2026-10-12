@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SourceSetup, readSession, saveSession, verifiedURI, icon, watchWorkspace } = require('../../src/opsgraph/web/static/source-setup.js');
+const { sourceLabel, SourceSetup, readSession, saveSession, verifiedURI, icon, watchWorkspace } = require('../../src/opsgraph/web/static/source-setup.js');
 const { createSSEParser } = require('../../src/opsgraph/web/static/events.js');
 
 function storage() {
@@ -112,4 +112,13 @@ test('live metadata notifications reuse SSE framing and never submit investigati
   }, url: revision => '/api/workspace/events?after='+revision, key: () => 'fixture-key', authenticated: () => true,
   parser: createSSEParser, changed: async () => { calls++; resolve(); }, wait: async () => { watcher.stop(); } });
   await changed; watcher.stop(); assert.equal(calls, 1);
+});
+
+
+test('an inspected schema cannot be mistaken for a passing or fresh query check', () => {
+  assert.equal(sourceLabel({status:'ready',readiness:{status:'failed'}}),'Query check failed');
+  assert.equal(sourceLabel({status:'ready',readiness:{status:'ready'}},false),'Tables inspected');
+  assert.equal(sourceLabel({status:'ready',readiness:{status:'ready'}},true),'Query check passed');
+  assert.equal(sourceLabel({status:'stale',readiness:{status:'ready'}},true),'Review tables again');
+  assert.equal(sourceLabel({status:'configured'}),'Setup needed');
 });
